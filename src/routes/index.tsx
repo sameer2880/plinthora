@@ -1,25 +1,50 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 import { AppLanding } from "@/components/AppLanding";
 
-// Same breakpoint as the rest of the app (see src/hooks/use-device.tsx):
-// anything under 768px wide is treated as "mobile".
+// Same breakpoint as the rest of the app (see src/hooks/use-device.tsx).
 const MOBILE_BREAKPOINT = 768;
 
-function isMobileViewport(): boolean {
-  if (typeof window === "undefined") return false; // SSR: no window, render normally
-  const byWidth = window.innerWidth < MOBILE_BREAKPOINT;
-  const byUserAgent = /android|iphone|ipod|mobile/i.test(navigator.userAgent);
-  return byWidth || byUserAgent;
+function isMobileDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  const narrow = window.innerWidth < MOBILE_BREAKPOINT;
+  const mobileUA = /android|iphone|ipod|mobile/i.test(navigator.userAgent);
+  return narrow || mobileUA;
+}
+
+/**
+ * Landing page on desktop / large tablets; on mobile it never shows.
+ *
+ * The redirect runs on the client (not in `beforeLoad`) because the first
+ * server-rendered load has no `window`, so a route-level check can't see the
+ * device and the landing page would still appear after hydration.
+ *
+ * - `max-md:hidden` hides the landing page on phones from the very first
+ *   paint, so it never flashes before the redirect.
+ * - `md:hidden` shows a small spinner on phones while we navigate.
+ */
+function IndexPage() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isMobileDevice()) {
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [navigate]);
+
+  return (
+    <>
+      <div className="flex min-h-dvh items-center justify-center bg-background md:hidden">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+      <div className="max-md:hidden">
+        <AppLanding />
+      </div>
+    </>
+  );
 }
 
 export const Route = createFileRoute("/")({
-  // On mobile, skip the app landing page entirely and go to the dashboard.
-  // (Unauthenticated users are still sent to sign-in by the _authenticated route.)
-  beforeLoad: () => {
-    if (isMobileViewport()) {
-      throw redirect({ to: "/dashboard", replace: true });
-    }
-  },
-  // Desktop / large tablet keeps the landing page as before.
-  component: AppLanding,
+  component: IndexPage,
 });
