@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandName } from "@/components/BrandName";
 import { LoginIllustration } from "@/components/LoginIllustration";
@@ -195,6 +196,9 @@ export function Gate({
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] =
     useState(false);
+
+  // "Forgot password?" — username/email + last 4 digits of mobile number.
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   // Help dialog opened by "Forgot password?" / "Contact your admin".
   const [help, setHelp] = useState<
@@ -1007,7 +1011,7 @@ export function Gate({
                 <button
                   type="button"
                   onClick={() =>
-                    setHelp("forgot")
+                    setForgotOpen(true)
                   }
                   className="text-sm font-semibold text-primary transition-opacity hover:opacity-80 hover:underline focus-visible:outline-none focus-visible:underline"
                 >
@@ -1044,6 +1048,25 @@ export function Gate({
           </div>
         </div>
       </div>
+
+      {/* ============================================================ */}
+      {/* FORGOT PASSWORD                                               */}
+      {/* ============================================================ */}
+
+      <ForgotPasswordDialog
+        open={forgotOpen}
+        onOpenChange={setForgotOpen}
+        initialIdentifier={u}
+        onDone={(identifier) => {
+          setU(identifier);
+          setP("");
+          setErr("");
+        }}
+        onAskAdmin={() => {
+          setForgotOpen(false);
+          setHelp("forgot");
+        }}
+      />
 
       {/* ============================================================ */}
       {/* HELP DIALOG                                                   */}
