@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { AccessRequestDialog } from "@/components/AccessRequestDialog";
 import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandName } from "@/components/BrandName";
@@ -34,6 +35,7 @@ import {
   type SessionState,
 } from "@/lib/auth/session";
 import { featureForPath, isFeatureEnabled } from "@/lib/features";
+import type { RequestType } from "@/lib/access-requests";
 
 const EMPTY: SessionState = {
   me: null,
@@ -200,10 +202,10 @@ export function Gate({
   // "Forgot password?" — username/email + last 4 digits of mobile number.
   const [forgotOpen, setForgotOpen] = useState(false);
 
-  // Help dialog opened by "Forgot password?" / "Contact your admin".
-  const [help, setHelp] = useState<
-    "forgot" | "access" | null
-  >(null);
+  // "Need access? Contact your admin" — the request form.
+  const [accessOpen, setAccessOpen] = useState(false);
+  const [accessType, setAccessType] =
+    useState<RequestType>("app_access");
 
   // "Already signed in on another device?" confirmation (replaces window.confirm).
   const [takeoverOpen, setTakeoverOpen] = useState(false);
@@ -1036,9 +1038,10 @@ export function Gate({
               Need access?{" "}
               <button
                 type="button"
-                onClick={() =>
-                  setHelp("access")
-                }
+                onClick={() => {
+                  setAccessType("app_access");
+                  setAccessOpen(true);
+                }}
                 className="font-semibold text-primary transition-opacity hover:opacity-80 hover:underline focus-visible:outline-none focus-visible:underline"
               >
                 Contact your admin
@@ -1064,89 +1067,20 @@ export function Gate({
         }}
         onAskAdmin={() => {
           setForgotOpen(false);
-          setHelp("forgot");
+          setAccessType("forgot_credentials");
+          setAccessOpen(true);
         }}
       />
 
       {/* ============================================================ */}
-      {/* HELP DIALOG                                                   */}
+      {/* NEED ACCESS — request form                                    */}
       {/* ============================================================ */}
 
-      <Dialog
-        open={help !== null}
-        onOpenChange={(open) =>
-          !open && setHelp(null)
-        }
-      >
-        <DialogContent className="max-w-[400px] rounded-[1.5rem] sm:p-7">
-
-          {help === "access" ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>
-                  Need access?
-                </DialogTitle>
-
-                <DialogDescription>
-                  Accounts are created by your
-                  business admin. Ask them to add
-                  you with your mobile number.
-                </DialogDescription>
-              </DialogHeader>
-
-              <p className="text-sm text-muted-foreground">
-                Once you're added, sign in with
-                your mobile number as the password.
-                You'll be asked to choose your own
-                password right after.
-              </p>
-            </>
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>
-                  Forgot your password?
-                </DialogTitle>
-
-                <DialogDescription>
-                  For security, passwords are reset
-                  by your admin — there's no reset
-                  link to wait for.
-                </DialogDescription>
-              </DialogHeader>
-
-              <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground marker:font-semibold marker:text-primary">
-                <li>
-                  Ask your admin to reset your
-                  password (workers can also ask
-                  their manager).
-                </li>
-
-                <li>
-                  Sign in with your mobile number
-                  as the password.
-                </li>
-
-                <li>
-                  Choose a new password when asked.
-                </li>
-              </ol>
-            </>
-          )}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              className="h-11 w-full rounded-full font-semibold"
-              onClick={() =>
-                setHelp(null)
-              }
-            >
-              Got it
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AccessRequestDialog
+        open={accessOpen}
+        onOpenChange={setAccessOpen}
+        defaultType={accessType}
+      />
 
       {/* ============================================================ */}
       {/* ALREADY SIGNED IN ON ANOTHER DEVICE                           */}

@@ -24,6 +24,7 @@ import {
   Compass,
   MoreHorizontal,
   Building2,
+  Inbox,
   Settings,
 } from "lucide-react";
 
@@ -81,6 +82,13 @@ const nav = [
     to: "/platform/users",
     label: "Users",
     icon: UserCog,
+    superOnly: true,
+    primary: true,
+  },
+  {
+    to: "/platform/requests",
+    label: "Requests",
+    icon: Inbox,
     superOnly: true,
     primary: true,
   },

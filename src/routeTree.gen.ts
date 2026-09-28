@@ -29,6 +29,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as AuthenticatedLabourIndexRouteImport } from './routes/_authenticated/labour/index'
 import { Route as AuthenticatedLabourIdRouteImport } from './routes/_authenticated/labour/$id'
 import { Route as AuthenticatedPlatformBusinessesRouteImport } from './routes/_authenticated/platform.businesses'
+import { Route as AuthenticatedPlatformRequestsRouteImport } from './routes/_authenticated/platform.requests'
 import { Route as AuthenticatedPlatformUsersRouteImport } from './routes/_authenticated/platform.users'
 import { Route as AuthenticatedReceiptsIndexRouteImport } from './routes/_authenticated/receipts/index'
 import { Route as AuthenticatedReceiptsIdRouteImport } from './routes/_authenticated/receipts/$id'
@@ -140,6 +141,12 @@ const AuthenticatedPlatformBusinessesRoute =
     path: '/platform/businesses',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPlatformRequestsRoute =
+  AuthenticatedPlatformRequestsRouteImport.update({
+    id: '/platform/requests',
+    path: '/platform/requests',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPlatformUsersRoute =
   AuthenticatedPlatformUsersRouteImport.update({
     id: '/platform/users',
@@ -177,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/labour/$id': typeof AuthenticatedLabourIdRoute
   '/platform/businesses': typeof AuthenticatedPlatformBusinessesRoute
+  '/platform/requests': typeof AuthenticatedPlatformRequestsRoute
   '/platform/users': typeof AuthenticatedPlatformUsersRoute
   '/receipts/$id': typeof AuthenticatedReceiptsIdRoute
   '/labour/': typeof AuthenticatedLabourIndexRoute
@@ -201,6 +209,7 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/labour/$id': typeof AuthenticatedLabourIdRoute
   '/platform/businesses': typeof AuthenticatedPlatformBusinessesRoute
+  '/platform/requests': typeof AuthenticatedPlatformRequestsRoute
   '/platform/users': typeof AuthenticatedPlatformUsersRoute
   '/receipts/$id': typeof AuthenticatedReceiptsIdRoute
   '/labour': typeof AuthenticatedLabourIndexRoute
@@ -227,6 +236,7 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/labour/$id': typeof AuthenticatedLabourIdRoute
   '/_authenticated/platform/businesses': typeof AuthenticatedPlatformBusinessesRoute
+  '/_authenticated/platform/requests': typeof AuthenticatedPlatformRequestsRoute
   '/_authenticated/platform/users': typeof AuthenticatedPlatformUsersRoute
   '/_authenticated/receipts/$id': typeof AuthenticatedReceiptsIdRoute
   '/_authenticated/labour/': typeof AuthenticatedLabourIndexRoute
@@ -253,6 +263,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/labour/$id'
     | '/platform/businesses'
+    | '/platform/requests'
     | '/platform/users'
     | '/receipts/$id'
     | '/labour/'
@@ -277,6 +288,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/labour/$id'
     | '/platform/businesses'
+    | '/platform/requests'
     | '/platform/users'
     | '/receipts/$id'
     | '/labour'
@@ -302,6 +314,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/labour/$id'
     | '/_authenticated/platform/businesses'
+    | '/_authenticated/platform/requests'
     | '/_authenticated/platform/users'
     | '/_authenticated/receipts/$id'
     | '/_authenticated/labour/'
@@ -460,6 +473,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPlatformBusinessesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/platform/requests': {
+      id: '/_authenticated/platform/requests'
+      path: '/platform/requests'
+      fullPath: '/platform/requests'
+      preLoaderRoute: typeof AuthenticatedPlatformRequestsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/platform/users': {
       id: '/_authenticated/platform/users'
       path: '/platform/users'
@@ -497,6 +517,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedWorkerLocationsRoute: typeof AuthenticatedWorkerLocationsRoute
   AuthenticatedLabourIdRoute: typeof AuthenticatedLabourIdRoute
   AuthenticatedPlatformBusinessesRoute: typeof AuthenticatedPlatformBusinessesRoute
+  AuthenticatedPlatformRequestsRoute: typeof AuthenticatedPlatformRequestsRoute
   AuthenticatedPlatformUsersRoute: typeof AuthenticatedPlatformUsersRoute
   AuthenticatedReceiptsIdRoute: typeof AuthenticatedReceiptsIdRoute
   AuthenticatedLabourIndexRoute: typeof AuthenticatedLabourIndexRoute
@@ -516,6 +537,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedWorkerLocationsRoute: AuthenticatedWorkerLocationsRoute,
   AuthenticatedLabourIdRoute: AuthenticatedLabourIdRoute,
   AuthenticatedPlatformBusinessesRoute: AuthenticatedPlatformBusinessesRoute,
+  AuthenticatedPlatformRequestsRoute: AuthenticatedPlatformRequestsRoute,
   AuthenticatedPlatformUsersRoute: AuthenticatedPlatformUsersRoute,
   AuthenticatedReceiptsIdRoute: AuthenticatedReceiptsIdRoute,
   AuthenticatedLabourIndexRoute: AuthenticatedLabourIndexRoute,
