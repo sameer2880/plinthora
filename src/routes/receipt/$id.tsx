@@ -19,11 +19,12 @@ export const Route = createFileRoute("/receipt/$id")({
       { property: "og:description", content: "A printable construction material rental receipt." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      // Always render the desktop layout, even on a phone — a customer opening
-      // a shared receipt link shouldn't get the mobile-shrunk version. Overrides
-      // the app-wide "width=device-width" viewport set in __root.tsx for this
-      // route only; the page stays pinch-zoomable and horizontally scrollable.
-      { name: "viewport", content: "width=1024, initial-scale=1" },
+      // Render at the device's own width so the receipt fits and reads
+      // naturally on the phone screen it's opened on (no pinch-zoomed
+      // desktop layout). The A4 sizing below is print-only — it's driven
+      // by @page/print: styles, not by this viewport, so print output is
+      // unaffected by this change.
+      { name: "viewport", content: "width=device-width, initial-scale=1" },
     ],
   }),
   component: PublicReceiptPage,
@@ -57,8 +58,7 @@ function PublicReceiptPage() {
     <div className="min-h-screen bg-gray-200 py-6 px-3 sm:py-10 sm:px-6 print:min-h-0 print:bg-white print:p-0">
       <style>{`@page { size: A4; margin: 0; }`}</style>
       <article
-        className="receipt-sheet mx-auto w-full max-w-[210mm] bg-white p-6 text-gray-700 shadow-xl sm:p-[15mm] print:max-w-none print:p-[15mm] print:shadow-none"
-        style={{ minHeight: "297mm" }}
+        className="receipt-sheet mx-auto w-full max-w-[210mm] bg-white p-6 text-gray-700 shadow-xl sm:p-[15mm] sm:min-h-[297mm] print:max-w-none print:min-h-[297mm] print:p-[15mm] print:shadow-none"
       >
         {/* Title + From */}
         <div className="mb-8 flex items-start justify-between gap-6">
@@ -122,8 +122,10 @@ function PublicReceiptPage() {
           </div>
         </div>
 
-        {/* Materials table */}
-        <table className="mb-8 w-full border-collapse">
+        {/* Materials table — scrolls horizontally on narrow screens instead of
+            squeezing columns unreadably; prints as a normal full-width table. */}
+        <div className="mb-8 -mx-6 overflow-x-auto px-6 sm:mx-0 sm:overflow-visible sm:px-0 print:mx-0 print:overflow-visible print:px-0">
+        <table className="w-full min-w-[480px] border-collapse sm:min-w-0 print:min-w-0">
           <thead>
             <tr className="border-b-2 border-gray-400 text-xs uppercase tracking-wide text-gray-500">
               {receipt.rows.length > 1 && <th className="py-2 text-left font-semibold">#</th>}
@@ -149,6 +151,7 @@ function PublicReceiptPage() {
             ))}
           </tbody>
         </table>
+        </div>
 
         {/* Totals */}
         <div className="mb-10 flex justify-end">
