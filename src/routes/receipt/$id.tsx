@@ -51,7 +51,6 @@ function PublicReceiptPage() {
   const rows = (data.rows as unknown as Rental[]).map((row) => ({ ...row, status: computeStatus(row) }));
   const receipt = groupRentals(rows)[0];
   const receiptNumber = rows.length > 1 ? rows[0].group_id || rows[0].id : rows[0].id;
-  const logo = business?.logo_url ?? null;
 
   return (
     <div className="min-h-screen bg-gray-200 py-6 px-3 sm:py-10 sm:px-6 print:min-h-0 print:bg-white print:p-0">
@@ -60,92 +59,78 @@ function PublicReceiptPage() {
         className="receipt-sheet mx-auto w-full max-w-[210mm] bg-white p-6 text-gray-700 shadow-xl sm:p-[15mm] print:max-w-none print:p-[15mm] print:shadow-none"
         style={{ minHeight: "297mm" }}
       >
-        {/* Title + From */}
-        <div className="mb-8 flex items-start justify-between gap-6">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-gray-400">RECEIPT</h1>
-            <div className="mt-6">
-              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-500">From</div>
-              <div className="font-semibold text-gray-800">{business?.name ?? ""}</div>
-              {business?.location && <div className="text-sm text-gray-600">{business.location}</div>}
-              {(business?.owner_line || business?.phone) && (
-                <div className="text-sm text-gray-600">{business?.owner_line || `Ph.no: ${business?.phone}`}</div>
-              )}
-            </div>
+        {/* Title + business details (right aligned, no logo) */}
+        <div className="mb-10 text-right">
+          <h1 className="text-3xl font-normal tracking-wide text-gray-800">RECEIPT</h1>
+          <div className="mt-3 space-y-0.5 text-xs text-gray-500">
+            <div className="text-sm font-bold text-gray-500">{business?.name ?? ""}</div>
+            {business?.location && <div>{business.location}</div>}
+            {(business?.owner_line || business?.phone) && (
+              <div>{business?.owner_line || `Ph.no: ${business?.phone}`}</div>
+            )}
           </div>
-          {logo && (
-            <img
-              src={logo}
-              alt={`${business?.name ?? ""} logo`}
-              className="block h-20 w-20 shrink-0 overflow-hidden rounded-full object-cover grayscale"
-            />
-          )}
         </div>
 
-        {/* Bill To / Rental Period / Receipt meta */}
-        <div className="mb-8 grid grid-cols-1 gap-6 border-t border-gray-200 pt-6 sm:grid-cols-3">
-          <div>
-            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Bill To</div>
+        {/* Bill To (left) + receipt details (right) */}
+        <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="text-sm text-gray-700">
+            <div className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-500">Bill To</div>
             <div className="font-semibold text-gray-800">{receipt.customer_name}</div>
-            <div className="text-sm text-gray-600">{receipt.customer_address}</div>
-            <div className="text-sm text-gray-600">{receipt.customer_phone}</div>
+            {receipt.customer_address && <div>{receipt.customer_address}</div>}
+            {receipt.customer_phone && <div>{receipt.customer_phone}</div>}
           </div>
-          <div>
-            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Rental Period</div>
-            <div className="text-sm text-gray-600">
-              Issue: <span className="font-medium text-gray-800">{receipt.issue_date}</span>
+          <div className="w-full space-y-1 text-xs sm:w-64">
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Receipt No.:</span>
+              <span className="font-bold text-gray-800">{receiptNumber.slice(0, 8).toUpperCase()}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Issue date:</span>
+              <span className="font-bold text-gray-800">{receipt.issue_date}</span>
             </div>
             {receipt.return_date && (
-              <div className="text-sm text-gray-600">
-                Return: <span className="font-medium text-gray-800">{receipt.return_date}</span>
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">Return date:</span>
+                <span className="font-bold text-gray-800">{receipt.return_date}</span>
               </div>
             )}
-            <div className="text-sm text-gray-600">
-              Status:{" "}
-              <span className="font-medium capitalize text-gray-800">
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Status:</span>
+              <span className="font-bold capitalize text-gray-800">
                 {receipt.status === "partial" ? "Partially Returned" : receipt.status}
               </span>
             </div>
-            <div className="text-sm text-gray-600">
-              Payment: <span className="font-medium text-gray-800">{receipt.payment_status === "paid" ? "Paid" : "Not Paid"}</span>
-            </div>
-          </div>
-          <div className="sm:text-right">
-            <div className="flex justify-between gap-4 text-sm sm:justify-end">
-              <span className="text-gray-500">Receipt #</span>
-              <span className="font-semibold text-gray-800">{receiptNumber.slice(0, 8).toUpperCase()}</span>
-            </div>
-            <div className="flex justify-between gap-4 text-sm sm:justify-end">
-              <span className="text-gray-500">Receipt Date</span>
-              <span className="font-semibold text-gray-800">
-                {new Date(receipt.created_at).toLocaleDateString("en-IN", { dateStyle: "medium" })}
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Payment:</span>
+              <span className="font-bold text-gray-800">
+                {receipt.payment_status === "paid" ? "Paid" : "Not Paid"}
               </span>
             </div>
           </div>
         </div>
 
         {/* Materials table */}
-        <table className="mb-8 w-full border-collapse">
+        <table className="mb-4 w-full border-collapse">
           <thead>
-            <tr className="border-b-2 border-gray-400 text-xs uppercase tracking-wide text-gray-500">
-              {receipt.rows.length > 1 && <th className="py-2 text-left font-semibold">#</th>}
-              <th className="py-2 text-left font-semibold">Material</th>
-              <th className="py-2 text-right font-semibold">Qty</th>
-              <th className="py-2 text-right font-semibold">Unit Price</th>
-              <th className="py-2 text-right font-semibold">Amount</th>
+            <tr className="bg-[#a9c4f0] text-xs font-bold uppercase text-gray-800">
+              <th className="px-3 py-2.5 text-left">Description</th>
+              <th className="px-3 py-2.5 text-right">Quantity</th>
+              <th className="px-3 py-2.5 text-right">Unit price (₹)</th>
+              <th className="px-3 py-2.5 text-right">Amount (₹)</th>
             </tr>
           </thead>
           <tbody>
-            {receipt.rows.map((row, i) => (
-              <tr key={row.id} className="border-b border-gray-200">
-                {receipt.rows.length > 1 && <td className="py-2.5 text-sm text-gray-700">{i + 1}</td>}
-                <td className="py-2.5 text-sm font-medium text-gray-800">{row.material_name}</td>
-                <td className="py-2.5 text-right text-sm text-gray-700">
+            {receipt.rows.map((row) => (
+              <tr key={row.id} className="border-b border-gray-200 text-xs text-gray-700">
+                <td className="px-3 py-3">{row.material_name}</td>
+                <td className="px-3 py-3 text-right">
                   {row.quantity} {row.unit}
                 </td>
-                <td className="py-2.5 text-right text-sm text-gray-700">₹{Number(row.rate_per_unit).toLocaleString("en-IN")}</td>
-                <td className="py-2.5 text-right text-sm font-medium text-gray-800">
-                  ₹{Number(row.total_amount).toLocaleString("en-IN")}
+                <td className="px-3 py-3 text-right">
+                  {Number(row.rate_per_unit).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </td>
+                <td className="px-3 py-3 text-right">
+                  {Number(row.total_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
             ))}
@@ -153,21 +138,28 @@ function PublicReceiptPage() {
         </table>
 
         {/* Totals */}
-        <div className="mb-10 flex justify-end">
-          <div className="w-64 space-y-1.5">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Subtotal</span>
-              <span>₹{Number(receipt.total_amount).toLocaleString("en-IN")}</span>
+        <div className="mb-12 flex justify-end">
+          <div className="w-full sm:w-[55%]">
+            <div className="flex justify-between border-b border-gray-200 px-3 py-2 text-xs text-gray-600">
+              <span>SUBTOTAL (₹):</span>
+              <span>{Number(receipt.total_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
             {receipt.security_deposit ? (
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Advance Received</span>
-                <span>- ₹{Number(receipt.security_deposit).toLocaleString("en-IN")}</span>
+              <div className="flex justify-between border-b border-gray-200 px-3 py-2 text-xs text-gray-600">
+                <span>ADVANCE RECEIVED (₹):</span>
+                <span>
+                  - {Number(receipt.security_deposit).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
               </div>
             ) : null}
-            <div className="mt-2 flex justify-between border-t border-gray-300 pt-2 text-lg font-bold text-gray-800">
-              <span>Total</span>
-              <span>₹{(Number(receipt.total_amount) - Number(receipt.security_deposit ?? 0)).toLocaleString("en-IN")}</span>
+            <div className="flex items-baseline justify-between border-t-2 border-[#7fa8e0] px-3 pt-3 text-gray-800">
+              <span className="text-lg font-bold uppercase">Total due (₹)</span>
+              <span className="text-lg font-medium">
+                ₹
+                {(Number(receipt.total_amount) - Number(receipt.security_deposit ?? 0)).toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
             </div>
           </div>
         </div>
@@ -175,14 +167,18 @@ function PublicReceiptPage() {
         {/* Signature */}
         <div className="mb-10 flex justify-end">
           <div className="w-52 pt-14 text-center">
-            <div className="border-t border-gray-300 pt-1 text-xs font-medium text-gray-500">Authorized Signature</div>
+            <div className="border-t border-gray-300 pt-1 text-xs font-medium text-gray-500">
+              Authorized Signature
+            </div>
           </div>
         </div>
 
         {/* Terms & notes */}
         {receipt.notes && (
           <div className="border-t border-gray-200 pt-6">
-            <div className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-500">Terms &amp; Conditions</div>
+            <div className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-500">
+              Terms &amp; Conditions
+            </div>
             <div className="text-sm text-gray-600">{receipt.notes}</div>
           </div>
         )}
