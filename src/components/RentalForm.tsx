@@ -3,8 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getBusiness } from "@/lib/auth/session";
 import type { Rental, RentalGroup } from "@/lib/rentals";
-import { buildConfirmMessage, buildGroupConfirmMessage } from "@/lib/rentals";
-import { shareReceiptPdf } from "@/lib/receipt-pdf";
+import { buildConfirmMessage, buildGroupConfirmMessage, buildGroupReceiptMessage } from "@/lib/rentals";
 import { WhatsAppPreviewDialog, type WhatsAppPreview } from "@/components/WhatsAppPreviewDialog";
 
 import { Button } from "@/components/ui/button";
@@ -194,21 +193,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
       const preview = (title: string, msg: string): WhatsAppPreview | null =>
         first ? { phone: first.customer_phone, name: first.customer_name, title, message: msg } : null;
       const confirmPreview = preview("Send confirmation", message);
-      const sendReceiptPdf = async () => {
-        if (!first) return;
-        const t = toast.loading("Preparing receipt PDF…");
-        try {
-          const result = await shareReceiptPdf(first.id, first.customer_phone);
-          if (result === "downloaded") {
-            toast.success("Receipt PDF downloaded. Attach it in the WhatsApp chat that opened.", { id: t, duration: 7000 });
-          } else {
-            toast.dismiss(t);
-          }
-        } catch (e) {
-          console.error(e);
-          toast.error("Couldn't create the receipt PDF. Please try again.", { id: t });
-        }
-      };
+      const receiptPreview = preview("Send receipt", buildGroupReceiptMessage(rows));
 
       toast.success(
         editingGroup
@@ -220,8 +205,8 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
           action: confirmPreview
             ? { label: "Send WhatsApp", onClick: () => setWa(confirmPreview) }
             : undefined,
-          cancel: first
-            ? { label: "Send Receipt", onClick: () => { void sendReceiptPdf(); } }
+          cancel: receiptPreview
+            ? { label: "Send Receipt", onClick: () => setWa(receiptPreview) }
             : undefined,
         },
       );

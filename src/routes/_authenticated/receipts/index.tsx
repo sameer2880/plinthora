@@ -1,13 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listRentals, groupRentals } from "@/lib/rentals";
-import { shareReceiptPdf } from "@/lib/receipt-pdf";
-import { toast } from "sonner";
+import { listRentals, groupRentals, buildGroupReceiptMessage } from "@/lib/rentals";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Printer, Layers, MessageCircle } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
+import { WhatsAppPreviewDialog, type WhatsAppPreview } from "@/components/WhatsAppPreviewDialog";
 
 export const Route = createFileRoute("/_authenticated/receipts/")({
   component: ReceiptsList,
@@ -19,21 +18,7 @@ function ReceiptsList() {
   // combined receipt — the receipt page itself still lets you switch to a
   // single-material receipt if that's all you need.
   const groups = useMemo(() => groupRentals(rentals), [rentals]);
-
-  const sendReceipt = async (id: string, phone: string) => {
-    const t = toast.loading("Preparing receipt PDF…");
-    try {
-      const result = await shareReceiptPdf(id, phone);
-      if (result === "downloaded") {
-        toast.success("Receipt PDF downloaded. Attach it in the WhatsApp chat that opened.", { id: t, duration: 7000 });
-      } else {
-        toast.dismiss(t);
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error("Couldn't create the receipt PDF. Please try again.", { id: t });
-    }
-  };
+  const [wa, setWa] = useState<WhatsAppPreview | null>(null);
 
   return (
     <div className="space-y-5">
@@ -79,11 +64,18 @@ function ReceiptsList() {
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => sendReceipt(g.rows[0].id, g.customer_phone)}
+                    onClick={() =>
+                      setWa({
+                        phone: g.customer_phone,
+                        name: g.customer_name,
+                        title: "Send receipt",
+                        message: buildGroupReceiptMessage(g.rows),
+                      })
+                    }
                     className="bg-[#25D366] text-white hover:bg-[#1ebe5b]"
                   >
                     <MessageCircle className="h-3.5 w-3.5 mr-1" />
-                    Share PDF
+                    Send on WhatsApp
                   </Button>
                 </div>
               </div>
@@ -95,6 +87,7 @@ function ReceiptsList() {
         ))}
         {groups.length === 0 && <div className="col-span-full text-center py-10 text-muted-foreground">No rentals yet</div>}
       </div>
+      <WhatsAppPreviewDialog preview={wa} onClose={() => setWa(null)} />
     </div>
   );
 }
