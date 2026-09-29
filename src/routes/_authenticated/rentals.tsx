@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Search, Pencil, Trash2, MessageCircle, CheckCircle2, Copy, Printer, Bell, IndianRupee, CircleDollarSign, SlidersHorizontal, X, ShieldAlert, Phone, Package, Share2, BadgeCheck, AlertTriangle } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, MessageCircle, CheckCircle2, Copy, Printer, Bell, IndianRupee, CircleDollarSign, SlidersHorizontal, X, ShieldAlert, Phone, Package, Share2, BadgeCheck, AlertTriangle, Download, FileSpreadsheet, FileText } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { RentalForm } from "@/components/RentalForm";
@@ -35,6 +35,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { canDeleteRentals } from "@/lib/auth/access";
+import { exportRentalsCsv, exportRentalsPdf, printRentals } from "@/lib/rentals-export";
 
 export const Route = createFileRoute("/_authenticated/rentals")({
   // `/rentals?new=true` opens the "New Rental" form straight away
@@ -123,6 +124,34 @@ function RentalsPage() {
     });
   }, [groups, q, status, payment, takenDate, phoneFilter, nameFilter, placeFilter]);
 
+  // Export / print always covers every record matching the current search + filters
+  // (not just the 10 on the visible page).
+  const exportNote = [
+    status !== "all" && `Status: ${status}`,
+    payment !== "all" && `Payment: ${payment}`,
+    q && `Search: "${q}"`,
+    takenDate && `Issue date: ${takenDate}`,
+    nameFilter && `Name: ${nameFilter}`,
+    phoneFilter && `Phone: ${phoneFilter}`,
+    placeFilter && `Place: ${placeFilter}`,
+  ].filter(Boolean).join(", ") || undefined;
+
+  const runExport = async (kind: "csv" | "pdf" | "print") => {
+    if (filtered.length === 0) {
+      toast.error("No rentals to export");
+      return;
+    }
+    try {
+      if (kind === "csv") exportRentalsCsv(filtered);
+      else if (kind === "pdf") await exportRentalsPdf(filtered, exportNote);
+      else printRentals(filtered, exportNote);
+      if (kind !== "print") toast.success(kind === "csv" ? "CSV downloaded" : "PDF downloaded");
+    } catch (e) {
+      console.error(e);
+      toast.error("Export failed. Please try again.");
+    }
+  };
+
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
   const pageRows = filtered.slice((page - 1) * PAGE, page * PAGE);
 
@@ -172,9 +201,33 @@ function RentalsPage() {
           <h2 className="text-2xl font-bold">Rentals</h2>
           <p className="text-sm text-muted-foreground">Manage all material rental records</p>
         </div>
-        <Button onClick={() => { setEditingGroup(null); setOpen(true); }} className="shadow-sm">
-          <Plus className="h-4 w-4 mr-1.5" /> New Rental
-        </Button>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="shadow-sm">
+                <Download className="h-4 w-4 mr-1.5" /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                {filtered.length} rental{filtered.length === 1 ? "" : "s"} (current filters)
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => runExport("csv")}>
+                <FileSpreadsheet className="h-4 w-4 mr-2" /> Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => runExport("pdf")}>
+                <FileText className="h-4 w-4 mr-2" /> Export as PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => runExport("print")}>
+                <Printer className="h-4 w-4 mr-2" /> Print
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={() => { setEditingGroup(null); setOpen(true); }} className="shadow-sm">
+            <Plus className="h-4 w-4 mr-1.5" /> New Rental
+          </Button>
+        </div>
       </div>
 
       <Card>
