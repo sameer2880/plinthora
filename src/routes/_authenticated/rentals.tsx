@@ -12,7 +12,6 @@ import {
   buildGroupReturnMessage,
   buildGroupReturnPaidMessage,
   buildGroupReturnNotPaidMessage,
-  buildGroupReceiptMessage,
   getRentalRowTheme,
   type RentalGroup,
 } from "@/lib/rentals";
@@ -35,6 +34,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { canDeleteRentals } from "@/lib/auth/access";
+import { shareReceiptPdf } from "@/lib/receipt-pdf";
 import { exportRentalsCsv, exportRentalsPdf, printRentals } from "@/lib/rentals-export";
 
 export const Route = createFileRoute("/_authenticated/rentals")({
@@ -149,6 +149,21 @@ function RentalsPage() {
     } catch (e) {
       console.error(e);
       toast.error("Export failed. Please try again.");
+    }
+  };
+
+  const shareReceipt = async (id: string, phone: string) => {
+    const t = toast.loading("Preparing receipt PDF…");
+    try {
+      const result = await shareReceiptPdf(id, phone);
+      if (result === "downloaded") {
+        toast.success("Receipt PDF downloaded. Attach it in the WhatsApp chat that opened.", { id: t, duration: 7000 });
+      } else {
+        toast.dismiss(t);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't create the receipt PDF. Please try again.", { id: t });
     }
   };
 
@@ -428,7 +443,7 @@ function RentalsPage() {
                               <Printer className="h-4 w-4 mr-2" /> Print receipt
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send receipt", message: buildGroupReceiptMessage(g.rows) })}>
+                          <DropdownMenuItem onClick={() => shareReceipt(g.rows[0].id, g.customer_phone)}>
                             <Share2 className="h-4 w-4 mr-2" /> Share Receipt
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
