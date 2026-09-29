@@ -129,3 +129,36 @@ export const deleteUserFn = createServerFn({ method: "POST" })
     if (target.auth_user_id) await admin.auth.admin.deleteUser(target.auth_user_id);
     return { ok: true as const };
   });
+
+/**
+ * Platform admin only: when each user last signed in, keyed by the user's
+ * worker id. Comes from the login system's own record (last_sign_in_at), so it
+ * is the real time of the last sign-in — not a value the browser could fake.
+ * null = the user has never signed in.
+ */
+export const getLastSignInsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const h = await import("./helpers.server");
+    await h.requireSuperAdmin(context as unknown as UserContext);
+    const admin = await h.adminClient();
+
+    const { data: rows, error } = await admin.from("workers").select("id, auth_user_id");
+    if (error) throw new Error(error.message);
+
+    // authUserId -> last sign-in time (walk through every page of accounts)
+    const byAuthId = new Map<string, string | null>();
+    const perPage = 1000;
+    for (let page = 1; ; page++) {
+      const { data, error: listError } = await admin.auth.admin.listUsers({ page, perPage });
+      if (listError) throw new Error(listError.message);
+      for (const u of data.users) byAuthId.set(u.id, u.last_sign_in_at ?? null);
+      if (data.users.length < perPage) break;
+    }
+
+    const result: Record<string, string | null> = {};
+    for (const r of rows ?? []) {
+      result[r.id as string] = r.auth_user_id ? (byAuthId.get(r.auth_user_id as string) ?? null) : null;
+    }
+    return result;
+  });

@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
-import { createUserFn, deleteUserFn, resetPasswordFn, updateUserFn } from "@/lib/api/users.functions";
+import { createUserFn, deleteUserFn, getLastSignInsFn, resetPasswordFn, updateUserFn } from "@/lib/api/users.functions";
 import { isSuperAdmin } from "@/lib/auth/access";
 import { MOBILE_REGEX } from "@/lib/auth/identity";
 import type { UserRole } from "@/lib/auth/roles";
@@ -94,6 +94,21 @@ function PlatformUsers() {
       return data as UserRow[];
     },
   });
+
+  // When each user last signed in (platform admin only, read from the login system).
+  const { data: lastSignIns } = useQuery({
+    queryKey: ["platform", "last-sign-ins"],
+    enabled: allowed,
+    retry: false,
+    queryFn: () => getLastSignInsFn(),
+  });
+
+  const lastSignInLabel = (id: string) => {
+    if (!lastSignIns) return null;
+    const at = lastSignIns[id];
+    if (!at) return "Never signed in";
+    return `Last sign-in: ${new Date(at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`;
+  };
 
   const businessName = (id: string) => businesses.find((b) => b.id === id)?.name ?? "—";
 
@@ -281,6 +296,9 @@ function PlatformUsers() {
                   {u.username ? ` · @${u.username}` : ""}
                   {u.email ? ` · ${u.email}` : ""}
                 </div>
+                {lastSignInLabel(u.id) && (
+                  <div className="text-xs text-muted-foreground">{lastSignInLabel(u.id)}</div>
+                )}
               </div>
               <div className="flex shrink-0 gap-1.5">
                 <Button size="icon" variant="outline" aria-label="Edit" onClick={() => openEdit(u)}>
