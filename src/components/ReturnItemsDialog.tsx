@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Rental, RentalGroup } from "@/lib/rentals";
-import { buildGroupReturnMessage, whatsappUrl } from "@/lib/rentals";
+import { buildGroupReturnMessage } from "@/lib/rentals";
+import { WhatsAppPreviewDialog, type WhatsAppPreview } from "@/components/WhatsAppPreviewDialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -24,6 +25,7 @@ interface Props {
 export function ReturnItemsDialog({ open, onOpenChange, group }: Props) {
   const qc = useQueryClient();
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [wa, setWa] = useState<WhatsAppPreview | null>(null);
 
   useEffect(() => {
     if (group) {
@@ -67,7 +69,13 @@ export function ReturnItemsDialog({ open, onOpenChange, group }: Props) {
           {
             action: {
               label: "Send WhatsApp",
-              onClick: () => window.open(whatsappUrl(group.customer_phone, buildGroupReturnMessage(newlyReturned)), "_blank"),
+              onClick: () =>
+                setWa({
+                  phone: group.customer_phone,
+                  name: group.customer_name,
+                  title: "Send return confirmation",
+                  message: buildGroupReturnMessage(newlyReturned),
+                }),
             },
           },
         );
@@ -79,9 +87,10 @@ export function ReturnItemsDialog({ open, onOpenChange, group }: Props) {
     onError: (e: any) => toast.error(e.message ?? "Failed to update return status"),
   });
 
-  if (!group) return null;
+  if (!group) return <WhatsAppPreviewDialog preview={wa} onClose={() => setWa(null)} />;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -116,5 +125,7 @@ export function ReturnItemsDialog({ open, onOpenChange, group }: Props) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <WhatsAppPreviewDialog preview={wa} onClose={() => setWa(null)} />
+    </>
   );
 }

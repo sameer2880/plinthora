@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getBusiness } from "@/lib/auth/session";
 import type { Rental, RentalGroup } from "@/lib/rentals";
-import { buildConfirmMessage, buildGroupConfirmMessage, buildGroupReceiptMessage, whatsappUrl } from "@/lib/rentals";
+import { buildConfirmMessage, buildGroupConfirmMessage, buildGroupReceiptMessage } from "@/lib/rentals";
+import { WhatsAppPreviewDialog, type WhatsAppPreview } from "@/components/WhatsAppPreviewDialog";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ const emptyForm = () => ({
 export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
   const qc = useQueryClient();
   const [form, setForm] = useState(emptyForm());
+  const [wa, setWa] = useState<WhatsAppPreview | null>(null);
 
   useEffect(() => {
     if (editingGroup) {
@@ -188,9 +190,10 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
       qc.invalidateQueries({ queryKey: ["rentals"] });
       const first = rows[0];
       const message = rows.length > 1 ? buildGroupConfirmMessage(rows) : buildConfirmMessage(first);
-      const link = first ? whatsappUrl(first.customer_phone, message) : null;
-      const receiptMessage = buildGroupReceiptMessage(rows);
-      const receiptLink = first ? whatsappUrl(first.customer_phone, receiptMessage) : null;
+      const preview = (title: string, msg: string): WhatsAppPreview | null =>
+        first ? { phone: first.customer_phone, name: first.customer_name, title, message: msg } : null;
+      const confirmPreview = preview("Send confirmation", message);
+      const receiptPreview = preview("Send receipt", buildGroupReceiptMessage(rows));
 
       toast.success(
         editingGroup
@@ -199,11 +202,11 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
             : "Rental updated"
           : `Saved ${rows.length} material${rows.length > 1 ? "s" : ""}`,
         {
-          action: link
-            ? { label: "Send WhatsApp", onClick: () => window.open(link, "_blank") }
+          action: confirmPreview
+            ? { label: "Send WhatsApp", onClick: () => setWa(confirmPreview) }
             : undefined,
-          cancel: receiptLink
-            ? { label: "Send Receipt", onClick: () => window.open(receiptLink, "_blank") }
+          cancel: receiptPreview
+            ? { label: "Send Receipt", onClick: () => setWa(receiptPreview) }
             : undefined,
         },
       );
@@ -214,6 +217,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
   });
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
@@ -359,6 +363,8 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
         </form>
       </DialogContent>
     </Dialog>
+    <WhatsAppPreviewDialog preview={wa} onClose={() => setWa(null)} />
+    </>
   );
 }
 

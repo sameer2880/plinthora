@@ -9,7 +9,6 @@ import {
   Sun,
   LogOut,
   NotebookPen,
-  Clapperboard,
   HardHat,
   RefreshCw,
   Globe,
@@ -132,13 +131,6 @@ const nav = [
     icon: Receipt,
     primary: true,
     feature: "receipts",
-  },
-  {
-    to: "/reels",
-    label: "Reel Management",
-    icon: Clapperboard,
-    adminOnly: true,
-    feature: "reels",
   },
   {
     to: "/feedback",

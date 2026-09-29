@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { ImageUp, Settings } from "lucide-react";
+import { ImageUp, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +24,14 @@ type ImageKey = "logo_url" | "stamp_url" | "signature_url";
 const BUCKET = "business-assets";
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
+/** Storage path of an uploaded image, taken from its public URL (null if it isn't one of ours). */
+function storagePathFromUrl(url: string): string | null {
+  const marker = `/${BUCKET}/`;
+  const i = url.indexOf(marker);
+  if (i === -1) return null;
+  return decodeURIComponent(url.slice(i + marker.length).split("?")[0]);
+}
+
 function ImageField({
   label,
   hint,
@@ -31,6 +39,7 @@ function ImageField({
   businessId,
   kind,
   onChange,
+  onRemove,
 }: {
   label: string;
   hint: string;
@@ -38,6 +47,7 @@ function ImageField({
   businessId: string;
   kind: string;
   onChange: (url: string) => void;
+  onRemove: () => void;
 }) {
   const [uploading, setUploading] = useState(false);
 
@@ -69,7 +79,22 @@ function ImageField({
       <div className="min-w-0 flex-1">
         <Label>{label}</Label>
         <p className="text-xs text-muted-foreground">{hint}</p>
-        <Input type="file" accept="image/*" disabled={uploading} onChange={(e) => void upload(e.target.files?.[0])} className="mt-1.5" />
+        <div className="mt-1.5 flex items-center gap-2">
+          {/* key resets the file input whenever the image changes or is deleted */}
+          <Input key={value} type="file" accept="image/*" disabled={uploading} onChange={(e) => void upload(e.target.files?.[0])} className="min-w-0 flex-1" />
+          {value && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onRemove}
+              disabled={uploading}
+              className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="mr-1.5 h-4 w-4" /> Delete
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -77,6 +102,8 @@ function ImageField({
 
 function BusinessSettings() {
   const { business } = useSession();
+  // Images deleted in the form; their files are removed from storage once "Save settings" succeeds.
+  const [removedUrls, setRemovedUrls] = useState<string[]>([]);
   const [form, setForm] = useState({
     name: "",
     short_name: "",
@@ -88,7 +115,6 @@ function BusinessSettings() {
     instagram_url: "",
     youtube_url: "",
     maps_url: "",
-    reels_url: "",
     logo_url: "",
     stamp_url: "",
     signature_url: "",
@@ -107,7 +133,6 @@ function BusinessSettings() {
       instagram_url: business.instagram_url ?? "",
       youtube_url: business.youtube_url ?? "",
       maps_url: business.maps_url ?? "",
-      reels_url: business.reels_url ?? "",
       logo_url: business.logo_url ?? "",
       stamp_url: business.stamp_url ?? "",
       signature_url: business.signature_url ?? "",
@@ -132,13 +157,18 @@ function BusinessSettings() {
           instagram_url: nullable(form.instagram_url),
           youtube_url: nullable(form.youtube_url),
           maps_url: nullable(form.maps_url),
-          reels_url: nullable(form.reels_url),
           logo_url: nullable(form.logo_url),
           stamp_url: nullable(form.stamp_url),
           signature_url: nullable(form.signature_url),
         })
         .eq("id", business.id);
       if (error) throw error;
+
+      // Clean up files for images that were deleted (best effort — the settings are already saved).
+      const paths = removedUrls
+        .map(storagePathFromUrl)
+        .filter((p): p is string => !!p && p.startsWith(`${business.id}/`));
+      if (paths.length > 0) await supabase.storage.from(BUCKET).remove(paths).catch(() => undefined);
     },
     onSuccess: () => {
       toast.success("Business settings saved");
@@ -147,6 +177,13 @@ function BusinessSettings() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const removeImage = (key: ImageKey, label: string) => {
+    const url = form[key];
+    if (url) setRemovedUrls((u) => [...u, url]);
+    setForm((f) => ({ ...f, [key]: "" }));
+    toast.success(`${label} removed — press "Save settings" to apply`);
+  };
 
   const field = (key: keyof typeof form, label: string, placeholder?: string) => (
     <div>
@@ -189,9 +226,9 @@ function BusinessSettings() {
 
             <Card>
               <CardContent className="space-y-4 p-4">
-                <ImageField label="Logo" hint="Square image works best." value={form.logo_url} businessId={business.id} kind="logo" onChange={(url) => setForm((f) => ({ ...f, logo_url: url }))} />
-                <ImageField label="Stamp" hint="Transparent PNG, printed on receipts." value={form.stamp_url} businessId={business.id} kind="stamp" onChange={(url) => setForm((f) => ({ ...f, stamp_url: url }))} />
-                <ImageField label="Authorised signature" hint="Transparent PNG, printed on receipts." value={form.signature_url} businessId={business.id} kind="signature" onChange={(url) => setForm((f) => ({ ...f, signature_url: url }))} />
+                <ImageField label="Logo" hint="Square image works best." value={form.logo_url} businessId={business.id} kind="logo" onChange={(url) => setForm((f) => ({ ...f, logo_url: url }))} onRemove={() => removeImage("logo_url", "Logo")} />
+                <ImageField label="Stamp" hint="Transparent PNG, printed on receipts." value={form.stamp_url} businessId={business.id} kind="stamp" onChange={(url) => setForm((f) => ({ ...f, stamp_url: url }))} onRemove={() => removeImage("stamp_url", "Stamp")} />
+                <ImageField label="Authorised signature" hint="Transparent PNG, printed on receipts." value={form.signature_url} businessId={business.id} kind="signature" onChange={(url) => setForm((f) => ({ ...f, signature_url: url }))} onRemove={() => removeImage("signature_url", "Signature")} />
                 <p className="text-xs text-muted-foreground">
                   Uploaded images are publicly viewable by link (receipts need them). Only upload artwork you are happy
                   for customers to see.
@@ -206,7 +243,6 @@ function BusinessSettings() {
                 {field("instagram_url", "Instagram", "https://")}
                 {field("youtube_url", "YouTube", "https://")}
                 {field("maps_url", "Map location", "https://")}
-                {field("reels_url", "Reel manager link", "https://")}
               </CardContent>
             </Card>
 

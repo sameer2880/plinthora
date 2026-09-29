@@ -19,7 +19,6 @@ export type FeatureKey =
   | "diary"
   | "reports"
   | "receipts"
-  | "reels"
   | "feedback";
 
 export interface FeaturePage {
@@ -41,7 +40,6 @@ export const FEATURE_PAGES: FeaturePage[] = [
   { key: "diary", label: "Diary / Notes", description: "Daily diary and notes", path: "/diary" },
   { key: "reports", label: "Reports", description: "Business summary reports", path: "/reports" },
   { key: "receipts", label: "Receipts", description: "Rental & labour receipts", path: "/receipts" },
-  { key: "reels", label: "Reel Management", description: "Manage promotional reels", path: "/reels" },
   { key: "feedback", label: "Worker Feedback", description: "Worker feedback & complaints", path: "/feedback" },
 ];
 

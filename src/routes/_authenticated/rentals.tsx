@@ -13,7 +13,6 @@ import {
   buildGroupReturnPaidMessage,
   buildGroupReturnNotPaidMessage,
   buildGroupReceiptMessage,
-  whatsappUrl,
   getRentalRowTheme,
   type RentalGroup,
 } from "@/lib/rentals";
@@ -26,6 +25,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { RentalForm } from "@/components/RentalForm";
 import { ReturnItemsDialog } from "@/components/ReturnItemsDialog";
+import { WhatsAppPreviewDialog, type WhatsAppPreview } from "@/components/WhatsAppPreviewDialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -76,6 +76,7 @@ function RentalsPage() {
   const [editingGroup, setEditingGroup] = useState<RentalGroup | null>(null);
   const [delGroup, setDelGroup] = useState<RentalGroup | null>(null);
   const [returnGroup, setReturnGroup] = useState<RentalGroup | null>(null);
+  const [wa, setWa] = useState<WhatsAppPreview | null>(null);
 
   // Arrived via the dashboard's "New Rental" button: open the add form, then
   // drop `?new=true` from the URL so a refresh / back-navigation doesn't reopen it.
@@ -327,36 +328,36 @@ function RentalsPage() {
                             )}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => window.open(whatsappUrl(g.customer_phone, buildGroupConfirmMessage(g.rows)), "_blank")}>
+                          <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send confirmation", message: buildGroupConfirmMessage(g.rows) })}>
                             <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp confirmation
                           </DropdownMenuItem>
                           {g.status === "active" && (
-                            <DropdownMenuItem onClick={() => window.open(whatsappUrl(g.customer_phone, buildGroupActiveMessage(g.rows)), "_blank")}>
+                            <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send active status", message: buildGroupActiveMessage(g.rows) })}>
                               <Bell className="h-4 w-4 mr-2" /> WhatsApp active status
                             </DropdownMenuItem>
                           )}
                           {g.status === "overdue" && (
-                            <DropdownMenuItem onClick={() => window.open(whatsappUrl(g.customer_phone, buildGroupOverdueMessage(g.rows)), "_blank")}>
+                            <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send overdue notice", message: buildGroupOverdueMessage(g.rows) })}>
                               <Bell className="h-4 w-4 mr-2" /> WhatsApp overdue notice
                             </DropdownMenuItem>
                           )}
                           {g.status !== "returned" && (
-                            <DropdownMenuItem onClick={() => window.open(whatsappUrl(g.customer_phone, buildGroupNotReturnedMessage(notReturnedRows)), "_blank")}>
+                            <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send not-returned notice", message: buildGroupNotReturnedMessage(notReturnedRows) })}>
                               <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp not returned
                             </DropdownMenuItem>
                           )}
                           {g.status === "returned" && (
-                            <DropdownMenuItem onClick={() => window.open(whatsappUrl(g.customer_phone, buildGroupReturnMessage(g.rows)), "_blank")}>
+                            <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send return confirmation", message: buildGroupReturnMessage(g.rows) })}>
                               <CheckCircle2 className="h-4 w-4 mr-2" /> WhatsApp return confirmation
                             </DropdownMenuItem>
                           )}
                           {g.status === "returned" && g.payment_status === "paid" && (
-                            <DropdownMenuItem onClick={() => window.open(whatsappUrl(g.customer_phone, buildGroupReturnPaidMessage(g.rows)), "_blank")}>
+                            <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send return & paid notice", message: buildGroupReturnPaidMessage(g.rows) })}>
                               <BadgeCheck className="h-4 w-4 mr-2" /> WhatsApp returned & paid
                             </DropdownMenuItem>
                           )}
                           {g.status === "returned" && g.payment_status === "unpaid" && (
-                            <DropdownMenuItem onClick={() => window.open(whatsappUrl(g.customer_phone, buildGroupReturnNotPaidMessage(g.rows)), "_blank")}>
+                            <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send payment due notice", message: buildGroupReturnNotPaidMessage(g.rows) })}>
                               <AlertTriangle className="h-4 w-4 mr-2" /> WhatsApp returned, payment due
                             </DropdownMenuItem>
                           )}
@@ -374,7 +375,7 @@ function RentalsPage() {
                               <Printer className="h-4 w-4 mr-2" /> Print receipt
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => window.open(whatsappUrl(g.customer_phone, buildGroupReceiptMessage(g.rows)), "_blank")}>
+                          <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send receipt", message: buildGroupReceiptMessage(g.rows) })}>
                             <Share2 className="h-4 w-4 mr-2" /> Share Receipt
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
@@ -454,6 +455,8 @@ function RentalsPage() {
           )}
         </CardContent>
       </Card>
+
+      <WhatsAppPreviewDialog preview={wa} onClose={() => setWa(null)} />
 
       <RentalForm open={open} onOpenChange={setOpen} editingGroup={editingGroup} />
 
