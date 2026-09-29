@@ -101,7 +101,7 @@
             },
             "return_date": {
               "type": "string",
-              "description": "Expected return date, YYYY-MM-DD."
+              "description": "Expected return date, YYYY-MM-DD. Optional; omit for open-ended rentals."
             },
             "notes": {
               "type": "string"
@@ -113,8 +113,7 @@
             "material_name",
             "quantity",
             "rate_per_unit",
-            "issue_date",
-            "return_date"
+            "issue_date"
           ]
         },
         "outputSchema": null
@@ -147,8 +146,11 @@
               ]
             },
             "return_date": {
-              "description": "YYYY-MM-DD.",
-              "type": "string"
+              "description": "YYYY-MM-DD, or null to clear the expected return date.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "quantity": {
               "type": "number",

@@ -418,7 +418,7 @@ function RentalsPage() {
                       </div>
                       <div>
                         <div className="text-muted-foreground">Return Date</div>
-                        <div className="font-medium">{g.return_date}</div>
+                        <div className="font-medium">{g.return_date ?? "Not set"}</div>
                       </div>
                     </div>
 

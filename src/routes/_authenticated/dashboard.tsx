@@ -250,7 +250,7 @@ function RentalsDashboard() {
   const trendValue = monthly[5][trendMode];
 
   // Customers whose material is due back today or is already late.
-  const pendingRows = rentals.filter((r) => r.status !== "returned" && r.return_date <= today);
+  const pendingRows = rentals.filter((r) => r.status !== "returned" && !!r.return_date && r.return_date <= today);
   const pendingCustomers = Array.from(new Set(pendingRows.map((r) => r.customer_name)));
   const shownAvatars = pendingCustomers.slice(0, 4);
   const extraCustomers = pendingCustomers.length - shownAvatars.length;

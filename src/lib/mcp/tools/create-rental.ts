@@ -18,7 +18,7 @@ export default defineTool({
     total_amount: z.number().nonnegative().optional(),
     security_deposit: z.number().nonnegative().optional().describe("Advance amount received from the customer."),
     issue_date: z.string().describe("Issue date, YYYY-MM-DD."),
-    return_date: z.string().describe("Expected return date, YYYY-MM-DD."),
+    return_date: z.string().optional().describe("Expected return date, YYYY-MM-DD. Optional; omit for open-ended rentals."),
     notes: z.string().optional(),
   },
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
@@ -26,6 +26,7 @@ export default defineTool({
     const supabase = supabaseAnon();
     const row = {
       ...input,
+      return_date: input.return_date || null,
       unit: input.unit ?? "pcs",
       security_deposit: input.security_deposit ?? 0,
       total_amount: input.total_amount ?? input.quantity * input.rate_per_unit,

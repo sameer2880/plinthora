@@ -10,7 +10,7 @@ export default defineTool({
   inputSchema: {
     id: z.string().uuid().describe("Rental record id."),
     status: z.enum(["active", "returned"]).optional(),
-    return_date: z.string().optional().describe("YYYY-MM-DD."),
+    return_date: z.string().nullable().optional().describe("YYYY-MM-DD, or null to clear the expected return date."),
     quantity: z.number().positive().optional(),
     rate_per_unit: z.number().nonnegative().optional(),
     total_amount: z.number().nonnegative().optional(),

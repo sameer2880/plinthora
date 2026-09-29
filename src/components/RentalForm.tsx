@@ -40,7 +40,7 @@ const emptyForm = () => ({
   customer_address: getBusiness()?.location ?? "",
   security_deposit: 0 as number | string,
   issue_date: new Date().toISOString().slice(0, 10),
-  return_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+  return_date: "", // optional
   status: "active" as "active" | "returned",
   payment_status: "unpaid" as "paid" | "unpaid",
   notes: "",
@@ -61,7 +61,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
         customer_address: primary.customer_address ?? "",
         security_deposit: editingGroup.security_deposit ?? 0,
         issue_date: primary.issue_date,
-        return_date: primary.return_date,
+        return_date: primary.return_date ?? "",
         status: primary.status === "overdue" ? "active" : (primary.status as "active" | "returned"),
         payment_status: editingGroup.payment_status ?? "unpaid",
         notes: primary.notes ?? "",
@@ -116,7 +116,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
             rate_per_unit: Number(it.rate_per_unit),
             total_amount: itemTotal(it),
             issue_date: form.issue_date,
-            return_date: form.return_date,
+            return_date: form.return_date || null,
             payment_status: form.payment_status,
             notes: form.notes,
           };
@@ -138,7 +138,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
             total_amount: itemTotal(it),
             security_deposit: 0,
             issue_date: form.issue_date,
-            return_date: form.return_date,
+            return_date: form.return_date || null,
             status: form.status,
             payment_status: form.payment_status,
             notes: form.notes,
@@ -175,7 +175,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
         // Split security deposit only on the first row to avoid double counting
         security_deposit: idx === 0 ? Number(form.security_deposit || 0) : 0,
         issue_date: form.issue_date,
-        return_date: form.return_date,
+        return_date: form.return_date || null,
         status: form.status,
         payment_status: form.payment_status,
         notes: form.notes,
@@ -315,8 +315,8 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
             <Field label="Issue Date *">
               <Input type="date" value={form.issue_date} onChange={(e) => setForm({ ...form, issue_date: e.target.value })} required />
             </Field>
-            <Field label="Expected Return Date *">
-              <Input type="date" value={form.return_date} onChange={(e) => setForm({ ...form, return_date: e.target.value })} required />
+            <Field label="Expected Return Date (optional)">
+              <Input type="date" value={form.return_date} min={form.issue_date || undefined} onChange={(e) => setForm({ ...form, return_date: e.target.value })} />
             </Field>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

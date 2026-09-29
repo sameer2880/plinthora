@@ -279,9 +279,11 @@ function ReceiptPage() {
             <div className="text-sm text-gray-600">
               Issue: <span className="font-medium text-gray-800">{receipt.issue_date}</span>
             </div>
-            <div className="text-sm text-gray-600">
-              Return: <span className="font-medium text-gray-800">{receipt.return_date}</span>
-            </div>
+            {receipt.return_date && (
+              <div className="text-sm text-gray-600">
+                Return: <span className="font-medium text-gray-800">{receipt.return_date}</span>
+              </div>
+            )}
             <div className="text-sm text-gray-600">
               Status:{" "}
               <span className="font-medium capitalize text-gray-800">

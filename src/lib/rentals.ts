@@ -14,7 +14,7 @@ export interface Rental {
   total_amount: number;
   security_deposit: number | null;
   issue_date: string;
-  return_date: string;
+  return_date: string | null;
   status: "active" | "returned" | "overdue";
   payment_status: "paid" | "unpaid";
   notes: string | null;
@@ -35,7 +35,7 @@ export interface RentalGroup {
   customer_phone: string;
   customer_address: string | null;
   issue_date: string;
-  return_date: string;
+  return_date: string | null;
   total_amount: number;
   security_deposit: number;
   status: "active" | "returned" | "overdue" | "partial";
@@ -47,6 +47,8 @@ export interface RentalGroup {
 
 export function computeStatus(r: Pick<Rental, "status" | "return_date">): Rental["status"] {
   if (r.status === "returned") return "returned";
+  // No expected return date -> open-ended rental, can never be overdue.
+  if (!r.return_date) return "active";
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const ret = new Date(r.return_date);
   return ret < today ? "overdue" : "active";
@@ -152,10 +154,9 @@ Rental Details:
 Material: ${r.material_name}
 Quantity: ${r.quantity} ${r.unit}
 Amount: ₹${r.total_amount}${advance ? `\nAdvance Received: ₹${advance.toLocaleString("en-IN")}\nBalance Due: ₹${balance.toLocaleString("en-IN")}` : ""}
-Issue Date: ${r.issue_date}
-Return Date: ${r.return_date}
+Issue Date: ${r.issue_date}${r.return_date ? `\nReturn Date: ${r.return_date}` : ""}
 
-Please return the material on or before the scheduled date.
+${r.return_date ? "Please return the material on or before the scheduled date." : "Please return the material once you are done with it."}
 
 Thank you.`;
 }
@@ -177,10 +178,9 @@ Rental Details:
 ${lines}
 
 Total Amount: ₹${total.toLocaleString("en-IN")}${advance ? `\nAdvance Received: ₹${advance.toLocaleString("en-IN")}\nBalance Due: ₹${balance.toLocaleString("en-IN")}` : ""}
-Issue Date: ${first.issue_date}
-Return Date: ${first.return_date}
+Issue Date: ${first.issue_date}${first.return_date ? `\nReturn Date: ${first.return_date}` : ""}
 
-Please return the materials on or before the scheduled date.
+${first.return_date ? "Please return the materials on or before the scheduled date." : "Please return the materials once you are done with them."}
 
 Thank you.`;
 }
@@ -191,9 +191,9 @@ export function buildReminderMessage(r: Rental) {
 
 This is a reminder from ${businessLabel()}.
 
-Your rented material ${r.material_name} is due on ${r.return_date}.
+${r.return_date ? `Your rented material ${r.material_name} is due on ${r.return_date}.` : `Your rented material ${r.material_name} is still with you.`}
 
-Please return it on time or contact us if you need an extension.
+${r.return_date ? "Please return it on time or contact us if you need an extension." : "Please return it once you are done or contact us to arrange the return."}
 
 Thank you.`;
 }
@@ -205,6 +205,17 @@ function daysBetween(a: Date, b: Date) {
 
 /** Sent while a rental is still within its return date — a friendly status update. */
 export function buildActiveMessage(r: Rental) {
+  if (!r.return_date) {
+    return `Hello ${r.customer_name},
+
+This is a status update from ${businessLabel()}.
+
+Your rented material ${r.material_name} (Qty: ${r.quantity} ${r.unit}) is currently active.
+
+Please return it once you are done, or contact us if you need anything.
+
+Thank you.`;
+  }
   const today = new Date();
   const ret = new Date(r.return_date);
   const daysLeft = daysBetween(ret, today);
@@ -232,6 +243,19 @@ Thank you.`;
 export function buildGroupActiveMessage(rows: Rental[]) {
   if (rows.length === 1) return buildActiveMessage(rows[0]);
   const first = rows[0];
+  if (!first.return_date) {
+    const list = rows.map((r) => `- ${r.material_name} (Qty: ${r.quantity} ${r.unit})`).join("\n");
+    return `Hello ${first.customer_name},
+
+This is a status update from ${businessLabel()}.
+
+Your rented materials are currently active:
+${list}
+
+Please return them once you are done, or contact us if you need anything.
+
+Thank you.`;
+  }
   const today = new Date();
   const ret = new Date(first.return_date);
   const daysLeft = daysBetween(ret, today);
@@ -253,6 +277,7 @@ Thank you.`;
 
 /** Sent once a rental has crossed its return date — a first overdue notice. */
 export function buildOverdueMessage(r: Rental) {
+  if (!r.return_date) return buildNotReturnedMessage(r);
   const today = new Date();
   const ret = new Date(r.return_date);
   const daysLate = Math.max(1, daysBetween(today, ret));
@@ -272,6 +297,7 @@ Thank you.`;
 export function buildGroupOverdueMessage(rows: Rental[]) {
   if (rows.length === 1) return buildOverdueMessage(rows[0]);
   const first = rows[0];
+  if (!first.return_date) return buildGroupNotReturnedMessage(rows);
   const today = new Date();
   const ret = new Date(first.return_date);
   const daysLate = Math.max(1, daysBetween(today, ret));

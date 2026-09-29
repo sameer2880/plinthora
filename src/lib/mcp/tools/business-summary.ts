@@ -25,13 +25,13 @@ export default defineTool({
     const today = new Date().toISOString().slice(0, 10);
     const summary = {
       total_rentals: rows.length,
-      active: rows.filter((r) => r.status !== "returned" && r.return_date >= today).length,
-      overdue: rows.filter((r) => r.status !== "returned" && r.return_date < today).length,
+      active: rows.filter((r) => r.status !== "returned" && (!r.return_date || r.return_date >= today)).length,
+      overdue: rows.filter((r) => r.status !== "returned" && !!r.return_date && r.return_date < today).length,
       returned: rows.filter((r) => r.status === "returned").length,
       total_revenue: rows.reduce((sum, r) => sum + Number(r.total_amount ?? 0), 0),
       total_deposits: rows.reduce((sum, r) => sum + Number(r.security_deposit ?? 0), 0),
       overdue_rentals: rows
-        .filter((r) => r.status !== "returned" && r.return_date < today)
+        .filter((r) => r.status !== "returned" && !!r.return_date && r.return_date < today)
         .map((r) => ({
           id: r.id,
           customer_name: r.customer_name,

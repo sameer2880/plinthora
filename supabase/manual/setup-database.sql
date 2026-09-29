@@ -58,7 +58,7 @@ CREATE TABLE public.rentals (
   total_amount NUMERIC NOT NULL,
   security_deposit NUMERIC DEFAULT 0,
   issue_date DATE NOT NULL,
-  return_date DATE NOT NULL,
+  return_date DATE,
   status TEXT NOT NULL DEFAULT 'active',
   notes TEXT,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -907,5 +907,3 @@ CREATE POLICY workers_select_platform ON public.workers FOR SELECT TO authentica
   USING ((SELECT public.is_super_admin()));
 
 NOTIFY pgrst, 'reload schema';
-
-

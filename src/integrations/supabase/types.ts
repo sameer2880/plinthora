@@ -177,7 +177,7 @@ export type Database = {
           payment_status: string;
           quantity: number;
           rate_per_unit: number;
-          return_date: string;
+          return_date: string | null;
           security_deposit: number | null;
           status: string;
           total_amount: number;
@@ -199,7 +199,7 @@ export type Database = {
           payment_status?: string;
           quantity: number;
           rate_per_unit: number;
-          return_date: string;
+          return_date?: string | null;
           security_deposit?: number | null;
           status?: string;
           total_amount: number;
@@ -221,7 +221,7 @@ export type Database = {
           payment_status?: string;
           quantity?: number;
           rate_per_unit?: number;
-          return_date?: string;
+          return_date?: string | null;
           security_deposit?: number | null;
           status?: string;
           total_amount?: number;

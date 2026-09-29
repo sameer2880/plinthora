@@ -51,7 +51,7 @@ function Reports() {
     const cleaned = rows.map((r) => ({
       customer_name: r.customer_name, mobile: r.customer_phone, village: r.customer_address,
       material: r.material_name, quantity: r.quantity, unit: r.unit, rate: r.rate_per_unit,
-      total: r.total_amount, issue_date: r.issue_date, return_date: r.return_date, status: r.status,
+      total: r.total_amount, issue_date: r.issue_date, return_date: r.return_date ?? "", status: r.status,
     }));
     download(`${name}.csv`, toCSV(cleaned));
   };
@@ -126,7 +126,7 @@ function Reports() {
                         <TableCell className="text-right">{r.quantity} {r.unit}</TableCell>
                         <TableCell className="text-right font-semibold">₹{Number(r.total_amount).toLocaleString("en-IN")}</TableCell>
                         <TableCell>{r.issue_date}</TableCell>
-                        <TableCell>{r.return_date}</TableCell>
+                        <TableCell>{r.return_date ?? "—"}</TableCell>
                         <TableCell><StatusBadge status={r.status} /></TableCell>
                       </TableRow>
                     ))}

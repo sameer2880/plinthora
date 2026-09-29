@@ -80,7 +80,7 @@ function ReceiptsList() {
                 </div>
               </div>
               <div className="text-[11px] text-muted-foreground">
-                #{g.group_id.slice(0, 8).toUpperCase()} · {g.issue_date} → {g.return_date}
+                #{g.group_id.slice(0, 8).toUpperCase()} · {g.issue_date} → {g.return_date ?? "open"}
               </div>
             </div>
           </Card>
