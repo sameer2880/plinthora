@@ -428,7 +428,7 @@ function RentalsPage() {
                               <Printer className="h-4 w-4 mr-2" /> Print receipt
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send receipt", message: buildGroupReceiptMessage(g.rows) })}>
+                          <DropdownMenuItem onClick={() => setWa({ phone: g.customer_phone, name: g.customer_name, title: "Send receipt", receiptId: g.rows[0].id, message: buildGroupReceiptMessage(g.rows) })}>
                             <Share2 className="h-4 w-4 mr-2" /> Share Receipt
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />

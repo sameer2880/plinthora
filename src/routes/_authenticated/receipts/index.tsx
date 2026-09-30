@@ -69,6 +69,7 @@ function ReceiptsList() {
                         phone: g.customer_phone,
                         name: g.customer_name,
                         title: "Send receipt",
+                        receiptId: g.rows[0].id,
                         message: buildGroupReceiptMessage(g.rows),
                       })
                     }
