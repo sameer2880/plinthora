@@ -20,6 +20,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FileSpreadsheet,
+  FileText,
   Pencil,
   Plus,
   Trash2,
@@ -27,7 +29,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
-import { downloadCsv } from "@/lib/export";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { exportLabourPdf, exportLabourXlsx } from "@/lib/labour-export";
 import { AdminOnly } from "@/components/AdminOnly";
 import type { Worker } from "./index";
 import { PLATFORM_NAME } from "@/lib/brand";
@@ -323,34 +331,19 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
   const totalPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
   const earned = workUnits * Number(worker?.daily_wage ?? 0);
 
-  const exportData = () => {
-    const rows = [
-      ...attendance
-        .slice()
-        .sort((a, b) => a.work_date.localeCompare(b.work_date))
-        .map((a) => ({
-          Type: "Attendance",
-          Date: a.work_date,
-          Status: STATUS_LABEL[a.status],
-          "Day type": a.status === "present" ? DAY_TYPE_LABEL[a.day_type ?? "full"] : "",
-          Amount: "",
-          Note: a.note ?? "",
-        })),
-      ...payments.map((p) => ({
-        Type: "Payment",
-        Date: new Date(p.paid_at).toLocaleString("en-IN"),
-        Status: "",
-        "Day type": "",
-        Amount: Number(p.amount),
-        Note: p.note ?? "",
-      })),
-    ];
-    if (rows.length === 0) {
+  const exportData = async (kind: "xlsx" | "pdf") => {
+    if (!worker) return;
+    if (attendance.length === 0 && payments.length === 0) {
       toast.error("Nothing to export");
       return;
     }
-    downloadCsv(`${(worker?.name ?? "worker").replace(/\s+/g, "-").toLowerCase()}-records`, rows);
-    toast.success("Exported CSV");
+    try {
+      if (kind === "xlsx") await exportLabourXlsx([worker]);
+      else await exportLabourPdf([worker]);
+      toast.success(kind === "xlsx" ? "Excel downloaded" : "PDF downloaded");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Export failed");
+    }
   };
 
   const dayPayments = payments.filter((p) => ymd(new Date(p.paid_at)) === selectedDate);
@@ -405,9 +398,21 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
           </p>
         </div>
         {!readOnly && (
-          <Button variant="outline" size="sm" className="ml-auto shrink-0" onClick={exportData}>
-            <Download className="h-4 w-4 mr-1.5" /> Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="ml-auto shrink-0">
+                <Download className="h-4 w-4 mr-1.5" /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportData("xlsx")}>
+                <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportData("pdf")}>
+                <FileText className="h-4 w-4 mr-2" /> PDF (A4 portrait)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 

@@ -96,31 +96,31 @@ export function exportRentalsCsv(groups: RentalGroup[]) {
 }
 
 /* ------------------------------------------------------------------ */
-/* PDF — one row per rental, landscape A4, repeating header, paging   */
+/* PDF — one row per rental, portrait A4, repeating header, paging    */
 /* ------------------------------------------------------------------ */
 
 export async function exportRentalsPdf(groups: RentalGroup[], filterNote?: string) {
   // Loaded on demand so jsPDF isn't part of the initial bundle (and never runs on the server).
   const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const M = 10;
   const LH = 3.6; // line height inside a cell
   const PAD = 1.5;
 
+  // widths add up to 190mm = A4 portrait (210mm) minus 10mm margins each side
   const cols: { h: string; w: number; align?: "right" }[] = [
-    { h: "#", w: 10 },
-    { h: "Customer", w: 36 },
-    { h: "Phone", w: 28 },
-    { h: "Place", w: 36 },
-    { h: "Materials", w: 64 },
-    { h: "Amount", w: 24, align: "right" },
-    { h: "Issue Date", w: 24 },
-    { h: "Return Date", w: 24 },
-    { h: "Status", w: 16 },
-    { h: "Payment", w: 15 },
-  ]; // widths add up to 277mm = A4 landscape minus margins
+    { h: "#", w: 7 },
+    { h: "Customer", w: 26 },
+    { h: "Phone", w: 22 },
+    { h: "Place", w: 22 },
+    { h: "Materials", w: 36 },
+    { h: "Amount", w: 19, align: "right" },
+    { h: "Issue Date", w: 19 },
+    { h: "Return Date", w: 19 },
+    { h: "Status", w: 20 },
+  ];
 
   const lines = toLines(groups);
   const { count, total, unpaid } = summarize(groups);
@@ -152,7 +152,7 @@ export async function exportRentalsPdf(groups: RentalGroup[], filterNote?: strin
     doc.setFillColor(22, 101, 52);
     doc.rect(M, y, pageW - 2 * M, h, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     doc.setTextColor(255);
     let x = M;
     for (const c of cols) {
@@ -166,7 +166,7 @@ export async function exportRentalsPdf(groups: RentalGroup[], filterNote?: strin
   };
 
   drawHeader();
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
 
   lines.forEach((l, idx) => {
     const values: string[][] = [
@@ -178,8 +178,7 @@ export async function exportRentalsPdf(groups: RentalGroup[], filterNote?: strin
       [money(l.amount, "Rs. ")],
       [l.issue],
       [l.ret],
-      [l.status],
-      [l.payment],
+      [l.status, l.payment],
     ];
     const rowLines = Math.max(...values.map((v) => v.length));
     const rowH = rowLines * LH + 2 * PAD - 0.5;
@@ -188,7 +187,7 @@ export async function exportRentalsPdf(groups: RentalGroup[], filterNote?: strin
       doc.addPage();
       y = M;
       drawHeader();
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
     }
 
     if (idx % 2 === 1) {
@@ -242,8 +241,7 @@ export function printRentals(groups: RentalGroup[], filterNote?: string) {
         <td class="r">${escapeHtml(money(l.amount, "₹"))}</td>
         <td>${escapeHtml(l.issue)}</td>
         <td>${escapeHtml(l.ret)}</td>
-        <td>${escapeHtml(l.status)}</td>
-        <td>${escapeHtml(l.payment)}</td>
+        <td>${escapeHtml(l.status)}<br/>${escapeHtml(l.payment)}</td>
       </tr>`,
     )
     .join("");
@@ -251,14 +249,14 @@ export function printRentals(groups: RentalGroup[], filterNote?: string) {
   const html = `<!doctype html><html><head><meta charset="utf-8"/>
 <title>Rentals Report</title>
 <style>
-  @page { size: A4 landscape; margin: 10mm; }
+  @page { size: A4 portrait; margin: 10mm; }
   * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 11px; margin: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 9px; margin: 0; }
   h1 { font-size: 18px; margin: 0 0 4px; }
   .meta { color: #555; margin-bottom: 10px; line-height: 1.5; }
   table { width: 100%; border-collapse: collapse; }
-  th { background: #166534; color: #fff; text-align: left; padding: 6px; font-size: 11px; }
-  td { padding: 5px 6px; border-bottom: 1px solid #ddd; vertical-align: top; }
+  th { background: #166534; color: #fff; text-align: left; padding: 5px 4px; font-size: 9px; }
+  td { padding: 4px; word-break: break-word; border-bottom: 1px solid #ddd; vertical-align: top; }
   tr { page-break-inside: avoid; }
   tbody tr:nth-child(even) td { background: #f3f7f4; }
   .r { text-align: right; white-space: nowrap; }
@@ -274,7 +272,7 @@ export function printRentals(groups: RentalGroup[], filterNote?: string) {
   <table>
     <thead><tr>
       <th>#</th><th>Customer</th><th>Phone</th><th>Place</th><th>Materials</th>
-      <th class="r">Amount</th><th>Issue Date</th><th>Return Date</th><th>Status</th><th>Payment</th>
+      <th class="r">Amount</th><th>Issue Date</th><th>Return Date</th><th>Status</th>
     </tr></thead>
     <tbody>${body}</tbody>
   </table>
