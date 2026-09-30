@@ -31,6 +31,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -78,6 +81,10 @@ function RentalsPage() {
   const [delGroup, setDelGroup] = useState<RentalGroup | null>(null);
   const [returnGroup, setReturnGroup] = useState<RentalGroup | null>(null);
   const [wa, setWa] = useState<WhatsAppPreview | null>(null);
+  // Export date range (applies to the Issue Date, on top of the current search + filters)
+  const [exportKind, setExportKind] = useState<"csv" | "pdf" | "print" | null>(null);
+  const [exportFrom, setExportFrom] = useState("");
+  const [exportTo, setExportTo] = useState("");
 
   // Arrived via the dashboard's "New Rental" button: open the add form, then
   // drop `?new=true` from the URL so a refresh / back-navigation doesn't reopen it.
@@ -124,8 +131,20 @@ function RentalsPage() {
     });
   }, [groups, q, status, payment, takenDate, phoneFilter, nameFilter, placeFilter]);
 
-  // Export / print always covers every record matching the current search + filters
-  // (not just the 10 on the visible page).
+  // Export / print covers every record matching the current search + filters
+  // (not just the 10 on the visible page), narrowed by the chosen From / To date.
+  const exportRows = useMemo(
+    () =>
+      filtered.filter((g) => {
+        if (exportFrom && g.issue_date < exportFrom) return false;
+        if (exportTo && g.issue_date > exportTo) return false;
+        return true;
+      }),
+    [filtered, exportFrom, exportTo],
+  );
+
+  const exportRangeInvalid = !!exportFrom && !!exportTo && exportFrom > exportTo;
+
   const exportNote = [
     status !== "all" && `Status: ${status}`,
     payment !== "all" && `Payment: ${payment}`,
@@ -134,18 +153,34 @@ function RentalsPage() {
     nameFilter && `Name: ${nameFilter}`,
     phoneFilter && `Phone: ${phoneFilter}`,
     placeFilter && `Place: ${placeFilter}`,
+    exportFrom && exportTo && `Date range: ${exportFrom} to ${exportTo}`,
+    exportFrom && !exportTo && `From: ${exportFrom}`,
+    !exportFrom && exportTo && `Up to: ${exportTo}`,
   ].filter(Boolean).join(", ") || undefined;
 
-  const runExport = async (kind: "csv" | "pdf" | "print") => {
-    if (filtered.length === 0) {
-      toast.error("No rentals to export");
+  const openExport = (kind: "csv" | "pdf" | "print") => {
+    setExportFrom("");
+    setExportTo("");
+    setExportKind(kind);
+  };
+
+  const runExport = async () => {
+    const kind = exportKind;
+    if (!kind) return;
+    if (exportRangeInvalid) {
+      toast.error("'From' date must be on or before 'To' date");
+      return;
+    }
+    if (exportRows.length === 0) {
+      toast.error("No rentals found in this date range");
       return;
     }
     try {
-      if (kind === "csv") exportRentalsCsv(filtered);
-      else if (kind === "pdf") await exportRentalsPdf(filtered, exportNote);
-      else printRentals(filtered, exportNote);
+      if (kind === "csv") exportRentalsCsv(exportRows);
+      else if (kind === "pdf") await exportRentalsPdf(exportRows, exportNote);
+      else printRentals(exportRows, exportNote);
       if (kind !== "print") toast.success(kind === "csv" ? "CSV downloaded" : "PDF downloaded");
+      setExportKind(null);
     } catch (e) {
       console.error(e);
       toast.error("Export failed. Please try again.");
@@ -210,16 +245,16 @@ function RentalsPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                {filtered.length} rental{filtered.length === 1 ? "" : "s"} (current filters)
+                {filtered.length} rental{filtered.length === 1 ? "" : "s"} (current filters) - pick a date range next
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => runExport("csv")}>
+              <DropdownMenuItem onClick={() => openExport("csv")}>
                 <FileSpreadsheet className="h-4 w-4 mr-2" /> Export as CSV
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => runExport("pdf")}>
+              <DropdownMenuItem onClick={() => openExport("pdf")}>
                 <FileText className="h-4 w-4 mr-2" /> Export as PDF
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => runExport("print")}>
+              <DropdownMenuItem onClick={() => openExport("print")}>
                 <Printer className="h-4 w-4 mr-2" /> Print
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -508,6 +543,55 @@ function RentalsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!exportKind} onOpenChange={(v) => !v && setExportKind(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {exportKind === "csv" ? "Export as CSV" : exportKind === "pdf" ? "Export as PDF" : "Print rentals"}
+            </DialogTitle>
+            <DialogDescription>
+              Choose the issue-date range to include. Leave both blank to export everything.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">From date</label>
+              <Input
+                type="date"
+                value={exportFrom}
+                max={exportTo || undefined}
+                onChange={(e) => setExportFrom(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">To date</label>
+              <Input
+                type="date"
+                value={exportTo}
+                min={exportFrom || undefined}
+                onChange={(e) => setExportTo(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className={`text-sm ${exportRangeInvalid ? "text-destructive" : "text-muted-foreground"}`}>
+            {exportRangeInvalid
+              ? "'From' date must be on or before 'To' date."
+              : `${exportRows.length} rental${exportRows.length === 1 ? "" : "s"} will be included.`}
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            {(exportFrom || exportTo) && (
+              <Button type="button" variant="ghost" onClick={() => { setExportFrom(""); setExportTo(""); }}>
+                Clear dates
+              </Button>
+            )}
+            <Button type="button" variant="outline" onClick={() => setExportKind(null)}>Cancel</Button>
+            <Button type="button" onClick={runExport} disabled={exportRangeInvalid || exportRows.length === 0}>
+              {exportKind === "print" ? "Print" : "Export"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <WhatsAppPreviewDialog preview={wa} onClose={() => setWa(null)} />
 
