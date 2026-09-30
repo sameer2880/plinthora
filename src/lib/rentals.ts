@@ -460,33 +460,27 @@ export function receiptUrl(id: string) {
   return `${origin}/receipt/${id}`;
 }
 
-/** WhatsApp message that hands the customer their receipt (PDF is attached separately) + a link. */
+/** WhatsApp message that hands the customer a link to their printable receipt. */
 export function buildReceiptMessage(r: Rental) {
   return `Hello ${r.customer_name},
 
-Here is your receipt from ${businessLabel()} for ${r.material_name} (Qty: ${r.quantity} ${r.unit}).
+Here is your receipt from ${businessLabel()} for ${r.material_name} (Qty: ${r.quantity} ${r.unit}):
 
-You can also view it online:
 ${receiptUrl(r.id)}
 
 Thank you.`;
 }
 
-/**
- * Same as buildReceiptMessage, but for a batch of rentals saved together.
- * The public receipt page and the PDF both show the whole batch, so one link is enough.
- */
+/** Same as buildReceiptMessage, but for a batch of rentals saved together (one link per material). */
 export function buildGroupReceiptMessage(rows: Rental[]) {
   if (rows.length === 1) return buildReceiptMessage(rows[0]);
   const first = rows[0];
-  const lines = rows.map((r) => `- ${r.material_name} (Qty: ${r.quantity} ${r.unit})`).join("\n");
+  const lines = rows.map((r) => `${r.material_name} — ${receiptUrl(r.id)}`).join("\n");
   return `Hello ${first.customer_name},
 
-Here is your receipt from ${businessLabel()}:
-${lines}
+Here ${rows.length > 1 ? "are your receipts" : "is your receipt"} from ${businessLabel()}:
 
-You can also view it online:
-${receiptUrl(first.id)}
+${lines}
 
 Thank you.`;
 }

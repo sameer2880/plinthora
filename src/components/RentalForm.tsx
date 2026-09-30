@@ -190,10 +190,10 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
       qc.invalidateQueries({ queryKey: ["rentals"] });
       const first = rows[0];
       const message = rows.length > 1 ? buildGroupConfirmMessage(rows) : buildConfirmMessage(first);
-      const preview = (title: string, msg: string, receiptId?: string): WhatsAppPreview | null =>
-        first ? { phone: first.customer_phone, name: first.customer_name, title, message: msg, receiptId } : null;
+      const preview = (title: string, msg: string): WhatsAppPreview | null =>
+        first ? { phone: first.customer_phone, name: first.customer_name, title, message: msg } : null;
       const confirmPreview = preview("Send confirmation", message);
-      const receiptPreview = preview("Send receipt", buildGroupReceiptMessage(rows), first?.id);
+      const receiptPreview = preview("Send receipt", buildGroupReceiptMessage(rows));
 
       toast.success(
         editingGroup
