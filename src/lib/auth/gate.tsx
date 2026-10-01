@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
 import { resolveLoginFn } from "@/lib/api/auth.functions";
 import { PLATFORM_TAGLINE } from "@/lib/brand";
+import { registerNativePush, unregisterNativePush } from "@/lib/native-push";
 import {
   SessionContext,
   loadSessionState,
@@ -109,7 +110,10 @@ const PAGE_CSS = `
 export function lock() {
   localStorage.removeItem(DEVICE_TOKEN_KEY);
   setSessionSnapshot(EMPTY);
-  void supabase.auth.signOut().finally(() => window.location.reload());
+  // Stop phone notifications for this account first (needs the session, so before sign-out).
+  void unregisterNativePush()
+    .then(() => supabase.auth.signOut())
+    .finally(() => window.location.reload());
 }
 
 /** One signed-in device per staff/worker account (the platform admin has no such limit). */
@@ -254,10 +258,22 @@ export function Gate({
       setErr(message);
       setPhase("signed-out");
 
+      await unregisterNativePush();
       await supabase.auth.signOut();
     },
     [applyState],
   );
+
+  /* ---------- phone notifications (native Android app only) ---------- */
+  // Once a manager / admin is signed in, register this phone so alerts reach the
+  // notification center even when the app is closed.
+  const pushUserId = state.me?.userId;
+  const pushRole = state.me?.role;
+  useEffect(() => {
+    if (phase !== "ready" || !pushUserId) return;
+    if (pushRole !== "admin" && pushRole !== "manager") return;
+    void registerNativePush();
+  }, [phase, pushUserId, pushRole]);
 
   /* ---------- restore an existing session on load ---------- */
 
