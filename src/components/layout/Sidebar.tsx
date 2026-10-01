@@ -34,6 +34,7 @@ import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { WorkerLocationToggle } from "@/components/WorkerLocationToggle";
 import { BrandLogo } from "@/components/BrandLogo";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { AppCredit } from "@/components/AppCredit";
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -960,9 +961,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
                ===================================== */}
 
             <div className="flex items-center gap-1">
+              {/* Keeps the title clear of the notification bell (pinned top-right, see below). */}
+              {!worker && <div className="h-10 w-10 shrink-0 md:hidden" aria-hidden />}
             </div>
           </div>
         </header>
+
+        {/* ========================================
+            NOTIFICATION BELL (admin / manager)
+            Pinned to the top-right corner on phone,
+            tablet and laptop. Shows who added,
+            modified or deleted what, with a "ting".
+           ======================================== */}
+        {!worker && <NotificationCenter />}
 
         {/* ========================================
             PAGE CONTENT
@@ -975,6 +986,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             worker && "lg:h-[calc(100dvh-4rem)] lg:overflow-y-hidden",
           )}
         >
+          {/* Laptop/tablet have no header bar, so leave a little room for the bell. */}
+          {!worker && <div className="hidden h-6 md:block" aria-hidden />}
           {children}
         </main>
 
