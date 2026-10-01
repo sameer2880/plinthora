@@ -2,8 +2,13 @@
 //
 // Flow: someone adds / edits / deletes something -> a trigger writes a row to
 // activity_log -> a Database Webhook calls this function -> it sends a Firebase
-// Cloud Messaging (FCM) push to every other admin / manager phone of that
-// business -> Android shows it in the notification center, even if the app is closed.
+// Cloud Messaging (FCM) push -> Android shows it in the notification center, even if
+// the app is closed.
+//
+// Who gets what:
+//   admin   -> everything (except their own actions)
+//   manager -> rentals only (except their own actions)
+//   worker  -> only when THEIR OWN attendance is marked / changed
 //
 // Secrets needed (Supabase -> Edge Functions -> Secrets):
 //   FIREBASE_SERVICE_ACCOUNT  the whole service-account JSON from Firebase
@@ -109,25 +114,62 @@ Deno.serve(async (req) => {
     return Response.json({ skipped: true });
   }
 
-  // Who should hear about it: the business's active admins and managers, except the person who did it.
+  type Target = { userIds: string[]; title: string; body: string };
+  const targets: Target[] = [];
+
+  const entity = rec.entity ?? "";
+  const actorName = rec.actor_name ?? "Someone";
+  const staffTitle = `${actorName} ${rec.action ?? "changed"} ${ENTITY[entity] ?? entity ?? "something"}`;
+  const staffBody = rec.summary ?? "";
+
+  // 1) Staff: admins hear about everything, managers only about rentals.
+  const roles = entity === "rental" ? ["admin", "manager"] : ["admin"];
   const { data: staff, error: staffErr } = await sb
     .from("workers")
     .select("auth_user_id")
     .eq("business_id", rec.business_id)
     .eq("active", true)
-    .in("role", ["admin", "manager"]);
+    .in("role", roles);
   if (staffErr) return new Response(staffErr.message, { status: 500 });
 
-  const userIds = (staff ?? [])
+  const staffIds = (staff ?? [])
     .map((s) => s.auth_user_id as string | null)
     .filter((id): id is string => !!id && id !== rec.actor_user_id);
-  if (userIds.length === 0) return Response.json({ sent: 0 });
+  if (staffIds.length > 0) targets.push({ userIds: staffIds, title: staffTitle, body: staffBody });
 
+  // 2) Attendance: also tell that one worker (never other workers).
+  if (entity === "attendance" && rec.target_user_id && rec.target_user_id !== rec.actor_user_id) {
+    const { data: w } = await sb
+      .from("workers")
+      .select("auth_user_id")
+      .eq("business_id", rec.business_id)
+      .eq("auth_user_id", rec.target_user_id)
+      .eq("active", true)
+      .eq("role", "worker")
+      .maybeSingle();
+    if (w?.auth_user_id) {
+      const title =
+        rec.action === "deleted"
+          ? "Attendance removed"
+          : rec.action === "modified"
+            ? "Attendance updated"
+            : "Attendance marked";
+      targets.push({
+        userIds: [w.auth_user_id as string],
+        title,
+        body: rec.detail || "Your attendance was updated.",
+      });
+    }
+  }
+
+  if (targets.length === 0) return Response.json({ sent: 0 });
+
+  const allUserIds = [...new Set(targets.flatMap((t) => t.userIds))];
   const { data: tokens, error: tokErr } = await sb
     .from("push_tokens")
-    .select("token")
+    .select("token, user_id")
     .eq("business_id", rec.business_id)
-    .in("user_id", userIds);
+    .in("user_id", allUserIds);
   if (tokErr) return new Response(tokErr.message, { status: 500 });
   if (!tokens || tokens.length === 0) return Response.json({ sent: 0 });
 
@@ -135,14 +177,17 @@ Deno.serve(async (req) => {
   const bearer = await accessToken(sa);
   const url = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
 
-  const title = `${rec.actor_name ?? "Someone"} ${rec.action ?? "changed"} ${ENTITY[rec.entity ?? ""] ?? rec.entity ?? "something"}`;
-  const body = rec.summary ?? "";
-
   let sent = 0;
   const dead: string[] = [];
 
+  const messages = targets.flatMap((t) =>
+    tokens
+      .filter((tk) => t.userIds.includes(tk.user_id as string))
+      .map((tk) => ({ token: tk.token as string, title: t.title, body: t.body })),
+  );
+
   await Promise.all(
-    tokens.map(async ({ token }) => {
+    messages.map(async ({ token, title, body }) => {
       const res = await fetch(url, {
         method: "POST",
         headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json" },

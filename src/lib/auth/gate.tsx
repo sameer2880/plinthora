@@ -265,13 +265,14 @@ export function Gate({
   );
 
   /* ---------- phone notifications (native Android app only) ---------- */
-  // Once a manager / admin is signed in, register this phone so alerts reach the
-  // notification center even when the app is closed.
+  // Once anyone is signed in (admin, manager or worker), register this phone so alerts reach
+  // the notification center even when the app is closed. What each role receives is decided
+  // by the send-push Edge Function (admin: everything, manager: rentals, worker: own attendance).
   const pushUserId = state.me?.userId;
   const pushRole = state.me?.role;
   useEffect(() => {
     if (phase !== "ready" || !pushUserId) return;
-    if (pushRole !== "admin" && pushRole !== "manager") return;
+    if (pushRole !== "admin" && pushRole !== "manager" && pushRole !== "worker") return;
     void registerNativePush();
   }, [phase, pushUserId, pushRole]);
 
