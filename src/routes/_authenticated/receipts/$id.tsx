@@ -293,7 +293,7 @@ function ReceiptPage() {
         <table className="mb-4 w-full border-collapse">
           <thead>
             <tr className="bg-[#a9c4f0] text-xs font-bold uppercase text-gray-800">
-              <th className="px-3 py-2.5 text-left">Description</th>
+              <th className="px-3 py-2.5 text-left">Material</th>
               <th className="px-3 py-2.5 text-right">Quantity</th>
               <th className="px-3 py-2.5 text-right">Unit price (₹)</th>
               <th className="px-3 py-2.5 text-right">Amount (₹)</th>
