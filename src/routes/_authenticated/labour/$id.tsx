@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { confirm } from "@/components/ui/confirm-dialog";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -23,6 +24,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Upload,
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -79,6 +81,8 @@ type Attendance = {
   note: string | null;
 };
 type Payment = { id: string; amount: number; note: string | null; paid_at: string };
+/** A payment change that is staged in the day window and only saved by Upload / Update. */
+type StagedPayment = { key: string; id?: string; amount: number; note: string | null; paid_at: string };
 type Feedback = {
   work_date: string;
   attendance_feedback: string | null;
@@ -122,6 +126,12 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
   const [attendanceFeedback, setAttendanceFeedback] = useState("");
   const [paymentFeedback, setPaymentFeedback] = useState("");
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // Staged (not yet uploaded) changes made inside the day window
+  const [draftAtt, setDraftAtt] = useState<{ status: AttStatus | null; dayType: DayType } | null>(null);
+  const [pendingAdds, setPendingAdds] = useState<StagedPayment[]>([]);
+  const [pendingEdits, setPendingEdits] = useState<Record<string, StagedPayment>>({});
+  const [pendingDeletes, setPendingDeletes] = useState<string[]>([]);
+  const [payStage, setPayStage] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [editingPay, setEditingPay] = useState<Payment | null>(null);
   const [payForm, setPayForm] = useState({
@@ -181,52 +191,6 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
     attendance.forEach((a) => m.set(a.work_date, a));
     return m;
   }, [attendance]);
-
-  const setStatus = useMutation({
-    mutationFn: async ({
-      date,
-      status,
-      note,
-      dayType,
-    }: {
-      date: string;
-      status: AttStatus | null;
-      note: string;
-      dayType?: DayType;
-    }) => {
-      const existing = attMap.get(date);
-      if (status === null) {
-        if (existing) {
-          const { error } = await supabase.from("worker_attendance").delete().eq("id", existing.id);
-          if (error) throw error;
-        }
-        return;
-      }
-      const row = {
-        worker_id: id,
-        work_date: date,
-        status,
-        present: status === "present",
-        day_type: status === "present" ? (dayType ?? existing?.day_type ?? "full") : "full",
-        note: note.trim() || null,
-      };
-      if (existing) {
-        const { error } = await supabase
-          .from("worker_attendance")
-          .update(row)
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("worker_attendance").insert(row);
-        if (error) throw error;
-      }
-    },
-    onSuccess: (_, { status, date }) => {
-      qc.invalidateQueries({ queryKey: ["worker_attendance", id] });
-      toast.success("Attendance updated");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const savePayment = useMutation({
     mutationFn: async () => {
@@ -325,10 +289,146 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
   const earned = workUnits * Number(worker?.daily_wage ?? 0);
 
   const dayPayments = payments.filter((p) => ymd(new Date(p.paid_at)) === selectedDate);
-  const dayPaymentTotal = dayPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
   const dayAtt = attMap.get(selectedDate);
 
+  // --- staged view of the selected day -------------------------------------------------
+  const effStatus: AttStatus | null = draftAtt ? draftAtt.status : (dayAtt?.status ?? null);
+  const effDayType: DayType = draftAtt ? draftAtt.dayType : (dayAtt?.day_type ?? "full");
+  const effNote = effStatus ? dayNote.trim() || null : null;
+  const attDirty =
+    effStatus !== (dayAtt?.status ?? null) ||
+    (effStatus === "present" && effDayType !== (dayAtt?.day_type ?? "full")) ||
+    (effStatus !== null && effNote !== (dayAtt?.note ?? null));
+
+  const dayPaymentsView: StagedPayment[] = [
+    ...dayPayments
+      .filter((p) => !pendingDeletes.includes(p.id))
+      .map(
+        (p): StagedPayment =>
+          pendingEdits[p.id] ?? { key: p.id, id: p.id, amount: Number(p.amount), note: p.note, paid_at: p.paid_at },
+      ),
+    ...pendingAdds,
+  ];
+  const dayPaymentViewTotal = dayPaymentsView.reduce((sum, p) => sum + Number(p.amount), 0);
+  const payDirty = pendingAdds.length > 0 || Object.keys(pendingEdits).length > 0 || pendingDeletes.length > 0;
+  const dirty = attDirty || payDirty;
+  const hasSavedForDay = !!dayAtt || dayPayments.length > 0;
+  const uploadLabel = hasSavedForDay ? "Update" : "Upload";
+
+  const resetDrafts = () => {
+    setDraftAtt(null);
+    setPendingAdds([]);
+    setPendingEdits({});
+    setPendingDeletes([]);
+  };
+
+  const uploadDay = useMutation({
+    mutationFn: async () => {
+      const date = selectedDate;
+      if (attDirty) {
+        const existing = attMap.get(date);
+        if (effStatus === null) {
+          if (existing) {
+            const { error } = await supabase.from("worker_attendance").delete().eq("id", existing.id);
+            if (error) throw error;
+          }
+        } else {
+          const row = {
+            worker_id: id,
+            work_date: date,
+            status: effStatus,
+            present: effStatus === "present",
+            day_type: effStatus === "present" ? effDayType : "full",
+            note: effNote,
+          };
+          if (existing) {
+            const { error } = await supabase.from("worker_attendance").update(row).eq("id", existing.id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase.from("worker_attendance").insert(row);
+            if (error) throw error;
+          }
+        }
+      }
+      if (pendingDeletes.length > 0) {
+        const { error } = await supabase.from("worker_payments").delete().in("id", pendingDeletes);
+        if (error) throw error;
+      }
+      for (const e of Object.values(pendingEdits)) {
+        const { error } = await supabase
+          .from("worker_payments")
+          .update({ amount: e.amount, note: e.note, paid_at: e.paid_at })
+          .eq("id", e.id!);
+        if (error) throw error;
+      }
+      if (pendingAdds.length > 0) {
+        const { error } = await supabase.from("worker_payments").insert(
+          pendingAdds.map((a) => ({ worker_id: id, amount: a.amount, note: a.note, paid_at: a.paid_at })),
+        );
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["worker_attendance", id] });
+      qc.invalidateQueries({ queryKey: ["all_attendance"] });
+      qc.invalidateQueries({ queryKey: ["worker_payments", id] });
+      toast.success(hasSavedForDay ? "Updated" : "Uploaded");
+      resetDrafts();
+      setDayOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const requestCloseDay = async () => {
+    if (dirty) {
+      const discard = await confirm({
+        description: "You have changes that are not uploaded yet. Discard them?",
+        confirmText: "Discard",
+        variant: "destructive",
+      });
+      if (!discard) return;
+    }
+    resetDrafts();
+    setDayOpen(false);
+  };
+
+  const stagePayment = () => {
+    const amount = Number(payForm.amount);
+    if (!amount) return toast.error("Enter an amount");
+    const base = {
+      amount,
+      note: payForm.note.trim() || null,
+      paid_at: new Date(payForm.paid_at).toISOString(),
+    };
+    if (editingPay) {
+      const isNew = pendingAdds.some((a) => a.key === editingPay.id);
+      if (isNew) {
+        setPendingAdds((list) => list.map((a) => (a.key === editingPay.id ? { ...a, ...base } : a)));
+      } else {
+        setPendingEdits((m) => ({ ...m, [editingPay.id]: { key: editingPay.id, id: editingPay.id, ...base } }));
+      }
+    } else {
+      setPendingAdds((list) => [...list, { key: `new-${Date.now()}-${list.length}`, ...base }]);
+    }
+    setPayOpen(false);
+    setEditingPay(null);
+    setPayForm({ amount: "", note: "", paid_at: localDateTimeValue(new Date()) });
+  };
+
+  const stageDeletePayment = (p: StagedPayment) => {
+    if (!p.id) {
+      setPendingAdds((list) => list.filter((a) => a.key !== p.key));
+      return;
+    }
+    setPendingEdits((m) => {
+      const { [p.id!]: _removed, ...rest } = m;
+      return rest;
+    });
+    setPendingDeletes((list) => [...list, p.id!]);
+  };
+
   const openDay = (date: string) => {
+    resetDrafts();
     setSelectedDate(date);
     setDayNote(attMap.get(date)?.note ?? "");
     const savedFeedback = feedback.find((item) => item.work_date === date);
@@ -338,7 +438,8 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
     setDayOpen(true);
   };
 
-  const openPayment = (p: Payment | null, dateStr?: string) => {
+  const openPayment = (p: Payment | null, dateStr?: string, stageIt = false) => {
+    setPayStage(stageIt);
     setEditingPay(p);
     setPayForm(
       p
@@ -571,7 +672,7 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
         </Card>
       </div>
 
-      <Dialog open={dayOpen} onOpenChange={setDayOpen}>
+      <Dialog open={dayOpen} onOpenChange={(o) => (o ? setDayOpen(true) : void requestCloseDay())}>
         <DialogContent className="max-h-[92vh] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl border-border/80 p-4 shadow-2xl sm:p-6">
           <DialogHeader className="border-b border-border pb-4 pr-8">
             <DialogTitle className="text-lg font-bold sm:text-xl">
@@ -591,8 +692,8 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                   Attendance
                 </div>
                 <div className="mt-1 font-semibold text-foreground">
-                  {dayAtt
-                    ? `${STATUS_LABEL[dayAtt.status]}${dayAtt.status === "present" ? ` · ${DAY_TYPE_LABEL[dayAtt.day_type ?? "full"]}` : ""}`
+                  {effStatus
+                    ? `${STATUS_LABEL[effStatus]}${effStatus === "present" ? ` · ${DAY_TYPE_LABEL[effDayType]}` : ""}`
                     : "Not marked"}
                 </div>
               </div>
@@ -601,7 +702,7 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                   Amount given
                 </div>
                 <div className="mt-1 font-semibold text-primary">
-                  ₹{dayPaymentTotal.toLocaleString("en-IN")}
+                  ₹{dayPaymentViewTotal.toLocaleString("en-IN")}
                 </div>
               </div>
             </div>
@@ -614,18 +715,18 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                     {(["present", "absent", "holiday"] as AttStatus[]).map((s) => (
                       <Button
                         key={s}
-                        variant={dayAtt?.status === s ? "default" : "outline"}
+                        variant={effStatus === s ? "default" : "outline"}
                         onClick={() =>
-                          setStatus.mutate({ date: selectedDate, status: s, note: dayNote })
+                          setDraftAtt({ status: s, dayType: s === "present" ? effDayType : "full" })
                         }
-                        disabled={setStatus.isPending}
+                        disabled={uploadDay.isPending}
                       >
                         {STATUS_LABEL[s]}
                       </Button>
                     ))}
                   </div>
 
-                  {dayAtt?.status === "present" && (
+                  {effStatus === "present" && (
                     <div className="space-y-2 pt-1">
                       <Label className="text-xs text-muted-foreground">How long did he work?</Label>
                       <div className="grid grid-cols-3 gap-2">
@@ -633,16 +734,9 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                           <Button
                             key={d}
                             size="sm"
-                            variant={(dayAtt.day_type ?? "full") === d ? "default" : "outline"}
-                            onClick={() =>
-                              setStatus.mutate({
-                                date: selectedDate,
-                                status: "present",
-                                note: dayNote,
-                                dayType: d,
-                              })
-                            }
-                            disabled={setStatus.isPending}
+                            variant={effDayType === d ? "default" : "outline"}
+                            onClick={() => setDraftAtt({ status: "present", dayType: d })}
+                            disabled={uploadDay.isPending}
                           >
                             {d === "ot" ? "OT" : d === "half" ? "Half day" : "Full day"}
                           </Button>
@@ -652,11 +746,12 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                   )}
 
                   <ConfirmDelete
-                    onConfirm={() =>
-                      setStatus.mutate({ date: selectedDate, status: null, note: "" })
-                    }
+                    onConfirm={() => {
+                      setDraftAtt({ status: null, dayType: "full" });
+                      setDayNote("");
+                    }}
                     title="Clear attendance for this day?"
-                    description="The attendance mark and its note for this day will be removed. Payments are not affected."
+                    description="The attendance mark and its note will be removed when you press Update. Payments are not affected."
                     confirmLabel="Clear"
                     restricted
                   >
@@ -664,7 +759,7 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                       variant="outline"
                       size="sm"
                       className="text-destructive w-full"
-                      disabled={!dayAtt}
+                      disabled={!effStatus}
                     >
                       <Trash2 className="h-4 w-4 mr-1.5" /> Clear attendance
                     </Button>
@@ -679,22 +774,6 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                     onChange={(e) => setDayNote(e.target.value)}
                     placeholder="Optional note for this day"
                   />
-                  {dayAtt && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-2"
-                      onClick={() =>
-                        setStatus.mutate({
-                          date: selectedDate,
-                          status: dayAtt.status,
-                          note: dayNote,
-                        })
-                      }
-                    >
-                      Save note
-                    </Button>
-                  )}
                 </div>
               </>
             )}
@@ -706,52 +785,66 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => openPayment(null, selectedDate)}
+                    onClick={() => openPayment(null, selectedDate, true)}
                   >
                     <Plus className="h-4 w-4 mr-1.5" /> Add
                   </Button>
                 )}
               </div>
-              {dayPayments.length === 0 && (
+              {dayPaymentsView.length === 0 && (
                 <p className="rounded-lg bg-muted/50 px-3 py-4 text-center text-sm text-muted-foreground">
                   No payments on this day.
                 </p>
               )}
               <div className="space-y-2">
-                {dayPayments.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/20 p-3"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-primary sm:text-lg">
-                        ₹{Number(p.amount).toLocaleString("en-IN")}
+                {dayPaymentsView.map((p) => {
+                  const unsaved = !p.id || !!pendingEdits[p.id];
+                  return (
+                    <div
+                      key={p.key}
+                      className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/20 p-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-primary sm:text-lg">
+                          ₹{Number(p.amount).toLocaleString("en-IN")}
+                        </div>
+                        {p.note && (
+                          <div className="text-sm text-muted-foreground break-words">{p.note}</div>
+                        )}
+                        <div className="text-[11px] text-muted-foreground">
+                          {unsaved && <span className="mr-1 font-semibold text-warning">Not uploaded ·</span>}
+                          {new Date(p.paid_at).toLocaleTimeString("en-IN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
                       </div>
-                      {p.note && (
-                        <div className="text-sm text-muted-foreground break-words">{p.note}</div>
+                      {!readOnly && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              openPayment(
+                                { id: p.id ?? p.key, amount: p.amount, note: p.note, paid_at: p.paid_at },
+                                undefined,
+                                true,
+                              )
+                            }
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <ConfirmDelete
+                            onConfirm={() => stageDeletePayment(p)}
+                            title="Remove this payment?"
+                            description="It will be removed when you press Update."
+                            restricted
+                          />
+                        </>
                       )}
-                      <div className="text-[11px] text-muted-foreground">
-                        {new Date(p.paid_at).toLocaleTimeString("en-IN", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </div>
                     </div>
-                    {!readOnly && (
-                      <>
-                        <Button variant="ghost" size="icon" onClick={() => openPayment(p)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <ConfirmDelete
-                          onConfirm={() => delPayment.mutate(p.id)}
-                          title="Delete this payment?"
-                          description="This payment record will be permanently removed."
-                          restricted
-                        />
-                      </>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -804,10 +897,20 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
             <Button
               className="w-full sm:w-auto"
               variant="outline"
-              onClick={() => setDayOpen(false)}
+              onClick={() => void requestCloseDay()}
             >
               Close
             </Button>
+            {!readOnly && (
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() => uploadDay.mutate()}
+                disabled={!dirty || uploadDay.isPending}
+              >
+                <Upload className="h-4 w-4 mr-1.5" />
+                {uploadDay.isPending ? "Uploading…" : uploadLabel}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -852,15 +955,20 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Payments do not change attendance — set attendance from the calendar day.
+                {payStage
+                  ? "Press Upload / Update in the day window to save this payment."
+                  : "Payments do not change attendance — set attendance from the calendar day."}
               </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setPayOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => savePayment.mutate()} disabled={savePayment.isPending}>
-                {savePayment.isPending ? "Saving…" : "Save"}
+              <Button
+                onClick={() => (payStage ? stagePayment() : savePayment.mutate())}
+                disabled={!payStage && savePayment.isPending}
+              >
+                {payStage ? "Done" : savePayment.isPending ? "Saving…" : "Save"}
               </Button>
             </DialogFooter>
           </DialogContent>
