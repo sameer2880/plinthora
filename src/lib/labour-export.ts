@@ -4,7 +4,13 @@
  * - Excel (.xlsx): a "Summary" sheet + ONE SHEET PER LABOUR. Each labour sheet lists,
  *   date by date, the attendance and the payment made on that date.
  * - PDF (portrait A4): same content, each labour starts on a new page.
+ *
+ * An optional date range (from / to, inclusive, YYYY-MM-DD) limits the export to that period.
+ * Balances are then calculated for the selected period only.
  */
+
+/** Inclusive date range, YYYY-MM-DD. Leave a side empty for "no limit". */
+export type DateRange = { from?: string; to?: string };
 
 export type LabourWorker = {
   id: string;
@@ -94,6 +100,16 @@ const fmtDate = (s: string) => {
 };
 
 const rs = (n: number) => `Rs. ${Number(n || 0).toLocaleString("en-IN")}`;
+
+const hasRange = (r?: DateRange) => Boolean(r && (r.from || r.to));
+
+/** Human readable period, e.g. "01 Sep 2026 to 30 Sep 2026" or "All dates". */
+export function periodLabel(r?: DateRange): string {
+  if (!r || (!r.from && !r.to)) return "All dates";
+  if (r.from && r.to) return `${fmtDate(r.from)} to ${fmtDate(r.to)}`;
+  if (r.from) return `From ${fmtDate(r.from)}`;
+  return `Up to ${fmtDate(r.to as string)}`;
+}
 
 const slug = (s: string) => s.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-_]/g, "").toLowerCase();
 
@@ -193,15 +209,22 @@ async function fetchAll<T>(
   table: "worker_attendance" | "worker_payments",
   columns: string,
   workerIds: string[],
+  range?: DateRange,
 ): Promise<(T & { worker_id: string })[]> {
   const { supabase } = await import("@/integrations/supabase/client");
   const PAGE = 1000;
   const out: (T & { worker_id: string })[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from(table)
-      .select(`worker_id, ${columns}`)
-      .in("worker_id", workerIds)
+    let query = supabase.from(table).select(`worker_id, ${columns}`).in("worker_id", workerIds);
+    if (table === "worker_attendance") {
+      if (range?.from) query = query.gte("work_date", range.from);
+      if (range?.to) query = query.lte("work_date", range.to);
+    } else {
+      // payments carry a timestamp: use the local start / end of the chosen days
+      if (range?.from) query = query.gte("paid_at", new Date(`${range.from}T00:00:00`).toISOString());
+      if (range?.to) query = query.lte("paid_at", new Date(`${range.to}T23:59:59.999`).toISOString());
+    }
+    const { data, error } = await query
       .order("worker_id")
       .order(table === "worker_attendance" ? "work_date" : "paid_at")
       .range(from, from + PAGE - 1);
@@ -212,12 +235,12 @@ async function fetchAll<T>(
   return out;
 }
 
-export async function fetchLabourData(workers: LabourWorker[]): Promise<LabourData[]> {
+export async function fetchLabourData(workers: LabourWorker[], range?: DateRange): Promise<LabourData[]> {
   if (workers.length === 0) return [];
   const ids = workers.map((w) => w.id);
   const [att, pay] = await Promise.all([
-    fetchAll<AttendanceRecord>("worker_attendance", "work_date, status, day_type, note", ids),
-    fetchAll<PaymentRecord>("worker_payments", "amount, note, paid_at", ids),
+    fetchAll<AttendanceRecord>("worker_attendance", "work_date, status, day_type, note", ids, range),
+    fetchAll<PaymentRecord>("worker_payments", "amount, note, paid_at", ids, range),
   ]);
   return workers.map((worker) => ({
     worker,
@@ -233,7 +256,7 @@ export async function fetchLabourData(workers: LabourWorker[]): Promise<LabourDa
 const GREEN = "FF166534";
 const LIGHT = "FFF3F7F4";
 
-export async function buildLabourXlsx(data: LabourData[]): Promise<ArrayBuffer> {
+export async function buildLabourXlsx(data: LabourData[], range?: DateRange): Promise<ArrayBuffer> {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
   wb.created = new Date();
@@ -256,7 +279,7 @@ export async function buildLabourXlsx(data: LabourData[]): Promise<ArrayBuffer> 
   sum.mergeCells("A1:H1");
   sum.getCell("A1").value = "Labour Charges — Summary";
   sum.getCell("A1").font = { bold: true, size: 14 };
-  sum.getCell("A2").value = `Generated ${new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`;
+  sum.getCell("A2").value = `Period: ${periodLabel(range)}   |   Generated ${new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`;
   sum.getCell("A2").font = { color: { argb: "FF666666" } };
   sum.columns = [
     { key: "name", width: 26 },
@@ -334,13 +357,19 @@ export async function buildLabourXlsx(data: LabourData[]): Promise<ArrayBuffer> 
       `Earned: ₹${summary.earned.toLocaleString("en-IN")}   Paid: ₹${summary.paid.toLocaleString("en-IN")}   Balance: ₹${summary.balance.toLocaleString("en-IN")}`;
     ws.getCell("A3").font = { color: { argb: "FF444444" } };
 
+    ws.mergeCells("A4:H4");
+    ws.getCell("A4").value = `Period: ${periodLabel(range)}`;
+    ws.getCell("A4").font = { bold: true, color: { argb: "FF166534" } };
+
     const head = ws.getRow(5);
     head.values = ["Date", "Day", "Attendance", "Day type", "Wage earned (₹)", "Payment paid (₹)", "Note", "Balance (₹)"];
     headStyle(head);
 
     if (rows.length === 0) {
       ws.mergeCells("A6:H6");
-      ws.getCell("A6").value = "No attendance or payment records yet.";
+      ws.getCell("A6").value = hasRange(range)
+        ? "No attendance or payment records in this period."
+        : "No attendance or payment records yet.";
       ws.getCell("A6").font = { italic: true, color: { argb: "FF888888" } };
       return;
     }
@@ -391,7 +420,7 @@ export async function buildLabourXlsx(data: LabourData[]): Promise<ArrayBuffer> 
 /* PDF — portrait A4, each labour starts on a new page                 */
 /* ------------------------------------------------------------------ */
 
-export async function buildLabourPdf(data: LabourData[]) {
+export async function buildLabourPdf(data: LabourData[], range?: DateRange) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth(); // 210
@@ -456,9 +485,13 @@ export async function buildLabourPdf(data: LabourData[]) {
       M,
       y + 15,
     );
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(22, 101, 52);
+    doc.text(`Period: ${periodLabel(range)}`, M, y + 19.5);
+    doc.setFont("helvetica", "normal");
 
     // ----- Totals boxes -----
-    const boxY = y + 19;
+    const boxY = y + 23.5;
     const boxW = (tableW - 8) / 3;
     const boxes = [
       { l: "Wage earned", v: rs(summary.earned) },
@@ -485,7 +518,11 @@ export async function buildLabourPdf(data: LabourData[]) {
     if (rows.length === 0) {
       doc.setFontSize(9);
       doc.setTextColor(120);
-      doc.text("No attendance or payment records yet.", M, y + 4);
+      doc.text(
+        hasRange(range) ? "No attendance or payment records in this period." : "No attendance or payment records yet.",
+        M,
+        y + 4,
+      );
       doc.setTextColor(0);
       return;
     }
@@ -590,22 +627,34 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-const fileBase = (workers: LabourWorker[]) =>
-  workers.length === 1 ? `${slug(workers[0].name) || "labour"}-records` : `labour-charges-${stamp()}`;
+const fileBase = (workers: LabourWorker[], range?: DateRange) => {
+  const base =
+    workers.length === 1 ? `${slug(workers[0].name) || "labour"}-records` : `labour-charges-${stamp()}`;
+  if (!hasRange(range)) return base;
+  return `${base}-${range?.from ?? "start"}_to_${range?.to ?? "today"}`;
+};
+
+async function loadForExport(workers: LabourWorker[], range?: DateRange) {
+  const data = await fetchLabourData(workers, range);
+  if (hasRange(range) && data.every((d) => d.attendance.length === 0 && d.payments.length === 0)) {
+    throw new Error("No attendance or payment records found for the selected dates");
+  }
+  return data;
+}
 
 /** Excel: Summary sheet + one sheet per labour (date, attendance, payment that day). */
-export async function exportLabourXlsx(workers: LabourWorker[]) {
-  const data = await fetchLabourData(workers);
-  const buf = await buildLabourXlsx(data);
+export async function exportLabourXlsx(workers: LabourWorker[], range?: DateRange) {
+  const data = await loadForExport(workers, range);
+  const buf = await buildLabourXlsx(data, range);
   downloadBlob(
     new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-    `${fileBase(workers)}.xlsx`,
+    `${fileBase(workers, range)}.xlsx`,
   );
 }
 
 /** PDF (portrait A4): each labour on its own page(s). */
-export async function exportLabourPdf(workers: LabourWorker[]) {
-  const data = await fetchLabourData(workers);
-  const doc = await buildLabourPdf(data);
-  doc.save(`${fileBase(workers)}.pdf`);
+export async function exportLabourPdf(workers: LabourWorker[], range?: DateRange) {
+  const data = await loadForExport(workers, range);
+  const doc = await buildLabourPdf(data, range);
+  doc.save(`${fileBase(workers, range)}.pdf`);
 }

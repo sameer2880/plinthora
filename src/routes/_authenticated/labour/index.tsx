@@ -24,18 +24,8 @@ import {
   Check,
   X,
   Eraser,
-  FileSpreadsheet,
-  FileText,
-  Loader2,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { exportLabourPdf, exportLabourXlsx } from "@/lib/labour-export";
+import { LabourExportDialog } from "@/components/LabourExportDialog";
 import { toast } from "sonner";
 import { confirm } from "@/components/ui/confirm-dialog";
 import type { UserRole } from "@/lib/auth/roles";
@@ -517,7 +507,7 @@ function MarkAttendanceDialog({
 function LabourList() {
   const [q, setQ] = useState("");
   const [markOpen, setMarkOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // Labour Charges only ever shows "worker" role users of the current business.
   const { data: workers = [], isLoading } = useQuery({
@@ -536,23 +526,10 @@ function LabourList() {
     return workers.filter((w) => w.name.toLowerCase().includes(ql) || (w.phone ?? "").includes(ql));
   }, [workers, q]);
 
-  const runExport = async (kind: "xlsx" | "pdf") => {
-    if (filtered.length === 0) return toast.error("No workers to export");
-    setExporting(true);
-    try {
-      if (kind === "xlsx") await exportLabourXlsx(filtered);
-      else await exportLabourPdf(filtered);
-      toast.success(kind === "xlsx" ? "Excel downloaded" : "PDF downloaded");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Export failed");
-    } finally {
-      setExporting(false);
-    }
-  };
-
   return (
     <AdminOnly label="Labour Charges">
     <div className="space-y-5">
+      <LabourExportDialog open={exportOpen} onOpenChange={setExportOpen} workers={filtered} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -564,30 +541,9 @@ function LabourList() {
           <Button variant="outline" onClick={() => setMarkOpen(true)}>
             <CalendarCheck className="h-4 w-4 mr-1.5" /> Mark Attendance
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" disabled={exporting}>
-                {exporting ? (
-                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 mr-1.5" />
-                )}{" "}
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                {filtered.length} worker{filtered.length === 1 ? "" : "s"} · all dates
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => runExport("xlsx")}>
-                <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel (sheet per labour)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => runExport("pdf")}>
-                <FileText className="h-4 w-4 mr-2" /> PDF (A4 portrait)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button variant="outline" onClick={() => setExportOpen(true)}>
+            <Download className="h-4 w-4 mr-1.5" /> Export
+          </Button>
           <Button asChild>
             <Link to="/manage-worker">
               <UserCog className="h-4 w-4 mr-1.5" /> Manage Users
