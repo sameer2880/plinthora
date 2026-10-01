@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getBusiness } from "@/lib/auth/session";
@@ -51,10 +51,13 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
   const qc = useQueryClient();
   const [form, setForm] = useState(emptyForm());
   const [wa, setWa] = useState<WhatsAppPreview | null>(null);
+  // Status shown when the edit form opened, so we only touch existing materials if it was changed.
+  const initialStatus = useRef<"active" | "returned">("active");
 
   useEffect(() => {
     if (editingGroup) {
       const primary = editingGroup.rows[0];
+      initialStatus.current = primary.status === "returned" ? "returned" : "active";
       setForm({
         customer_name: primary.customer_name,
         customer_phone: primary.customer_phone,
@@ -103,10 +106,13 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
         const newItems = form.items.filter((it) => !it.id);
         const results: Rental[] = [];
 
-        // Existing materials: update details, but never touch their own return
-        // status here — that's managed from the "Mark returned" checklist.
+        // Existing materials: update details. Their return status is only changed when the
+        // Status dropdown was actually changed (e.g. Returned -> Active); otherwise each
+        // material keeps its own status (managed from the "Mark returned" checklist).
+        const statusChanged = form.status !== initialStatus.current;
         for (const it of existingItems) {
           const payload = {
+            ...(statusChanged ? { status: form.status } : {}),
             customer_name: form.customer_name,
             customer_phone: form.customer_phone,
             customer_address: form.customer_address,
@@ -320,7 +326,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
             </Field>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={editingGroup ? "Status (new materials only)" : "Status"}>
+            <Field label="Status">
               <select
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                 value={form.status}
@@ -343,7 +349,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
           </div>
           {editingGroup && (
             <p className="text-[11px] text-muted-foreground -mt-2">
-              Existing materials keep their current return status — use "Mark returned" on the card to change it.
+              Changing Status applies to all materials in this rental. Leave it as is to keep each material's own return status (or use "Mark returned" on the card).
             </p>
           )}
           <Field label="Notes">
