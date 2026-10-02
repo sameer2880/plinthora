@@ -147,7 +147,7 @@ const nav = [
   },
 ];
 
-function useNavLinks() {
+export function useNavLinks() {
   const { me, business } = useSession();
   const worker = me?.role === "worker";
 
@@ -789,6 +789,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
       document.documentElement.classList.add("dark");
       setDark(true);
     }
+  }, []);
+
+  // The right-click menu can also switch the theme: follow the <html class="dark"> flag so
+  // the sidebar's own toggle always shows the real state.
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setDark(root.classList.contains("dark"));
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
   }, []);
 
   /* ================================
