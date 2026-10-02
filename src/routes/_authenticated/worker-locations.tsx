@@ -156,9 +156,9 @@ function WorkerLocationsPage() {
               void refetch();
             }}
             disabled={isFetching}
-            className="h-8 gap-1.5 px-3 text-xs"
+            className="h-8 !min-h-0 gap-1.5 px-3 text-xs font-semibold"
           >
-            <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
+            <RefreshCw className={cn("!size-3 text-primary", isFetching && "animate-spin")} />
             Refresh
           </Button>
         </div>
