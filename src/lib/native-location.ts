@@ -20,6 +20,11 @@ type NativeLocationBridge = {
   getLocationWorkerId?: () => string;
   /** "always" | "foreground" | "denied" */
   getLocationPermissionState?: () => string;
+  /** Added in app v1.0.3 - older APKs don't have these, so every call is guarded. */
+  isBatteryOptimizationIgnored?: () => boolean;
+  requestBatteryOptimizationExemption?: () => void;
+  openAppSettings?: () => void;
+  getLocationDiagnostics?: () => string;
 };
 
 type LooseRpc = {
@@ -123,5 +128,65 @@ export async function stopNativeLocation(): Promise<void> {
     ]);
   } catch {
     /* best effort */
+  }
+}
+
+/**
+ * Is Android allowed to put the app to sleep in the background? `false` means Doze will cut
+ * location after a few minutes of the phone sitting idle. `null` = unknown / older APK.
+ */
+export function nativeBatteryUnrestricted(): boolean | null {
+  const b = nativeBridge();
+  if (!b?.isBatteryOptimizationIgnored) return null;
+  try {
+    return b.isBatteryOptimizationIgnored();
+  } catch {
+    return null;
+  }
+}
+
+/** Shows Android's "allow background activity" dialog. Call from a button tap. */
+export function requestNativeBatteryExemption(): void {
+  try {
+    nativeBridge()?.requestBatteryOptimizationExemption?.();
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Opens the app's page in the phone's Settings (auto-start / battery switches live there). */
+export function openNativeAppSettings(): void {
+  try {
+    nativeBridge()?.openAppSettings?.();
+  } catch {
+    /* ignore */
+  }
+}
+
+export type NativeLocationDiagnostics = {
+  /** Phone clock (ms) of the last upload the server accepted, 0 if none yet. */
+  lastOkAt: number;
+  /** Phone clock (ms) of the background service's last heartbeat, 0 if it never ran. */
+  lastBeatAt: number;
+  /** Text about the last upload attempt, e.g. "OK (HTTP 200)" or "Network error: ...". */
+  lastResult: string;
+  /** Phone clock (ms) when this snapshot was taken. */
+  now: number;
+};
+
+/** What the phone's background service is really doing. `null` on an older APK. */
+export function nativeLocationDiagnostics(): NativeLocationDiagnostics | null {
+  const b = nativeBridge();
+  if (!b?.getLocationDiagnostics) return null;
+  try {
+    const raw = JSON.parse(b.getLocationDiagnostics() || "{}") as Partial<NativeLocationDiagnostics>;
+    return {
+      lastOkAt: Number(raw.lastOkAt) || 0,
+      lastBeatAt: Number(raw.lastBeatAt) || 0,
+      lastResult: typeof raw.lastResult === "string" ? raw.lastResult : "",
+      now: Number(raw.now) || Date.now(),
+    };
+  } catch {
+    return null;
   }
 }

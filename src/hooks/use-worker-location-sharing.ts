@@ -2,9 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   isNativeLocationAvailable,
+  nativeBatteryUnrestricted,
+  nativeLocationDiagnostics,
   nativeLocationPermission,
   pauseNativeLocation,
   startNativeLocation,
+  type NativeLocationDiagnostics,
   type NativeLocationPermission,
 } from "@/lib/native-location";
 
@@ -24,6 +27,10 @@ const UPDATE_INTERVAL_MS = 60_000;
 
 // Re-checks the working-hours window so sharing pauses / resumes on its own.
 const HOURS_CHECK_INTERVAL_MS = 30_000;
+
+// Native app only: if the phone's background service has not delivered a position for this
+// long while it should be sharing, the app nudges it awake again (it self-heals on open).
+const NATIVE_STALE_MS = 3 * 60_000;
 
 export function isWithinWorkingHours(date: Date = new Date()) {
   const minutes = date.getHours() * 60 + date.getMinutes();
@@ -57,6 +64,10 @@ export function useWorkerLocationSharing(workerId: string | null) {
   // reporting with the app closed. In a browser / PWA we fall back to browser geolocation.
   const [native, setNative] = useState(false);
   const [permission, setPermission] = useState<NativeLocationPermission>("unknown");
+  // false = Android may put the app to sleep in the background (Doze), which is what stops
+  // tracking a few minutes after the app is closed. null = unknown / older APK.
+  const [batteryUnrestricted, setBatteryUnrestricted] = useState<boolean | null>(null);
+  const [diagnostics, setDiagnostics] = useState<NativeLocationDiagnostics | null>(null);
   useEffect(() => {
     setNative(isNativeLocationAvailable());
   }, []);
@@ -275,9 +286,29 @@ export function useWorkerLocationSharing(workerId: string | null) {
 
     let cancelled = false;
 
+    let lastNudgeAt = 0;
+
     const refresh = () => {
       const state = nativeLocationPermission();
       setPermission(state);
+      setBatteryUnrestricted(nativeBatteryUnrestricted());
+
+      const diag = nativeLocationDiagnostics();
+      setDiagnostics(diag);
+
+      // Self-heal: the service should have uploaded within the last few minutes. If it has
+      // not, ask the phone to (re)start it - no-op when it is already running.
+      if (
+        diag &&
+        state !== "denied" &&
+        isWithinWorkingHours() &&
+        diag.now - diag.lastOkAt > NATIVE_STALE_MS &&
+        Date.now() - lastNudgeAt > 60_000
+      ) {
+        lastNudgeAt = Date.now();
+        void startNativeLocation(workerId);
+      }
+
       if (!isWithinWorkingHours()) {
         // The phone's service idles outside working hours and resumes by itself.
         setErrorMessage(null);
@@ -333,5 +364,15 @@ export function useWorkerLocationSharing(workerId: string | null) {
     }
   }, [enabled, workerId, writeRow]);
 
-  return { enabled, status, errorMessage, toggle, loaded, native, permission };
+  return {
+    enabled,
+    status,
+    errorMessage,
+    toggle,
+    loaded,
+    native,
+    permission,
+    batteryUnrestricted,
+    diagnostics,
+  };
 }
