@@ -430,6 +430,7 @@ export type Database = {
           daily_wage: number;
           email: string | null;
           id: string;
+          last_seen_at: string | null;
           must_set_password: boolean;
           name: string;
           notes: string | null;
@@ -448,6 +449,7 @@ export type Database = {
           daily_wage?: number;
           email?: string | null;
           id?: string;
+          last_seen_at?: string | null;
           must_set_password?: boolean;
           name: string;
           notes?: string | null;
@@ -466,6 +468,7 @@ export type Database = {
           daily_wage?: number;
           email?: string | null;
           id?: string;
+          last_seen_at?: string | null;
           must_set_password?: boolean;
           name?: string;
           notes?: string | null;
@@ -482,6 +485,10 @@ export type Database = {
     Functions: {
       claim_device: {
         Args: { p_token: string };
+        Returns: undefined;
+      };
+      touch_last_seen: {
+        Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
       clear_must_set_password: {

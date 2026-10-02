@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Pencil, Plus, Power, Search, ShieldAlert, Trash2, Users } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
-import { createUserFn, deleteUserFn, getLastSignInsFn, resetPasswordFn, updateUserFn } from "@/lib/api/users.functions";
+import { createUserFn, deleteUserFn, resetPasswordFn, updateUserFn } from "@/lib/api/users.functions";
 import { isSuperAdmin } from "@/lib/auth/access";
 import { MOBILE_REGEX } from "@/lib/auth/identity";
 import type { UserRole } from "@/lib/auth/roles";
@@ -39,6 +40,7 @@ interface UserRow {
   active: boolean;
   daily_wage: number | string | null;
   notes: string | null;
+  last_seen_at: string | null;
 }
 
 const ROLE_LABEL: Record<UserRole, string> = { admin: "Admin", manager: "Manager", worker: "Worker" };
@@ -85,29 +87,34 @@ function PlatformUsers() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["platform", "users"],
     enabled: allowed,
+    // Refresh often so "Active now" / "Last seen" stay current while this page is open.
+    refetchInterval: 30_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("workers")
-        .select("id, business_id, name, phone, email, username, role, active, daily_wage, notes")
+        .select("id, business_id, name, phone, email, username, role, active, daily_wage, notes, last_seen_at")
         .order("name");
       if (error) throw error;
       return data as UserRow[];
     },
   });
 
-  // When each user last signed in (platform admin only, read from the login system).
-  const { data: lastSignIns } = useQuery({
-    queryKey: ["platform", "last-sign-ins"],
-    enabled: allowed,
-    retry: false,
-    queryFn: () => getLastSignInsFn(),
-  });
+  // "Active now" lasts 2.5 minutes after the last heartbeat (the app pings every minute).
+  const ACTIVE_WINDOW_MS = 150_000;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
 
-  const lastSignInLabel = (id: string) => {
-    if (!lastSignIns) return null;
-    const at = lastSignIns[id];
-    if (!at) return "Never signed in";
-    return `Last sign-in: ${new Date(at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`;
+  const lastSeen = (u: UserRow): { active: boolean; label: string } => {
+    if (!u.last_seen_at) return { active: false, label: "Not seen yet" };
+    const at = new Date(u.last_seen_at);
+    if (now - at.getTime() < ACTIVE_WINDOW_MS) return { active: true, label: "Active now" };
+    return {
+      active: false,
+      label: `Last seen ${formatDistanceToNow(at, { addSuffix: true })} · ${at.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`,
+    };
   };
 
   const businessName = (id: string) => businesses.find((b) => b.id === id)?.name ?? "—";
@@ -296,9 +303,17 @@ function PlatformUsers() {
                   {u.username ? ` · @${u.username}` : ""}
                   {u.email ? ` · ${u.email}` : ""}
                 </div>
-                {lastSignInLabel(u.id) && (
-                  <div className="text-xs text-muted-foreground">{lastSignInLabel(u.id)}</div>
-                )}
+                {(() => {
+                  const seen = lastSeen(u);
+                  return (
+                    <div
+                      className={`flex items-center gap-1.5 text-xs ${seen.active ? "font-semibold text-emerald-600" : "text-muted-foreground"}`}
+                    >
+                      {seen.active && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
+                      {seen.label}
+                    </div>
+                  );
+                })()}
               </div>
               <div className="flex shrink-0 gap-1.5">
                 <Button size="icon" variant="outline" aria-label="Edit" onClick={() => openEdit(u)}>

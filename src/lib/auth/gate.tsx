@@ -278,6 +278,34 @@ export function Gate({
     void registerNativePush();
   }, [phase, pushUserId, pushRole]);
 
+  /* ---------- "last seen" heartbeat ---------- */
+  // While the app is open and visible, tell the server every minute that this
+  // user is here. The platform admin's Users page reads it as "Active now" /
+  // "Last seen ...". Fire-and-forget: a failed ping must never disturb the app.
+  const seenWorkerId = state.me?.workerId;
+  useEffect(() => {
+    if (phase !== "ready" || !seenWorkerId) return;
+
+    const ping = () => {
+      if (document.visibilityState !== "visible") return;
+      void supabase.rpc("touch_last_seen").then(
+        () => undefined,
+        () => undefined,
+      );
+    };
+
+    ping();
+    const interval = window.setInterval(ping, 60_000);
+    document.addEventListener("visibilitychange", ping);
+    window.addEventListener("focus", ping);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", ping);
+      window.removeEventListener("focus", ping);
+    };
+  }, [phase, seenWorkerId]);
+
   /* ---------- restore an existing session on load ---------- */
 
   useEffect(() => {
