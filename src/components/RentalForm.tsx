@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-import { MessageCircle, Plus, Trash2 } from "lucide-react";
+import { Check, MessageCircle, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -69,11 +70,16 @@ const emptyForm = () => ({
 export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
   const qc = useQueryClient();
   const [form, setForm] = useState(emptyForm());
+  // Grand total typed by hand (null = auto-add the line totals).
+  const [grandOverride, setGrandOverride] = useState<string | null>(null);
+  const [editingTotal, setEditingTotal] = useState(false);
   const [wa, setWa] = useState<WhatsAppPreview | null>(null);
   // Status shown when the edit form opened, so we only touch existing materials if it was changed.
   const initialStatus = useRef<"active" | "returned">("active");
 
   useEffect(() => {
+    setGrandOverride(null);
+    setEditingTotal(false);
     if (editingGroup) {
       const primary = editingGroup.rows[0];
       initialStatus.current = primary.status === "returned" ? "returned" : "active";
@@ -113,7 +119,8 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
     const q = Number(it.quantity || 0);
     return q > 0 ? roundMoney(Number(it.direct_total || 0) / q) : 0;
   };
-  const grandTotal = form.items.reduce((s, it) => s + itemTotal(it), 0);
+  const linesSum = form.items.reduce((s, it) => s + itemTotal(it), 0);
+  const grandTotal = grandOverride !== null ? Number(grandOverride || 0) : linesSum;
   const balanceDue = grandTotal - Number(form.security_deposit || 0);
 
   const updateItem = (idx: number, patch: Partial<Item>) => {
@@ -130,12 +137,24 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
       if (form.items.some((it) => !it.material_name)) throw new Error("Every material row needs a name");
       if (form.items.some((it) => !it.unit.trim())) throw new Error("Every material row needs a unit (or pick one from the list)");
 
+      // When the grand total was typed by hand, the first material carries whatever the other
+      // lines don't, so the rows always add up to exactly the total shown.
+      let finalItems = form.items;
+      if (grandOverride !== null) {
+        const others = form.items.slice(1).reduce((s, it) => s + itemTotal(it), 0);
+        const first = roundMoney(Number(grandOverride || 0) - others);
+        if (first < 0) throw new Error("Total is less than the other materials' line totals");
+        finalItems = form.items.map((it, i) =>
+          i === 0 ? { ...it, mode: "total" as const, direct_total: first } : it,
+        );
+      }
+
       const { data: authUser } = await supabase.auth.getUser();
       const createdBy = authUser.user?.id ?? null;
 
       if (editingGroup) {
-        const existingItems = form.items.filter((it) => it.id);
-        const newItems = form.items.filter((it) => !it.id);
+        const existingItems = finalItems.filter((it) => it.id);
+        const newItems = finalItems.filter((it) => !it.id);
         const results: Rental[] = [];
 
         // Existing materials: update details. Their return status is only changed when the
@@ -201,7 +220,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
 
       // New rental: every material shares one group_id so they render as one card.
       const group_id = crypto.randomUUID();
-      const rows = form.items.map((it, idx) => ({
+      const rows = finalItems.map((it, idx) => ({
         customer_name: form.customer_name,
         customer_phone: form.customer_phone,
         customer_address: form.customer_address,
@@ -349,19 +368,23 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
                     />
                   </Field>
                   <Field label="Unit">
-                    <select
-                      className="w-full h-10 rounded-xl border border-input bg-background px-3 text-sm"
+                    <Select
                       value={it.customUnit ? CUSTOM_UNIT : it.unit.toLowerCase()}
-                      onChange={(e) => {
-                        if (e.target.value === CUSTOM_UNIT) updateItem(idx, { customUnit: true, unit: "" });
-                        else updateItem(idx, { customUnit: false, unit: e.target.value });
+                      onValueChange={(v) => {
+                        if (v === CUSTOM_UNIT) updateItem(idx, { customUnit: true, unit: "" });
+                        else updateItem(idx, { customUnit: false, unit: v });
                       }}
                     >
-                      {UNIT_PRESETS.map((u) => (
-                        <option key={u} value={u}>{u}</option>
-                      ))}
-                      <option value={CUSTOM_UNIT}>custom</option>
-                    </select>
+                      <SelectTrigger className="h-10 rounded-xl bg-background">
+                        <SelectValue placeholder="unit" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {UNIT_PRESETS.map((u) => (
+                          <SelectItem key={u} value={u}>{u}</SelectItem>
+                        ))}
+                        <SelectItem value={CUSTOM_UNIT}>custom</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </Field>
                 </div>
                 {it.customUnit && (
@@ -436,8 +459,66 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
           <div className="rounded-2xl bg-primary/10 border-2 border-primary/30 px-4 py-3 space-y-1.5">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Materials Total</span>
-              <span className="font-medium">₹{grandTotal.toLocaleString("en-IN")}</span>
+              {editingTotal ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">₹</span>
+                  <Input
+                    autoFocus
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="h-8 w-32 rounded-full text-right"
+                    value={grandOverride ?? ""}
+                    onChange={(e) => setGrandOverride(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        setEditingTotal(false);
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-full text-primary hover:bg-primary/10"
+                    onClick={() => setEditingTotal(false)}
+                    aria-label="Done"
+                  >
+                    <Check className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <span className="font-medium">₹{grandTotal.toLocaleString("en-IN")}</span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 rounded-full text-primary hover:bg-primary/10"
+                    onClick={() => {
+                      if (grandOverride === null) setGrandOverride(String(linesSum || ""));
+                      setEditingTotal(true);
+                    }}
+                    aria-label="Edit total"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
+            {grandOverride !== null && !editingTotal && (
+              <div className="flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
+                <span>entered by hand</span>
+                <button
+                  type="button"
+                  onClick={() => setGrandOverride(null)}
+                  className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-primary hover:bg-primary/10"
+                >
+                  <Undo2 className="h-3 w-3" /> use line totals
+                </button>
+              </div>
+            )}
             {Number(form.security_deposit || 0) > 0 && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Advance Received</span>
