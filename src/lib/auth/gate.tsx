@@ -28,6 +28,7 @@ import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
 import { resolveLoginFn } from "@/lib/api/auth.functions";
 import { PLATFORM_TAGLINE } from "@/lib/brand";
 import { registerNativePush, unregisterNativePush } from "@/lib/native-push";
+import { stopNativeLocation } from "@/lib/native-location";
 import {
   SessionContext,
   loadSessionState,
@@ -111,7 +112,8 @@ export function lock() {
   localStorage.removeItem(DEVICE_TOKEN_KEY);
   setSessionSnapshot(EMPTY);
   // Stop phone notifications for this account first (needs the session, so before sign-out).
-  void unregisterNativePush()
+  // Same for background location: stop the phone's tracking service and revoke its token.
+  void Promise.allSettled([unregisterNativePush(), stopNativeLocation()])
     .then(() => supabase.auth.signOut())
     .finally(() => window.location.reload());
 }
@@ -258,7 +260,7 @@ export function Gate({
       setErr(message);
       setPhase("signed-out");
 
-      await unregisterNativePush();
+      await Promise.allSettled([unregisterNativePush(), stopNativeLocation()]);
       await supabase.auth.signOut();
     },
     [applyState],

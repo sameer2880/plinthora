@@ -4,13 +4,16 @@ import { useWorkerLocationSharing, WORK_HOURS_LABEL } from "@/hooks/use-worker-l
 import { cn } from "@/lib/utils";
 
 export function WorkerLocationToggle({ workerId }: { workerId: string | null }) {
-  const { enabled, status, errorMessage, toggle, loaded } = useWorkerLocationSharing(workerId);
+  const { enabled, status, errorMessage, toggle, loaded, native, permission } =
+    useWorkerLocationSharing(workerId);
 
   if (!workerId) return null;
 
   const statusText =
     status === "sharing"
-      ? "Sharing your live location (updates every minute)"
+      ? native
+        ? "Sharing your live location, even when the app is closed (updates every minute)"
+        : "Sharing your live location (updates every minute)"
       : status === "paused"
         ? "Auto-resumes when working hours start"
         : status === "error"
@@ -64,6 +67,13 @@ export function WorkerLocationToggle({ workerId }: { workerId: string | null }) 
       >
         {statusText}
       </p>
+
+      {native && enabled && status === "sharing" && permission === "foreground" && (
+        <p className="mt-1 text-[11px] font-medium leading-snug text-amber-600">
+          To keep sharing when the app is closed, open phone Settings → Apps → Plinthora →
+          Permissions → Location → &quot;Allow all the time&quot;.
+        </p>
+      )}
 
       <p className="mt-0.5 text-[10px] leading-snug text-sidebar-foreground/50">
         Turns on automatically each day. Visible to admins only between {WORK_HOURS_LABEL}.

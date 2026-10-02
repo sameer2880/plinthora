@@ -2,3 +2,6 @@ project_id = "ecpmaeghwpgddcswruij"
 
 [functions.send-push]
 verify_jwt = false
+
+[functions.location-ping]
+verify_jwt = false

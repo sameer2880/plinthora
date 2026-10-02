@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  isNativeLocationAvailable,
+  nativeLocationPermission,
+  pauseNativeLocation,
+  startNativeLocation,
+  type NativeLocationPermission,
+} from "@/lib/native-location";
 
 /* ================================
    WORKING HOURS WINDOW
@@ -44,6 +51,14 @@ export function useWorkerLocationSharing(workerId: string | null) {
   const [status, setStatus] = useState<LocationSharingStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  // Inside the Android app a native foreground service does the tracking, so it keeps
+  // reporting with the app closed. In a browser / PWA we fall back to browser geolocation.
+  const [native, setNative] = useState(false);
+  const [permission, setPermission] = useState<NativeLocationPermission>("unknown");
+  useEffect(() => {
+    setNative(isNativeLocationAvailable());
+  }, []);
 
   const watchIdRef = useRef<number | null>(null);
   const lastWriteRef = useRef(0);
@@ -190,7 +205,7 @@ export function useWorkerLocationSharing(workerId: string | null) {
   // Forces one fresh fix a minute, independent of watchPosition, so a
   // stationary worker's "last updated" time never goes stale beyond 60s.
   useEffect(() => {
-    if (!loaded || !enabled) return;
+    if (!loaded || !enabled || native) return;
 
     const tick = () => {
       if (!isWithinWorkingHours()) {
@@ -210,14 +225,14 @@ export function useWorkerLocationSharing(workerId: string | null) {
     tick();
     const interval = window.setInterval(tick, UPDATE_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [enabled, loaded, sendFix, handleGeoError]);
+  }, [enabled, loaded, native, sendFix, handleGeoError]);
 
   /* ================================
      REACT TO enabled TOGGLING +
      WORKING-HOURS BOUNDARY
      ================================ */
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || native) return;
 
     if (!enabled) {
       stopWatch();
@@ -241,7 +256,55 @@ export function useWorkerLocationSharing(workerId: string | null) {
     return () => {
       window.clearInterval(interval);
     };
-  }, [enabled, loaded, startWatch, stopWatch]);
+  }, [enabled, loaded, native, startWatch, stopWatch]);
+
+  /* ================================
+     NATIVE ANDROID APP: BACKGROUND SERVICE
+     Starts the foreground location service (works with the app closed) and keeps the
+     on-screen status in step with the phone's location permission.
+     ================================ */
+  useEffect(() => {
+    if (!loaded || !native || !workerId) return;
+
+    if (!enabled) {
+      pauseNativeLocation();
+      setStatus("idle");
+      return;
+    }
+
+    let cancelled = false;
+
+    const refresh = () => {
+      const state = nativeLocationPermission();
+      setPermission(state);
+      if (state === "denied") {
+        setErrorMessage(
+          "Location permission was denied. Allow location for Plinthora in your phone's Settings.",
+        );
+        setStatus("error");
+      } else {
+        setErrorMessage(null);
+        setStatus("sharing");
+      }
+    };
+
+    void startNativeLocation(workerId).then((ok) => {
+      if (cancelled) return;
+      if (!ok) {
+        setErrorMessage("Couldn't start background location sharing. Check your connection.");
+        setStatus("error");
+        return;
+      }
+      refresh();
+    });
+
+    // The permission screens are answered outside the web page, so poll for the result.
+    const interval = window.setInterval(refresh, 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [enabled, loaded, native, workerId]);
 
   // Always stop the watch on unmount.
   useEffect(() => stopWatch, [stopWatch]);
@@ -265,5 +328,5 @@ export function useWorkerLocationSharing(workerId: string | null) {
     }
   }, [enabled, workerId, writeRow]);
 
-  return { enabled, status, errorMessage, toggle, loaded };
+  return { enabled, status, errorMessage, toggle, loaded, native, permission };
 }
