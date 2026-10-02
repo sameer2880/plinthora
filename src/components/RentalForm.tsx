@@ -287,22 +287,70 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
           <div className="space-y-3">
             <Label>Materials</Label>
             {form.items.map((it, idx) => (
-              <div key={it.id ?? idx} className="rounded-lg border border-border p-3 space-y-3 bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-muted-foreground">Material #{idx + 1}</span>
-                  {form.items.length > 1 && (!editingGroup || idx > 0) && (
-                    <Button type="button" size="sm" variant="ghost" onClick={() => removeItem(idx)} className="h-7 text-destructive">
-                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Remove
-                    </Button>
-                  )}
+              <div
+                key={it.id ?? idx}
+                className="rounded-2xl border border-primary/20 bg-gradient-to-b from-primary/5 to-muted/20 p-4 space-y-4 shadow-sm"
+              >
+                {/* header: number badge + mode pills + remove */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                      {idx + 1}
+                    </span>
+                    <span className="text-sm font-medium text-muted-foreground">material</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="inline-flex rounded-full bg-muted p-0.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => updateItem(idx, { mode: "rate" })}
+                        className={`rounded-full px-3 py-1 transition-colors ${it.mode === "rate" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"}`}
+                      >
+                        qty × rate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateItem(idx, {
+                            mode: "total",
+                            // carry over the current amount so nothing is lost when switching
+                            direct_total: it.mode === "rate" ? itemTotal(it) : it.direct_total,
+                          })
+                        }
+                        className={`rounded-full px-3 py-1 transition-colors ${it.mode === "total" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"}`}
+                      >
+                        line total
+                      </button>
+                    </div>
+                    {form.items.length > 1 && (!editingGroup || idx > 0) && (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeItem(idx)}
+                        className="h-7 w-7 rounded-full text-destructive hover:bg-destructive/10"
+                        aria-label="Remove material"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+
+                {/* name + unit */}
+                <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
                   <Field label="Material Name *">
-                    <Input value={it.material_name} onChange={(e) => updateItem(idx, { material_name: e.target.value })} required />
+                    <Input
+                      className="rounded-xl"
+                      value={it.material_name}
+                      onChange={(e) => updateItem(idx, { material_name: e.target.value })}
+                      placeholder="e.g. steel sheets"
+                      required
+                    />
                   </Field>
                   <Field label="Unit">
                     <select
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      className="w-full h-10 rounded-xl border border-input bg-background px-3 text-sm"
                       value={it.customUnit ? CUSTOM_UNIT : it.unit.toLowerCase()}
                       onChange={(e) => {
                         if (e.target.value === CUSTOM_UNIT) updateItem(idx, { customUnit: true, unit: "" });
@@ -310,64 +358,63 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
                       }}
                     >
                       {UNIT_PRESETS.map((u) => (
-                        <option key={u} value={u}>{u.toUpperCase()}</option>
+                        <option key={u} value={u}>{u}</option>
                       ))}
-                      <option value={CUSTOM_UNIT}>CUSTOM</option>
+                      <option value={CUSTOM_UNIT}>custom</option>
                     </select>
-                    {it.customUnit && (
-                      <Input
-                        className="mt-2"
-                        value={it.unit}
-                        onChange={(e) => updateItem(idx, { unit: e.target.value })}
-                        placeholder="Type unit (e.g. kg, bag, set)"
-                        required
-                      />
-                    )}
                   </Field>
                 </div>
-                <div className="inline-flex rounded-md border border-input overflow-hidden text-xs">
-                  <button
-                    type="button"
-                    onClick={() => updateItem(idx, { mode: "rate" })}
-                    className={`px-3 py-1.5 ${it.mode === "rate" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
-                  >
-                    Qty × Rate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateItem(idx, {
-                        mode: "total",
-                        // carry over the current amount so nothing is lost when switching
-                        direct_total: it.mode === "rate" ? itemTotal(it) : it.direct_total,
-                      })
-                    }
-                    className={`px-3 py-1.5 border-l border-input ${it.mode === "total" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
-                  >
-                    Line total only
-                  </button>
-                </div>
-                {it.mode === "rate" ? (
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <Field label="Quantity *">
-                      <Input type="number" min="0" step="1" value={it.quantity} onChange={(e) => updateItem(idx, { quantity: e.target.value })} />
-                    </Field>
+                {it.customUnit && (
+                  <Input
+                    className="rounded-xl"
+                    value={it.unit}
+                    onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                    placeholder="type your unit (kg, bag, set…)"
+                    required
+                  />
+                )}
+
+                {/* amounts */}
+                <div className="grid gap-3 grid-cols-2">
+                  <Field label={it.mode === "rate" ? "Quantity *" : "Quantity"}>
+                    <Input
+                      className="rounded-xl"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={it.quantity}
+                      onChange={(e) => updateItem(idx, { quantity: e.target.value })}
+                    />
+                  </Field>
+                  {it.mode === "rate" ? (
                     <Field label="Rate / Unit ₹ *">
-                      <Input type="number" min="0" step="0.01" value={it.rate_per_unit} onChange={(e) => updateItem(idx, { rate_per_unit: e.target.value })} />
+                      <Input
+                        className="rounded-xl"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={it.rate_per_unit}
+                        onChange={(e) => updateItem(idx, { rate_per_unit: e.target.value })}
+                      />
                     </Field>
-                    <div className="flex flex-col justify-end">
-                      <div className="text-xs text-muted-foreground">Line total</div>
-                      <div className="text-lg font-semibold">₹{itemTotal(it).toLocaleString("en-IN")}</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Quantity">
-                      <Input type="number" min="0" step="1" value={it.quantity} onChange={(e) => updateItem(idx, { quantity: e.target.value })} />
-                    </Field>
+                  ) : (
                     <Field label="Line total ₹ *">
-                      <Input type="number" min="0" step="0.01" value={it.direct_total} onChange={(e) => updateItem(idx, { direct_total: e.target.value })} />
+                      <Input
+                        className="rounded-xl"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={it.direct_total}
+                        onChange={(e) => updateItem(idx, { direct_total: e.target.value })}
+                      />
                     </Field>
+                  )}
+                </div>
+
+                {it.mode === "rate" && (
+                  <div className="flex items-center justify-between rounded-xl bg-background/70 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">line total</span>
+                    <span className="text-base font-semibold">₹{itemTotal(it).toLocaleString("en-IN")}</span>
                   </div>
                 )}
               </div>
@@ -377,7 +424,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
                 Materials added here join this same rental — they'll all show on one card.
               </p>
             )}
-            <Button type="button" size="sm" variant="outline" onClick={addItem} className="w-full">
+            <Button type="button" size="sm" variant="outline" onClick={addItem} className="w-full rounded-full border-dashed border-primary/40 text-primary hover:bg-primary/5">
               <Plus className="h-4 w-4 mr-1" /> Add more
             </Button>
           </div>
@@ -386,7 +433,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
             <Input type="number" min="0" step="0.01" value={form.security_deposit} onChange={(e) => setForm({ ...form, security_deposit: e.target.value })} placeholder="Advance money given by the customer" />
           </Field>
 
-          <div className="rounded-lg bg-primary/10 border-2 border-primary/30 px-4 py-3 space-y-1.5">
+          <div className="rounded-2xl bg-primary/10 border-2 border-primary/30 px-4 py-3 space-y-1.5">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Materials Total</span>
               <span className="font-medium">₹{grandTotal.toLocaleString("en-IN")}</span>
