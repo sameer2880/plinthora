@@ -10,18 +10,19 @@ import {
 
 /* ================================
    WORKING HOURS WINDOW
-   24 HOURS / ALL DAY
+   4:30 AM - 9:00 PM
+   (keep in step with WORK_START_MIN / WORK_END_MIN in
+   LocationTrackingService.java in the Android app)
    ================================ */
-const WORK_START_MINUTES = 0;
-const WORK_END_MINUTES = 24 * 60;
+const WORK_START_MINUTES = 4 * 60 + 30;
+const WORK_END_MINUTES = 21 * 60;
 
 // How often we send a fresh location while sharing is active. A worker's
 // position gets pushed at least this often even if they haven't moved,
 // since watchPosition alone can go quiet for a stationary device.
 const UPDATE_INTERVAL_MS = 60_000;
 
-// Re-checking is still kept in place for safety, but the business rule is
-// now 24/7 so location sharing should remain active at all times.
+// Re-checks the working-hours window so sharing pauses / resumes on its own.
 const HOURS_CHECK_INTERVAL_MS = 30_000;
 
 export function isWithinWorkingHours(date: Date = new Date()) {
@@ -29,7 +30,7 @@ export function isWithinWorkingHours(date: Date = new Date()) {
   return minutes >= WORK_START_MINUTES && minutes < WORK_END_MINUTES;
 }
 
-export const WORK_HOURS_LABEL = "24 Hours";
+export const WORK_HOURS_LABEL = "4:30 AM – 9:00 PM";
 
 export type LocationSharingStatus =
   | "idle" // off
@@ -277,7 +278,11 @@ export function useWorkerLocationSharing(workerId: string | null) {
     const refresh = () => {
       const state = nativeLocationPermission();
       setPermission(state);
-      if (state === "denied") {
+      if (!isWithinWorkingHours()) {
+        // The phone's service idles outside working hours and resumes by itself.
+        setErrorMessage(null);
+        setStatus("paused");
+      } else if (state === "denied") {
         setErrorMessage(
           "Location permission was denied. Allow location for Plinthora in your phone's Settings.",
         );
