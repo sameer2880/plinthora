@@ -189,11 +189,11 @@ function WorkerLocationsPage() {
               Date.now() - new Date(row.updated_at).getTime() < LIVE_THRESHOLD_MS;
 
             const mapsUrl = hasFix
-              ? `https://www.google.com/maps?q=${row.latitude},${row.longitude}`
+              ? `https://www.google.com/maps?q=${row.latitude},${row.longitude}&t=h`
               : null;
 
             const embedUrl = hasFix
-              ? `https://maps.google.com/maps?q=${row.latitude},${row.longitude}&z=16&output=embed`
+              ? `https://maps.google.com/maps?q=${row.latitude},${row.longitude}&z=18&t=h&output=embed`
               : null;
 
             return (
