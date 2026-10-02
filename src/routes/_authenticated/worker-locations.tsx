@@ -65,7 +65,11 @@ function WorkerLocationsPage() {
     queryFn: async () => {
       const [{ data: workers, error: workersError }, { data: locations, error: locationsError }] =
         await Promise.all([
-          supabase.from("workers").select("id, name, active").order("name"),
+          supabase
+            .from("workers")
+            .select("id, name, active, role")
+            .eq("role", "worker")
+            .order("name"),
           supabase
             .from("worker_locations")
             .select("worker_id, sharing_enabled, latitude, longitude, accuracy_m, updated_at"),
@@ -79,7 +83,7 @@ function WorkerLocationsPage() {
       );
 
       const merged: WorkerLocationRow[] = (workers ?? [])
-        .filter((worker) => worker.active)
+        .filter((worker) => worker.active && worker.role === "worker")
         .map((worker) => {
           const location = locationMap.get(worker.id);
           return {
