@@ -28,9 +28,28 @@ type Item = {
   quantity: number | string;
   unit: string;
   rate_per_unit: number | string;
+  /** "rate" = Quantity × Rate / Unit, "total" = enter the line total directly. */
+  mode: "rate" | "total";
+  /** Line total typed directly (only used when mode === "total"). */
+  direct_total: number | string;
+  /** True when the unit dropdown is set to "Custom" (free-text unit). */
+  customUnit: boolean;
 };
 
-const emptyItem = (): Item => ({ material_name: "", quantity: 1, unit: "pcs", rate_per_unit: 0 });
+const UNIT_PRESETS = ["pcs", "sheets", "pipes", "boxes"] as const;
+const CUSTOM_UNIT = "__custom__";
+
+const emptyItem = (): Item => ({
+  material_name: "",
+  quantity: 1,
+  unit: "pcs",
+  rate_per_unit: 0,
+  mode: "rate",
+  direct_total: 0,
+  customUnit: false,
+});
+
+const roundMoney = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 const MOBILE_REGEX = /^[6789]\d{9}$/;
 
@@ -74,6 +93,9 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
           quantity: r.quantity,
           unit: r.unit,
           rate_per_unit: r.rate_per_unit,
+          mode: "rate" as const,
+          direct_total: r.total_amount ?? 0,
+          customUnit: !(UNIT_PRESETS as readonly string[]).includes(String(r.unit ?? "").toLowerCase()),
         })),
       });
     } else {
@@ -81,7 +103,16 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
     }
   }, [editingGroup, open]);
 
-  const itemTotal = (it: Item) => Number(it.quantity || 0) * Number(it.rate_per_unit || 0);
+  const itemTotal = (it: Item) =>
+    it.mode === "total"
+      ? Number(it.direct_total || 0)
+      : Number(it.quantity || 0) * Number(it.rate_per_unit || 0);
+  // Rate saved with the row. In "line total" mode it is derived (total ÷ quantity) so receipts still show a sensible rate.
+  const itemRate = (it: Item) => {
+    if (it.mode !== "total") return Number(it.rate_per_unit || 0);
+    const q = Number(it.quantity || 0);
+    return q > 0 ? roundMoney(Number(it.direct_total || 0) / q) : 0;
+  };
   const grandTotal = form.items.reduce((s, it) => s + itemTotal(it), 0);
   const balanceDue = grandTotal - Number(form.security_deposit || 0);
 
@@ -97,6 +128,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
       if (!MOBILE_REGEX.test(form.customer_phone)) throw new Error("Mobile number must be 10 digits and start with 6, 7, 8 or 9");
       if (!form.customer_name) throw new Error("Customer name is required");
       if (form.items.some((it) => !it.material_name)) throw new Error("Every material row needs a name");
+      if (form.items.some((it) => !it.unit.trim())) throw new Error("Every material row needs a unit (or pick one from the list)");
 
       const { data: authUser } = await supabase.auth.getUser();
       const createdBy = authUser.user?.id ?? null;
@@ -118,8 +150,8 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
             customer_address: form.customer_address,
             material_name: it.material_name,
             quantity: Number(it.quantity),
-            unit: it.unit,
-            rate_per_unit: Number(it.rate_per_unit),
+            unit: it.unit.trim(),
+            rate_per_unit: itemRate(it),
             total_amount: itemTotal(it),
             issue_date: form.issue_date,
             return_date: form.return_date || null,
@@ -139,8 +171,8 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
             customer_address: form.customer_address,
             material_name: it.material_name,
             quantity: Number(it.quantity),
-            unit: it.unit,
-            rate_per_unit: Number(it.rate_per_unit),
+            unit: it.unit.trim(),
+            rate_per_unit: itemRate(it),
             total_amount: itemTotal(it),
             security_deposit: 0,
             issue_date: form.issue_date,
@@ -175,8 +207,8 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
         customer_address: form.customer_address,
         material_name: it.material_name,
         quantity: Number(it.quantity),
-        unit: it.unit,
-        rate_per_unit: Number(it.rate_per_unit),
+        unit: it.unit.trim(),
+        rate_per_unit: itemRate(it),
         total_amount: itemTotal(it),
         // Split security deposit only on the first row to avoid double counting
         security_deposit: idx === 0 ? Number(form.security_deposit || 0) : 0,
@@ -269,21 +301,75 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
                     <Input value={it.material_name} onChange={(e) => updateItem(idx, { material_name: e.target.value })} required />
                   </Field>
                   <Field label="Unit">
-                    <Input value={it.unit} onChange={(e) => updateItem(idx, { unit: e.target.value })} placeholder="pcs, kg, bag" />
+                    <select
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={it.customUnit ? CUSTOM_UNIT : it.unit.toLowerCase()}
+                      onChange={(e) => {
+                        if (e.target.value === CUSTOM_UNIT) updateItem(idx, { customUnit: true, unit: "" });
+                        else updateItem(idx, { customUnit: false, unit: e.target.value });
+                      }}
+                    >
+                      {UNIT_PRESETS.map((u) => (
+                        <option key={u} value={u}>{u.toUpperCase()}</option>
+                      ))}
+                      <option value={CUSTOM_UNIT}>CUSTOM</option>
+                    </select>
+                    {it.customUnit && (
+                      <Input
+                        className="mt-2"
+                        value={it.unit}
+                        onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                        placeholder="Type unit (e.g. kg, bag, set)"
+                        required
+                      />
+                    )}
                   </Field>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <Field label="Quantity *">
-                    <Input type="number" min="0" step="1" value={it.quantity} onChange={(e) => updateItem(idx, { quantity: e.target.value })} />
-                  </Field>
-                  <Field label="Rate / Unit ₹ *">
-                    <Input type="number" min="0" step="0.01" value={it.rate_per_unit} onChange={(e) => updateItem(idx, { rate_per_unit: e.target.value })} />
-                  </Field>
-                  <div className="flex flex-col justify-end">
-                    <div className="text-xs text-muted-foreground">Line total</div>
-                    <div className="text-lg font-semibold">₹{itemTotal(it).toLocaleString("en-IN")}</div>
+                <div className="inline-flex rounded-md border border-input overflow-hidden text-xs">
+                  <button
+                    type="button"
+                    onClick={() => updateItem(idx, { mode: "rate" })}
+                    className={`px-3 py-1.5 ${it.mode === "rate" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                  >
+                    Qty × Rate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateItem(idx, {
+                        mode: "total",
+                        // carry over the current amount so nothing is lost when switching
+                        direct_total: it.mode === "rate" ? itemTotal(it) : it.direct_total,
+                      })
+                    }
+                    className={`px-3 py-1.5 border-l border-input ${it.mode === "total" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                  >
+                    Line total only
+                  </button>
+                </div>
+                {it.mode === "rate" ? (
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <Field label="Quantity *">
+                      <Input type="number" min="0" step="1" value={it.quantity} onChange={(e) => updateItem(idx, { quantity: e.target.value })} />
+                    </Field>
+                    <Field label="Rate / Unit ₹ *">
+                      <Input type="number" min="0" step="0.01" value={it.rate_per_unit} onChange={(e) => updateItem(idx, { rate_per_unit: e.target.value })} />
+                    </Field>
+                    <div className="flex flex-col justify-end">
+                      <div className="text-xs text-muted-foreground">Line total</div>
+                      <div className="text-lg font-semibold">₹{itemTotal(it).toLocaleString("en-IN")}</div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Quantity">
+                      <Input type="number" min="0" step="1" value={it.quantity} onChange={(e) => updateItem(idx, { quantity: e.target.value })} />
+                    </Field>
+                    <Field label="Line total ₹ *">
+                      <Input type="number" min="0" step="0.01" value={it.direct_total} onChange={(e) => updateItem(idx, { direct_total: e.target.value })} />
+                    </Field>
+                  </div>
+                )}
               </div>
             ))}
             {editingGroup && (
