@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Outlet, createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { ConfirmDialogHost } from "@/components/ui/confirm-dialog";
@@ -77,104 +78,129 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
-  // Live updates, app-wide: whenever a row changes in the database
-  // (from this tab, another tab, another device, or another user),
-  // the matching cached query is invalidated so React Query refetches
-  // it and every screen showing that data updates on its own —
-  // no manual refresh needed anywhere in the app.
+  // Live updates, app-wide: whenever a row changes in the database (from this tab, another
+  // tab, another device, or another user) the matching cached queries are invalidated so
+  // React Query refetches them and every open screen updates on its own - no manual refresh.
   //
-  // This only works once the tables below are added to Supabase's
-  // `supabase_realtime` publication (see the
-  // `20260902000000_enable_realtime_tables.sql` migration).
+  // Three layers, so data stays fresh even when one of them fails:
+  //  1. Realtime: one channel per table, instant. Each channel reconnects by itself (with
+  //     back-off) if the connection drops, and re-syncs the screen when it comes back.
+  //     Needs the tables in Supabase's `supabase_realtime` publication - run
+  //     `20260902000000_enable_realtime_tables.sql` once in the Supabase SQL Editor.
+  //  2. Catch-up: when the app/tab comes back to the front, the phone regains internet, or the
+  //     window is focused, everything on screen is refetched.
+  //  3. Safety poll: while the app is visible, the screen is refetched every 30 seconds, so
+  //     even if realtime is not enabled in the database yet, changes still appear on their own.
   useEffect(() => {
-    const channel = supabase.channel("app-live-updates");
+    let disposed = false;
+    let flushTimer: ReturnType<typeof setTimeout> | undefined;
+    const pending = new Map<string, string[]>();
 
-    const invalidate = (...keys: unknown[][]) => {
-      for (const key of keys) void queryClient.invalidateQueries({ queryKey: key });
+    // Several rows often change together (e.g. a multi-item rental): batch into one refetch.
+    const flush = () => {
+      flushTimer = undefined;
+      for (const key of pending.values()) void queryClient.invalidateQueries({ queryKey: key });
+      pending.clear();
+    };
+    const queue = (keys: string[][]) => {
+      for (const key of keys) pending.set(JSON.stringify(key), key);
+      if (flushTimer === undefined) flushTimer = setTimeout(flush, 250);
     };
 
-    const rowWorkerId = (payload: { new: unknown; old: unknown }) =>
-      (payload.new as { worker_id?: string } | null)?.worker_id ??
-      (payload.old as { worker_id?: string } | null)?.worker_id;
+    // Refetch everything currently on screen (other cached screens are only marked stale).
+    let lastRefreshAt = 0;
+    const refreshAll = () => {
+      if (disposed) return;
+      const now = Date.now();
+      if (now - lastRefreshAt < 2_000) return;
+      lastRefreshAt = now;
+      void queryClient.invalidateQueries();
+    };
 
-    // rentals (rentals list, dashboard, reports, receipts list & detail)
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "rentals" }, () => {
-      invalidate(["rentals"], ["rental"], ["rental-group"]);
-    });
+    // table -> query keys that show its data. A key matches every query that starts with it,
+    // e.g. ["worker"] also covers ["worker", id].
+    const LIVE_TABLES: Record<string, string[][]> = {
+      rentals: [["rentals"], ["rental"], ["rental-group"], ["public-receipt"]],
+      workers: [["workers"], ["worker"], ["dashboard_workers"], ["platform"]],
+      worker_attendance: [["worker_attendance"], ["all_attendance"], ["dashboard_attendance"]],
+      worker_payments: [["worker_payments"]],
+      worker_feedback: [["worker_feedback"], ["worker_feedback_admin"]],
+      worker_locations: [["worker-locations-admin"]],
+      diary_notes: [["diary_notes"]],
+      businesses: [["platform"]],
+      profiles: [["platform"], ["workers"], ["dashboard_workers"]],
+      user_roles: [["platform"], ["workers"], ["dashboard_workers"]],
+      platform_admins: [["platform"]],
+    };
 
-    // workers (labour list, manage workers, rentals' worker dropdown)
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "workers" }, () => {
-      invalidate(["workers"]);
-    });
+    const stops: Array<() => void> = [];
 
-    // attendance (labour calendar + per-worker attendance)
-    channel.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "worker_attendance" },
-      (payload) => {
-        invalidate(["worker_attendance"], ["all_attendance"]);
-        const workerId = rowWorkerId(payload);
-        if (workerId) invalidate(["worker_attendance", workerId]);
-      },
-    );
+    const watchTable = (table: string, keys: string[][]) => {
+      let channel: RealtimeChannel | null = null;
+      let retryTimer: ReturnType<typeof setTimeout> | undefined;
+      let attempts = 0;
+      let wasConnected = false;
+      let stopped = false;
 
-    // worker payments (per-worker payment history)
-    channel.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "worker_payments" },
-      (payload) => {
-        const workerId = rowWorkerId(payload);
-        if (workerId) invalidate(["worker_payments", workerId]);
-      },
-    );
+      const connect = () => {
+        if (stopped) return;
+        const ch = supabase.channel(`live-${table}-${Math.random().toString(36).slice(2, 8)}`);
+        channel = ch;
 
-    // worker feedback (per-worker feedback + admin feedback inbox)
-    channel.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "worker_feedback" },
-      (payload) => {
-        invalidate(["worker_feedback_admin"]);
-        const workerId = rowWorkerId(payload);
-        if (workerId) invalidate(["worker_feedback", workerId]);
-      },
-    );
+        ch.on("postgres_changes", { event: "*", schema: "public", table }, () => queue(keys));
 
-    // worker live locations (admin locations map)
-    channel.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "worker_locations" },
-      () => {
-        invalidate(["worker-locations-admin"]);
-      },
-    );
+        ch.subscribe((status) => {
+          if (stopped || channel !== ch) return;
 
-    // diary notes
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "diary_notes" }, () => {
-      invalidate(["diary_notes"]);
-    });
+          if (status === "SUBSCRIBED") {
+            attempts = 0;
+            // Reconnected after a drop: pick up anything that changed while we were offline.
+            if (wasConnected) queue(keys);
+            wasConnected = true;
+            return;
+          }
 
-    // platform admin console (businesses, per-business user counts, users)
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "businesses" }, () => {
-      invalidate(["platform"]);
-    });
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
-      invalidate(["platform"], ["workers"]);
-    });
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "user_roles" }, () => {
-      invalidate(["platform"], ["workers"]);
-    });
-    channel.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "platform_admins" },
-      () => {
-        invalidate(["platform"]);
-      },
-    );
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            channel = null;
+            void supabase.removeChannel(ch);
+            attempts += 1;
+            const delay = Math.min(30_000, 1_000 * 2 ** Math.min(attempts, 5));
+            retryTimer = setTimeout(connect, delay);
+          }
+        });
+      };
 
-    void channel.subscribe();
+      connect();
+
+      stops.push(() => {
+        stopped = true;
+        if (retryTimer !== undefined) clearTimeout(retryTimer);
+        if (channel) void supabase.removeChannel(channel);
+        channel = null;
+      });
+    };
+
+    for (const [table, keys] of Object.entries(LIVE_TABLES)) watchTable(table, keys);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshAll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refreshAll);
+    window.addEventListener("online", refreshAll);
+
+    const poll = setInterval(() => {
+      if (document.visibilityState === "visible") refreshAll();
+    }, 30_000);
 
     return () => {
-      void supabase.removeChannel(channel);
+      disposed = true;
+      if (flushTimer !== undefined) clearTimeout(flushTimer);
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refreshAll);
+      window.removeEventListener("online", refreshAll);
+      for (const stop of stops) stop();
     };
   }, [queryClient]);
 
