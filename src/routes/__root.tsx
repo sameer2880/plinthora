@@ -89,7 +89,7 @@ function RootComponent() {
   //     `20260902000000_enable_realtime_tables.sql` once in the Supabase SQL Editor.
   //  2. Catch-up: when the app/tab comes back to the front, the phone regains internet, or the
   //     window is focused, everything on screen is refetched.
-  //  3. Safety poll: while the app is visible, the screen is refetched every 30 seconds, so
+  //  3. Safety poll: while the app is visible, the screen is refetched every minute, so
   //     even if realtime is not enabled in the database yet, changes still appear on their own.
   useEffect(() => {
     let disposed = false;
@@ -112,7 +112,7 @@ function RootComponent() {
     const refreshAll = () => {
       if (disposed) return;
       const now = Date.now();
-      if (now - lastRefreshAt < 2_000) return;
+      if (now - lastRefreshAt < 10_000) return;
       lastRefreshAt = now;
       void queryClient.invalidateQueries();
     };
@@ -191,7 +191,7 @@ function RootComponent() {
 
     const poll = setInterval(() => {
       if (document.visibilityState === "visible") refreshAll();
-    }, 30_000);
+    }, 60_000);
 
     return () => {
       disposed = true;

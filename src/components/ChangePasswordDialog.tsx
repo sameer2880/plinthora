@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { UserCog, Shield, Crown, KeyRound } from "lucide-react";
+import { UserCog, Shield, Crown, KeyRound, LogOut } from "lucide-react";
 import { useSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
+import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { lock } from "@/lib/auth/lock";
 
 const ROLE_DISPLAY = {
   manager: { label: "Manager", icon: Shield, className: "bg-primary/10 text-primary" },
@@ -21,7 +23,16 @@ const ROLE_DISPLAY = {
  * shows who they are and lets them change their own password (a real
  * Supabase Auth password — nothing is stored in the app's tables).
  */
-export function ChangePasswordDialog({ className }: { className?: string } = {}) {
+export function ChangePasswordDialog({
+  className,
+  iconOnly = false,
+  renderTrigger,
+}: {
+  className?: string;
+  iconOnly?: boolean;
+  /** Use your own element as the opener instead of the default button. */
+  renderTrigger?: (openDialog: () => void) => ReactNode;
+} = {}) {
   const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [current, setCurrent] = useState("");
@@ -66,15 +77,21 @@ export function ChangePasswordDialog({ className }: { className?: string } = {})
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        className={cn("w-full justify-center gap-2 font-semibold", className)}
-        onClick={() => setOpen(true)}
-      >
-        <UserCog className="h-4 w-4 shrink-0" />
-        Manage my account
-      </Button>
+      {renderTrigger ? (
+        renderTrigger(() => setOpen(true))
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("w-full justify-center gap-2 font-semibold", iconOnly && "gap-0 px-0", className)}
+          onClick={() => setOpen(true)}
+          aria-label="Manage my account"
+          title={iconOnly ? "Manage my account" : undefined}
+        >
+          <UserCog className="h-4 w-4 shrink-0" />
+          {!iconOnly && "Manage my account"}
+        </Button>
+      )}
 
       <Dialog
         open={open}
@@ -120,6 +137,21 @@ export function ChangePasswordDialog({ className }: { className?: string } = {})
                   <KeyRound className="h-4 w-4" />
                   Change password
                 </Button>
+
+                <ConfirmDelete
+                  onConfirm={lock}
+                  title="Sign out of this account?"
+                  description="You will need to sign in again to access the dashboard."
+                  confirmLabel="Sign out"
+                >
+                  <Button
+                    variant="outline"
+                    className="mt-2 w-full justify-center gap-2 border-destructive/40 font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </Button>
+                </ConfirmDelete>
               </div>
             ) : (
               <div className="space-y-3 border-t border-border pt-4">

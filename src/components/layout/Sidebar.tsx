@@ -26,6 +26,8 @@ import {
   Settings,
   Plus,
   X,
+  ChevronsLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,10 +38,10 @@ import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { WorkerLocationToggle } from "@/components/WorkerLocationToggle";
 import { BrandLogo } from "@/components/BrandLogo";
 import { AppCredit } from "@/components/AppCredit";
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useDeviceType } from "@/hooks/use-device";
-import { lock } from "@/lib/auth/gate";
+import { lock } from "@/lib/auth/lock";
 import { useSession } from "@/lib/auth/session";
 import { PLATFORM_NAME } from "@/lib/brand";
 import { isMasterAdmin, isSuperAdmin } from "@/lib/auth/access";
@@ -467,9 +469,10 @@ function MoreMenuContent({
 }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { links } = useNavLinks();
-  const { business } = useSession();
+  const { me, business } = useSession();
   const locationSharingEnabled = isFeatureEnabled(business, "worker_locations");
   const isWorkerSidebar = workerName !== undefined;
+  const accountName = (isWorkerSidebar ? workerName : me?.name) || "Account";
   // Everything without a permanent nav slot — those are already one tap away.
   const secondary = links.filter((l) => !l.primary);
   // Workers have no extra pages, so their grid is the business's contact /
@@ -530,56 +533,95 @@ function MoreMenuContent({
         )}
 
         <div className={cn("space-y-2.5", hasTiles && "mt-3")}>
-          {/* Admin/manager: theme + account buttons sit side by side.
-              Worker: theme button stays full width, location toggle below. */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onToggleTheme}
-              className="more-btn min-w-0 flex-1 justify-center gap-2 whitespace-nowrap px-2 text-xs font-semibold"
-            >
-              {dark ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
-              {dark ? "Light mode" : "Dark mode"}
-            </Button>
+          {/* Account card — same idea as the desktop sidebar. For admins and
+              managers the whole card opens "Manage my account" (which also holds
+              Change password and Sign out). Workers get a plain card. */}
+          <div className="flex items-stretch gap-2">
+          {(() => {
+            const initial = (accountName || "U").trim().charAt(0).toUpperCase() || "U";
+            const cardInner = (
+              <>
+                <span className="more-avatar">{initial}</span>
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block truncate text-sm font-bold leading-tight">
+                    {accountName}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[11px] font-semibold opacity-70">
+                    {isWorkerSidebar ? "Worker" : "Manage account"}
+                  </span>
+                </span>
+                {!isWorkerSidebar && <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />}
+              </>
+            );
 
-            {!isWorkerSidebar && (
-              <ChangePasswordDialog className="more-btn min-w-0 flex-1 whitespace-nowrap px-2 text-xs" />
-            )}
+            if (isWorkerSidebar) {
+              return <div className="more-account min-w-0 flex-1">{cardInner}</div>;
+            }
+
+            return (
+              <ChangePasswordDialog
+                renderTrigger={(openDialog) => (
+                  <button
+                    type="button"
+                    onClick={openDialog}
+                    aria-label="Manage my account"
+                    className="more-account more-account-btn min-w-0 flex-1"
+                  >
+                    {cardInner}
+                  </button>
+                )}
+              />
+            );
+          })()}
+
+          {/* Self-contained styling (no dependency on extra CSS): a square tile
+              that stretches to the account card's height. */}
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            title={dark ? "Light mode" : "Dark mode"}
+            className="flex w-14 shrink-0 cursor-pointer items-center justify-center self-stretch rounded-[1.4rem] border border-[rgb(79_122_61/0.16)] bg-white/60 text-inherit outline-none transition-all hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-primary/50 active:scale-95 dark:border-white/12 dark:bg-white/[0.06] dark:hover:bg-white/[0.12]"
+          >
+            {/* Sun and moon swap with a quick spin. */}
+            <span className="relative block h-[22px] w-[22px]">
+              <Sun
+                className={cn(
+                  "absolute inset-0 h-[22px] w-[22px] transition-all duration-300",
+                  dark ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0",
+                )}
+              />
+              <Moon
+                className={cn(
+                  "absolute inset-0 h-[22px] w-[22px] transition-all duration-300",
+                  dark ? "rotate-90 scale-0 opacity-0" : "rotate-0 scale-100 opacity-100",
+                )}
+              />
+            </span>
+          </button>
           </div>
 
           {isWorkerSidebar && locationSharingEnabled && <WorkerLocationToggle workerId={workerId ?? null} />}
 
-          {isWorkerSidebar ? (
-            <div className="min-w-0 text-sm">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Signed in as
-              </div>
-              <div className="truncate font-semibold">{workerName || "Worker"}</div>
-            </div>
-          ) : (
-            <SignedInLabel />
-          )}
-
-          <ConfirmDelete
-            onConfirm={lock}
-            title={isWorkerSidebar ? "Sign out of this worker account?" : "Sign out of this account?"}
-            description={
-              isWorkerSidebar
-                ? "You will need to sign in again to view attendance and payment records."
-                : "You will need to sign in again to access the dashboard."
-            }
-            confirmLabel="Sign out"
-          >
-            <Button
-              variant="default"
-              size="sm"
-              className="more-signout w-full justify-center font-semibold"
+          {/* Workers have no account dialog, so they sign out from here;
+              admins / managers sign out inside "Manage my account". */}
+          {isWorkerSidebar && (
+            <ConfirmDelete
+              onConfirm={lock}
+              title="Sign out of this worker account?"
+              description="You will need to sign in again to view attendance and payment records."
+              confirmLabel="Sign out"
             >
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign out
-            </Button>
-          </ConfirmDelete>
+              <Button
+                variant="default"
+                size="sm"
+                className="more-signout w-full justify-center font-semibold"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </Button>
+            </ConfirmDelete>
+          )}
 
           <AppCredit />
         </div>
@@ -589,9 +631,8 @@ function MoreMenuContent({
 }
 
 /**
- * PHONE "MORE" SHEET (< 768px)
- * Opens from the bottom (where the bottom-nav's "More" tab is). It shows the
- * same card as the tablet/desktop flyout — see MoreMenuContent.
+ * "MORE" SHEET (all sizes)
+ * Opens from the bottom, right where the bottom-nav's "More" tab is.
  */
 function MobileMoreSheet({
   onNav,
@@ -620,11 +661,8 @@ function MobileMoreSheet({
 }
 
 /**
- * TABLET/DESKTOP "MORE" FLYOUT (>= 768px)
- * The rail's "More" button opens this compact panel anchored beside the rail
- * (a full-width bottom drawer stretched across a big screen reads as an
- * oversized, empty box). The card itself is MoreMenuContent, shared with the
- * phone sheet.
+ * TABLET "MORE" FLYOUT (768–1023px)
+ * The rail's "More" button opens this compact panel anchored beside the rail.
  */
 function MoreFlyout({
   open,
@@ -682,15 +720,327 @@ function MoreFlyout({
   );
 }
 
+/**
+ * DESKTOP SIDEBAR (>= 1024px)
+ * Fixed, full-height, labelled sidebar that can collapse to an icon-only strip.
+ * The width is driven by `--shell-sidebar-w`, which the shell root switches via
+ * `data-sidebar="collapsed"` (see styles.css) — the page content's left padding
+ * follows the same variable, so sidebar and content glide together.
+ * Icons never move while it animates: every row uses constant horizontal padding
+ * and only the text fades / clips away.
+ */
+function DesktopSidebar({
+  workerName,
+  workerId,
+  dark,
+  onToggleTheme,
+  collapsed,
+  onToggleCollapsed,
+}: {
+  workerName?: string;
+  workerId?: string | null;
+  dark: boolean;
+  onToggleTheme: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}) {
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  const currentTab = useRouterState({
+    select: (s) => (s.location.search as { tab?: string } | undefined)?.tab,
+  });
+  const { links } = useNavLinks();
+  const { me, business } = useSession();
+  const exploreItems = useExploreItems();
+
+  const isWorker = workerName !== undefined;
+  const brandName = business?.name ?? PLATFORM_NAME;
+  const brandLocation = business?.location ?? "";
+  const locationSharingEnabled = isFeatureEnabled(business, "worker_locations");
+  const displayName = (isWorker ? workerName : me?.name) || "Account";
+  const roleLabel =
+    me?.role === "super_admin"
+      ? "Platform admin"
+      : me?.role
+        ? String(me.role).replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+        : "";
+
+  // Text that fades + clips away when collapsed (icons stay put).
+  const fade = (maxOpen: string) =>
+    cn(
+      "sb-fade overflow-hidden whitespace-nowrap",
+      collapsed ? "max-w-0 opacity-0" : cn(maxOpen, "opacity-100"),
+    );
+
+  return (
+    <aside
+      aria-label="Sidebar"
+      data-collapsed={collapsed ? "true" : "false"}
+      className="sb-w fixed inset-y-0 left-0 z-40 hidden w-[var(--shell-sidebar-w)] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex"
+    >
+      {/* Collapse / expand handle — straddles the sidebar's right edge */}
+      <button
+        type="button"
+        onClick={onToggleCollapsed}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-expanded={!collapsed}
+        title={collapsed ? "Expand sidebar (Ctrl+B)" : "Collapse sidebar (Ctrl+B)"}
+        className="sb-toggle group absolute -right-3 top-[1.9rem] z-50 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground/70 shadow-md outline-none hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:ring-2 focus-visible:ring-primary/50 active:scale-90"
+      >
+        <ChevronsLeft
+          className={cn(
+            "sb-chevron h-3.5 w-3.5",
+            collapsed
+              ? "rotate-180 group-hover:translate-x-0.5"
+              : "group-hover:-translate-x-0.5",
+          )}
+        />
+      </button>
+
+      {/* Brand */}
+      <Link
+        to={links[0]?.to ?? "/dashboard"}
+        title={collapsed ? brandName : undefined}
+        className="flex items-center gap-3 border-b border-sidebar-border px-[15px] py-5"
+      >
+        <BrandLogo alt={brandName} className="h-11 w-11 shrink-0" />
+        <div className={fade("max-w-[10.5rem]")}>
+          <div className="w-[10.5rem] shrink-0">
+            <div className="line-clamp-2 whitespace-normal text-[15px] font-bold leading-tight tracking-tight">
+              {brandName}
+            </div>
+            {brandLocation && (
+              <div className="mt-1 truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/60">
+                {brandLocation}
+              </div>
+            )}
+          </div>
+        </div>
+      </Link>
+
+      {/* Navigation + quick links */}
+      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-3 py-[clamp(0.5rem,1.6vh,1rem)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          className={cn(
+            "sb-fade mb-2 overflow-hidden whitespace-nowrap px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/55",
+            collapsed ? "h-0 opacity-0" : "h-4 opacity-100",
+          )}
+        >
+          Menu
+        </div>
+
+        {/* Collapsed: bigger, roomier icons in two groups — the main pages at the
+            top, the rest pinned toward the bottom behind a divider — so the
+            strip is filled evenly instead of leaving a big empty gap. */}
+        <nav
+          className={cn("flex flex-col", collapsed ? "flex-1 gap-[clamp(0.125rem,0.7vh,0.375rem)]" : "gap-0.5")}
+          aria-label="Primary"
+        >
+          {(collapsed
+            ? [...links.filter((l) => l.primary), ...links.filter((l) => !l.primary)]
+            : links
+          ).map((item, index, list) => {
+            const { to, label, icon: Icon } = item;
+            const tab = (item as { tab?: string }).tab;
+            const active = tab
+              ? path === to && currentTab === tab
+              : to === "/worker"
+                ? path === to && !currentTab
+                : path === to || path.startsWith(to + "/");
+            const startsSecondary =
+              collapsed && !item.primary && index > 0 && list[index - 1].primary;
+
+            return (
+              <Fragment key={`${to}${tab ?? ""}`}>
+                {startsSecondary && (
+                  <div className="mx-2 mb-0.5 mt-auto border-t border-sidebar-border pt-2" aria-hidden />
+                )}
+                <Link
+                  to={to}
+                  search={(tab ? { tab } : {}) as never}
+                  title={collapsed ? label : undefined}
+                  aria-label={label}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "sb-item relative flex items-center gap-3 rounded-lg px-[17px] text-sm font-semibold transition-colors",
+                    collapsed ? "py-[clamp(0.375rem,1.4vh,0.75rem)]" : "py-2",
+                    active
+                      ? "bg-sidebar-accent text-primary before:absolute before:bottom-2 before:left-0 before:top-2 before:w-[3px] before:rounded-r-full before:bg-primary"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
+                  )}
+                >
+                  <Icon className="sb-icon h-[18px] w-[18px] shrink-0" />
+                  <span className={cn(fade("max-w-[12rem]"), "truncate")}>{label}</span>
+                </Link>
+              </Fragment>
+            );
+          })}
+        </nav>
+
+        {!collapsed && exploreItems.length > 0 && (
+          <div className="sb-reveal mt-6 border-t border-sidebar-border pt-5">
+            <div className="flex items-center gap-2 px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/55">
+              <Compass className="h-3.5 w-3.5" />
+              Explore
+            </div>
+            <div className="flex flex-wrap gap-2 px-3">
+              {exploreItems.map(({ href, label, icon: Icon }) => (
+                <a
+                  key={href}
+                  href={href}
+                  title={label}
+                  aria-label={label}
+                  target={href.startsWith("http") ? "_blank" : undefined}
+                  rel={href.startsWith("http") ? "noreferrer" : undefined}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-sidebar-foreground transition-all hover:-translate-y-0.5 hover:bg-primary/30"
+                >
+                  <Icon className="h-4 w-4" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Account footer */}
+      <div className="space-y-2.5 overflow-hidden border-t border-sidebar-border p-3">
+        {!collapsed && isWorker && locationSharingEnabled && (
+          <WorkerLocationToggle workerId={workerId ?? null} />
+        )}
+
+        {(() => {
+          const cardInner = (
+            <>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground transition-transform group-hover/acct:scale-105">
+                {displayName.trim().charAt(0).toUpperCase() || "U"}
+              </div>
+              <div className={cn(fade("max-w-[10rem]"), "min-w-0 text-left")}>
+                <div className="truncate text-sm font-semibold leading-tight">{displayName}</div>
+                {(isWorker ? roleLabel : "Manage account") && (
+                  <div
+                    className={cn(
+                      "mt-0.5 truncate text-[11px]",
+                      isWorker
+                        ? "text-sidebar-foreground/65"
+                        : "font-medium text-primary",
+                    )}
+                  >
+                    {isWorker ? roleLabel : "Manage account"}
+                  </div>
+                )}
+              </div>
+            </>
+          );
+          const cardClass = cn(
+            "flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors",
+            collapsed ? "justify-start bg-transparent" : "bg-sidebar-accent/60",
+          );
+
+          // Workers have no account dialog — plain card. Everyone else: the
+          // card itself opens "Manage my account".
+          if (isWorker) {
+            return <div className={cardClass}>{cardInner}</div>;
+          }
+
+          return (
+            <ChangePasswordDialog
+              renderTrigger={(openDialog) => (
+                <button
+                  type="button"
+                  onClick={openDialog}
+                  aria-label="Manage my account"
+                  title="Manage my account"
+                  className={cn(
+                    cardClass,
+                    "group/acct cursor-pointer outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-primary/50 active:scale-[0.98]",
+                  )}
+                >
+                  {cardInner}
+                </button>
+              )}
+            />
+          );
+        })()}
+
+        <div className={cn("flex gap-2", collapsed && "flex-col")}>
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            title={dark ? "Light mode" : "Dark mode"}
+            className={cn(
+              "group/theme flex shrink-0 items-center justify-center border border-sidebar-border bg-sidebar-accent/40 text-sidebar-foreground outline-none transition-all hover:border-primary/50 hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-primary/50 active:scale-95",
+              collapsed
+                ? "mx-auto h-10 w-10 rounded-xl"
+                : isWorker
+                  ? "h-9 w-9 rounded-lg"
+                  : "h-9 w-full rounded-lg",
+            )}
+          >
+            {/* Sun and moon sit on top of each other and swap with a spin. */}
+            <span className="relative block h-[18px] w-[18px]">
+              <Sun
+                className={cn(
+                  "absolute inset-0 h-[18px] w-[18px] transition-all duration-300",
+                  dark ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0",
+                )}
+              />
+              <Moon
+                className={cn(
+                  "absolute inset-0 h-[18px] w-[18px] transition-all duration-300",
+                  dark ? "rotate-90 scale-0 opacity-0" : "rotate-0 scale-100 opacity-100",
+                )}
+              />
+            </span>
+            {!isWorker && (
+              <span className={cn(fade("ml-2 max-w-[7rem]"), "text-xs font-semibold")}>
+                {dark ? "Light mode" : "Dark mode"}
+              </span>
+            )}
+          </button>
+
+          {/* Admins / managers sign out from inside "Manage my account";
+              workers have no account dialog, so they keep a button here. */}
+          {isWorker && (
+            <ConfirmDelete
+              onConfirm={lock}
+              title="Sign out of this worker account?"
+              description="You will need to sign in again to view attendance and payment records."
+              confirmLabel="Sign out"
+            >
+              <Button
+                variant="default"
+                size="sm"
+                aria-label="Sign out"
+                title="Sign out"
+                className={cn(
+                  "h-9 min-w-0 justify-center rounded-lg bg-primary px-0 font-semibold",
+                  collapsed ? "w-full flex-none" : "flex-1",
+                )}
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+                <span className={cn(fade("ml-2 max-w-[6rem]"))}>Sign out</span>
+              </Button>
+            </ConfirmDelete>
+          )}
+        </div>
+
+        {!collapsed && (
+          <div className="sb-reveal">
+            <AppCredit />
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
 
 /**
  * NAVIGATION BAR
- * Phones: floating bottom tab bar. Tablet/desktop (md+): fixed icon rail on
- * the left — logo on top, the main tabs beneath it, and "More" pinned to the
- * very bottom of the rail.
+ * Phones: floating glass dock. Tablet (md–lg): slim icon rail on the left.
+ * Desktop (lg+): hidden — DesktopSidebar takes over.
  * The first 4 `primary` nav items, plus a permanent "More" tab that
  * opens the "More" card (remaining nav items, explore links, theme,
- * account) — a bottom sheet on phones, a flyout beside the rail on larger screens. Fixed to the viewport bottom, safe-area
+ * account) — a bottom sheet at every size. Fixed to the viewport bottom, safe-area
  * aware (see `.shell-bottomnav` in styles.css) so it clears the iOS
  * home indicator when installed as a standalone PWA.
  */
@@ -709,7 +1059,7 @@ function BottomNav({
 
   const primary = links.filter((l) => l.primary).slice(0, 4);
   const tabs = primary.length > 0 ? primary : links.slice(0, 4);
-  // Phone-only quick action above the tabs; shown only when this account
+  // Quick action above the tabs; shown only when this account
   // actually has the Rentals page.
   const canAddRental = links.some((l) => l.to === "/rentals");
   // Only admins whose business has the Worker Locations page get this one.
@@ -824,12 +1174,50 @@ export function AppLayout({ children }: { children: ReactNode }) {
   * The mobileMoreOpen state controls the More tab's bottom sheet.
    */
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const routePath = useRouterState({ select: (s) => s.location.pathname });
 
-  // Which "More" surface to render for it: a bottom sheet on phones,
-  // a compact flyout anchored beside the rail on tablet/desktop. See
-  // MobileMoreSheet / MoreFlyout below.
+
+  // Phone: bottom sheet. Tablet: flyout beside the rail. Desktop: the full
+  // sidebar already lists everything, so there is no "More" surface.
   const deviceType = useDeviceType();
-  const isMobileDevice = deviceType === "mobile";
+
+  // Desktop sidebar: expanded (labelled) vs collapsed (icon-only). Remembered
+  // across visits. `sidebarAnimate` stays false for the first frame so a saved
+  // "collapsed" state is applied instantly instead of animating on page load.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarAnimate, setSidebarAnimate] = useState(false);
+  const toggleSidebar = () =>
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("mbs-sidebar-collapsed", next ? "1" : "0");
+      } catch {
+        /* storage unavailable — just don't persist */
+      }
+      return next;
+    });
+
+  useEffect(() => {
+    try {
+      setSidebarCollapsed(localStorage.getItem("mbs-sidebar-collapsed") === "1");
+    } catch {
+      /* ignore */
+    }
+    const id = requestAnimationFrame(() => setSidebarAnimate(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  // Ctrl/Cmd + B toggles the sidebar (desktop only).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b" && window.innerWidth >= 1024) {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const [dark, setDark] = useState(false);
   const { me, business } = useSession();
@@ -891,7 +1279,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
     // the fixed `.shell-bottomnav` below) turns it into the containing block
     // for that fixed nav, so the nav bounces along with the page instead of
     // staying pinned to the screen during over-swipe.
-    <div className="flex min-h-dvh shell-root">
+    <div
+      className="flex min-h-dvh shell-root"
+      data-sidebar={sidebarCollapsed ? "collapsed" : "expanded"}
+      data-anim={sidebarAnimate ? "1" : "0"}
+    >
       {/* ==========================================
           "MORE" SURFACE
           Phone: bottom sheet, matching the bottom-nav
@@ -900,7 +1292,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           Workers use the same shell as admins now.
          ========================================== */}
 
-      {isMobileDevice ? (
+      {deviceType === "mobile" && (
         <Sheet open={mobileMoreOpen} onOpenChange={setMobileMoreOpen}>
           <SheetContent
             side="bottom"
@@ -912,12 +1304,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
             />
           </SheetContent>
         </Sheet>
-      ) : (
+      )}
+
+      {deviceType === "tablet" && (
         <MoreFlyout
           open={mobileMoreOpen}
           onOpenChange={setMobileMoreOpen}
           onNav={() => setMobileMoreOpen(false)}
           {...sharedSidebarProps}
+        />
+      )}
+
+      {deviceType === "desktop" && (
+        <DesktopSidebar
+          {...sharedSidebarProps}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={toggleSidebar}
         />
       )}
 
@@ -942,7 +1344,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   worker (no rail), show it up to lg too.
                  =================================== */}
 
-              <div className="flex min-w-0 flex-1 items-center gap-2 md:hidden">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <BrandLogo alt="Logo" className="h-9 w-9" />
 
                 <MobileMarqueeTitle text={business?.name ?? PLATFORM_NAME} />
@@ -964,7 +1366,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <main
           className="page-pad shell-content-offset flex-1 overflow-x-hidden"
         >
-          {children}
+          {/* Keyed by path: each page fades in softly instead of snapping. */}
+          <div key={routePath} className="page-enter">
+            {children}
+          </div>
         </main>
 
         {/* ========================================

@@ -25,6 +25,7 @@ import { BrandName } from "@/components/BrandName";
 import { LoginIllustration } from "@/components/LoginIllustration";
 import { supabase } from "@/integrations/supabase/client";
 import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
+import { lock } from "@/lib/auth/lock";
 import { resolveLoginFn } from "@/lib/api/auth.functions";
 import { PLATFORM_TAGLINE } from "@/lib/brand";
 import { registerNativePush, unregisterNativePush } from "@/lib/native-push";
@@ -107,15 +108,31 @@ const PAGE_CSS = `
 }
 `;
 
-/** Signs out, forgets this device's token and reloads. */
-export function lock() {
-  localStorage.removeItem(DEVICE_TOKEN_KEY);
-  setSessionSnapshot(EMPTY);
-  // Stop phone notifications for this account first (needs the session, so before sign-out).
-  // Same for background location: stop the phone's tracking service and revoke its token.
-  void Promise.allSettled([unregisterNativePush(), stopNativeLocation()])
-    .then(() => supabase.auth.signOut())
-    .finally(() => window.location.reload());
+/**
+ * Where this user should be instead of `pathname`, or null if they are already
+ * on a screen meant for them.
+ */
+function redirectFor(
+  me: Me | null,
+  business: SessionState["business"],
+  pathname: string,
+): string | null {
+  if (!me) return null;
+
+  if (me.role === "worker") {
+    return pathname !== "/worker" ? "/worker" : null;
+  }
+
+  if (me.role === "super_admin") {
+    return pathname.startsWith("/platform/") ? null : "/platform/businesses";
+  }
+
+  if (pathname.startsWith("/platform/")) return "/dashboard";
+
+  const feature = featureForPath(pathname);
+  if (feature && !isFeatureEnabled(business, feature.key)) return "/dashboard";
+
+  return null;
 }
 
 /** One signed-in device per staff/worker account (the platform admin has no such limit). */
@@ -428,12 +445,23 @@ export function Gate({
       }
     };
 
-    const interval = window.setInterval(
-      () => void check(),
-      10000,
-    );
+    // Light-touch: every minute while the tab is visible, plus when the tab
+    // regains focus (throttled). Each check is 3 round-trips, so polling it
+    // every 10s was a constant drag on the network and the UI.
+    let lastCheck = Date.now();
 
-    const onFocus = () => void check();
+    const run = () => {
+      lastCheck = Date.now();
+      void check();
+    };
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") run();
+    }, 60_000);
+
+    const onFocus = () => {
+      if (Date.now() - lastCheck > 15_000) run();
+    };
 
     window.addEventListener("focus", onFocus);
 
@@ -448,57 +476,22 @@ export function Gate({
 
   /* ---------- keep each kind of user on the screens meant for them ---------- */
 
+  // Decided during render (not in an effect) so a worker / platform admin never
+  // sees a frame of the wrong screen: while a redirect is pending we render a
+  // neutral splash instead of the app, then land straight on the right page.
+  const redirectTo =
+    phase === "ready"
+      ? redirectFor(state.me, state.business, pathname)
+      : null;
+
   useEffect(() => {
-    if (phase !== "ready" || !state.me) return;
+    if (!redirectTo) return;
 
-    const role = state.me.role;
-
-    if (
-      role === "worker" &&
-      pathname !== "/worker"
-    ) {
-      void navigate({
-        to: "/worker",
-      });
-    } else if (
-      role === "super_admin" &&
-      !pathname.startsWith("/platform/")
-    ) {
-      void navigate({
-        to: "/platform/businesses",
-      });
-    } else if (
-      role !== "super_admin" &&
-      role !== "worker" &&
-      pathname.startsWith("/platform/")
-    ) {
-      void navigate({
-        to: "/dashboard",
-      });
-    } else if (
-      role !== "super_admin" &&
-      role !== "worker"
-    ) {
-      const feature = featureForPath(pathname);
-
-      if (
-        feature &&
-        !isFeatureEnabled(
-          state.business,
-          feature.key,
-        )
-      ) {
-        void navigate({
-          to: "/dashboard",
-        });
-      }
-    }
-  }, [
-    navigate,
-    pathname,
-    phase,
-    state,
-  ]);
+    void navigate({
+      to: redirectTo as never,
+      replace: true,
+    });
+  }, [navigate, redirectTo]);
 
   /* ---------- sign in ---------- */
 
@@ -833,6 +826,14 @@ export function Gate({
   /* ---------------------------------------------------------------- */
 
   if (phase === "ready") {
+    if (redirectTo) {
+      return (
+        <div className="flex min-h-dvh items-center justify-center bg-background">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      );
+    }
+
     return (
       <SessionContext.Provider value={state}>
         {children}
