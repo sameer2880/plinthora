@@ -400,12 +400,19 @@
     inset 0 1px 0 rgb(255 255 255 / 10%);
 }
 
+.shell-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
 .shell-addpill {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   gap: 0.45rem;
   height: 2.1rem;
-  padding: 0 1rem;
+  padding: 0 0.85rem;
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 600;
@@ -549,7 +556,8 @@
     -webkit-backdrop-filter: none;
   }
 
-  .shell-addpill {
+  .shell-addpill,
+  .shell-actions {
     display: none;
   }
 

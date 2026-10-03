@@ -686,6 +686,8 @@ function BottomNav({
   // Phone-only quick action above the tabs; shown only when this account
   // actually has the Rentals page.
   const canAddRental = links.some((l) => l.to === "/rentals");
+  // Only admins whose business has the Worker Locations page get this one.
+  const canSeeWorkerLocations = links.some((l) => l.to === "/worker-locations");
 
   return (
     <nav
@@ -701,16 +703,30 @@ function BottomNav({
       </Link>
 
       <div className="shell-dock">
-        {canAddRental && (
-          <Link
-            to="/rentals"
-            search={{ new: true }}
-            aria-label="Add rental"
-            className="shell-addpill"
-          >
-            <Plus className="h-4 w-4" />
-            Add Rental
-          </Link>
+        {(canAddRental || canSeeWorkerLocations) && (
+          <div className="shell-actions">
+            {canAddRental && (
+              <Link
+                to="/rentals"
+                search={{ new: true }}
+                aria-label="Add rental"
+                className="shell-addpill"
+              >
+                <Plus className="h-4 w-4" />
+                Add Rental
+              </Link>
+            )}
+            {canSeeWorkerLocations && (
+              <Link
+                to="/worker-locations"
+                aria-label="Worker locations"
+                className="shell-addpill"
+              >
+                <MapPinned className="h-4 w-4" />
+                W Locations
+              </Link>
+            )}
+          </div>
         )}
 
       <div className="shell-navbar">
