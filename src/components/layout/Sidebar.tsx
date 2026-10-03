@@ -25,6 +25,8 @@ import {
   Building2,
   Inbox,
   Settings,
+  Plus,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -462,13 +464,16 @@ function MoreMenuContent({
 
   return (
     <>
-      <div className="flex shrink-0 items-center border-b border-sidebar-border px-4 py-3">
-        <span className="text-sm font-bold">More</span>
+      <div className="more-head">
+        <span className="text-base font-bold tracking-tight">More</span>
+        <button type="button" onClick={onClose} aria-label="Close" className="more-close">
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto px-3 pb-3">
         {secondary.length > 0 && (
-          <div className="grid grid-cols-3 gap-1">
+          <div className="more-inset grid grid-cols-3 gap-1">
             {secondary.map(({ to, label, icon: Icon }) => {
               const active = path === to || path.startsWith(to + "/");
 
@@ -477,19 +482,12 @@ function MoreMenuContent({
                   key={to}
                   to={to}
                   onClick={onClose}
-                  className="group flex flex-col items-center gap-1.5 rounded-2xl px-1 py-2 text-center transition-colors hover:bg-sidebar-accent"
+                  className={cn("more-tile", active && "more-tile-active")}
                 >
-                  <span
-                    className={cn(
-                      "flex h-11 w-11 items-center justify-center rounded-full transition-colors",
-                      active
-                        ? "bg-foreground text-background"
-                        : "bg-primary/25 text-sidebar-foreground group-hover:bg-primary/35",
-                    )}
-                  >
+                  <span className="more-chip">
                     <Icon className="h-5 w-5" />
                   </span>
-                  <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
+                  <span className="line-clamp-2 text-[11px] font-semibold leading-tight">
                     {label}
                   </span>
                 </Link>
@@ -498,7 +496,7 @@ function MoreMenuContent({
           </div>
         )}
 
-        <div className="mt-4 space-y-2.5 border-t border-sidebar-border pt-4">
+        <div className={cn("space-y-2.5", secondary.length > 0 && "mt-3")}>
           {/* Admin/manager: theme + account buttons sit side by side.
               Worker: theme button stays full width, location toggle below. */}
           <div className={cn(!isWorkerSidebar && "flex gap-2")}>
@@ -507,7 +505,7 @@ function MoreMenuContent({
               size="sm"
               onClick={onToggleTheme}
               className={cn(
-                "justify-center gap-2 font-semibold",
+                "more-btn justify-center gap-2 font-semibold",
                 isWorkerSidebar ? "w-full" : "min-w-0 flex-1 whitespace-nowrap px-2 text-xs",
               )}
             >
@@ -516,7 +514,7 @@ function MoreMenuContent({
             </Button>
 
             {!isWorkerSidebar && (
-              <ChangePasswordDialog className="min-w-0 flex-1 whitespace-nowrap px-2 text-xs" />
+              <ChangePasswordDialog className="more-btn min-w-0 flex-1 whitespace-nowrap px-2 text-xs" />
             )}
           </div>
 
@@ -549,10 +547,10 @@ function MoreMenuContent({
               variant={isWorkerSidebar ? "outline" : "default"}
               size="sm"
               className={cn(
-                "w-full justify-center rounded-lg font-semibold",
+                "w-full justify-center font-semibold",
                 isWorkerSidebar
-                  ? "border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  : "bg-primary",
+                  ? "more-btn border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  : "more-signout",
               )}
             >
               <LogOut className="mr-2 h-4 w-4" />
@@ -586,7 +584,7 @@ function MobileMoreSheet({
   onToggleTheme: () => void;
 }) {
   return (
-    <div className="flex max-h-[min(34rem,calc(100dvh-2rem))] flex-col overflow-hidden rounded-2xl">
+    <div className="more-panel flex max-h-[min(34rem,calc(100dvh-2rem))] flex-col overflow-hidden">
       <MoreMenuContent
         onClose={() => onNav?.()}
         workerName={workerName}
@@ -644,7 +642,7 @@ function MoreFlyout({
       <div
         role="dialog"
         aria-label="More"
-        className="fixed bottom-4 left-[calc(var(--shell-rail-w)+0.75rem)] z-50 flex max-h-[min(34rem,calc(100dvh-2rem))] w-[21rem] flex-col overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl"
+        className="more-panel fixed bottom-4 left-[calc(var(--shell-rail-w)+0.75rem)] z-50 flex max-h-[min(34rem,calc(100dvh-2rem))] w-[21rem] flex-col overflow-hidden"
       >
         <MoreMenuContent
           onClose={() => {
@@ -685,6 +683,9 @@ function BottomNav({
 
   const primary = links.filter((l) => l.primary).slice(0, 4);
   const tabs = primary.length > 0 ? primary : links.slice(0, 4);
+  // Phone-only quick action above the tabs; shown only when this account
+  // actually has the Rentals page.
+  const canAddRental = links.some((l) => l.to === "/rentals");
 
   return (
     <nav
@@ -698,6 +699,19 @@ function BottomNav({
       >
         <BrandLogo alt="Logo" className="h-9 w-9" />
       </Link>
+
+      <div className="shell-dock">
+        {canAddRental && (
+          <Link
+            to="/rentals"
+            search={{ new: true }}
+            aria-label="Add rental"
+            className="shell-addpill"
+          >
+            <Plus className="h-4 w-4" />
+            Add Rental
+          </Link>
+        )}
 
       <div className="shell-navbar">
         {tabs.map((item) => {
@@ -728,6 +742,7 @@ function BottomNav({
           <MoreHorizontal className="shell-navtab-icon" />
           <span className="shell-navtab-label">More</span>
         </button>
+      </div>
       </div>
     </nav>
   );
@@ -886,7 +901,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Sheet open={mobileMoreOpen} onOpenChange={setMobileMoreOpen}>
               <SheetContent
                 side="bottom"
-                className="inset-x-auto bottom-[calc(0.85rem+env(safe-area-inset-bottom,0px))] left-3 right-3 max-h-[85vh] rounded-2xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl [&>button]:hidden"
+                className="inset-x-auto bottom-[calc(0.7rem+env(safe-area-inset-bottom,0px))] left-2 right-2 mx-auto max-h-[85vh] max-w-[27rem] rounded-[2rem] border-0 bg-transparent p-0 shadow-none [&>button]:hidden"
               >
                 <MobileMoreSheet
                   onNav={() => setMobileMoreOpen(false)}

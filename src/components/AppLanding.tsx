@@ -1,625 +1,1023 @@
-import { useEffect, useState } from "react";
-import { PLATFORM_NAME, PLATFORM_TAGLINE } from "@/lib/brand";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  Download,
   Home,
+  Boxes,
+  FileBarChart,
   Receipt,
-  ShieldCheck,
-  Truck,
-  Users,
-  ClipboardList,
-  BarChart3,
-  MessageSquare,
+  Menu,
+  Moon,
+  Sun,
+  LogOut,
+  NotebookPen,
+  HardHat,
+  RefreshCw,
+  Globe,
+  Instagram,
+  Youtube,
+  MessageCircle,
+  Phone,
   MapPin,
-  CalendarCheck,
-  StickyNote,
+  MapPinned,
+  MessagesSquare,
+  UserCog,
+  Compass,
+  MoreHorizontal,
+  Building2,
+  Inbox,
+  Settings,
+  Plus,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+
+import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+import { WorkerLocationToggle } from "@/components/WorkerLocationToggle";
 import { BrandLogo } from "@/components/BrandLogo";
-import { BrandName } from "@/components/BrandName";
+import { AppCredit } from "@/components/AppCredit";
+import { useEffect, useState, type ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { useDeviceType } from "@/hooks/use-device";
+import { lock } from "@/lib/auth/gate";
+import { useSession } from "@/lib/auth/session";
+import { PLATFORM_NAME } from "@/lib/brand";
+import { isMasterAdmin, isSuperAdmin } from "@/lib/auth/access";
+import { isFeatureEnabled, type FeatureKey } from "@/lib/features";
 
-// Keep in sync with the AndroidManifest `package` in the shipped APK.
-const ANDROID_PACKAGE = "com.mbscentring.works";
-const APK_URL = "/downloads/mbs-works.apk";
-const APP_VERSION = "1.0";
+/**
+ * `primary: true` marks the items that get a permanent slot in the
+ * mobile bottom tab bar and are shown first (in order) on the tablet
+ * icon rail. Everything else is still reachable — on mobile via the
+ * "More" tab, on tablet by scrolling the rail — it's just not one of
+ * the handful of items that get thumb-reach priority. Tune freely.
+ *
+ * `shortLabel`, where set, is what the bottom-nav tab shows instead
+ * of the full `label` — the tab is only ~72px wide, so "Labour
+ * Charges" has to become "Labour" there rather than truncate with an
+ * ellipsis. The rail and every sheet/menu still use the full `label`.
+ */
+const nav = [
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: Home,
+    primary: true,
+  },
+  {
+    to: "/rentals",
+    label: "Rentals",
+    icon: Boxes,
+    primary: true,
+    feature: "rentals",
+  },
+  {
+    to: "/platform/businesses",
+    label: "Businesses",
+    icon: Building2,
+    superOnly: true,
+    primary: true,
+  },
+  {
+    to: "/platform/users",
+    label: "Users",
+    icon: UserCog,
+    superOnly: true,
+    primary: true,
+  },
+  {
+    to: "/platform/requests",
+    label: "Requests",
+    icon: Inbox,
+    superOnly: true,
+    primary: true,
+  },
+  {
+    to: "/manage-worker",
+    label: "Manage Users",
+    icon: UserCog,
+    adminOnly: true,
+  },
+  {
+    to: "/labour",
+    label: "Labour Charges",
+    shortLabel: "Labour",
+    icon: HardHat,
+    adminOnly: true,
+    primary: true,
+    feature: "labour",
+  },
+  {
+    to: "/worker-locations",
+    label: "Worker Locations",
+    icon: MapPinned,
+    adminOnly: true,
+    feature: "worker_locations",
+  },
+  {
+    to: "/diary",
+    label: "Diary / Notes",
+    icon: NotebookPen,
+    feature: "diary",
+  },
+  {
+    to: "/reports",
+    label: "Reports",
+    icon: FileBarChart,
+    feature: "reports",
+  },
+  {
+    to: "/receipts",
+    label: "Receipts",
+    icon: Receipt,
+    primary: true,
+    feature: "receipts",
+  },
+  {
+    to: "/feedback",
+    label: "Worker Feedback",
+    icon: MessagesSquare,
+    adminOnly: true,
+    feature: "feedback",
+  },
+  {
+    to: "/business-settings",
+    label: "Business Settings",
+    icon: Settings,
+    adminOnly: true,
+  },
+];
 
-type Device = "android" | "ios" | "desktop";
+export function useNavLinks() {
+  const { me, business } = useSession();
+  const worker = me?.role === "worker";
 
-function detectDevice(): Device {
-  if (typeof navigator === "undefined") return "desktop";
-
-  const ua = navigator.userAgent;
-
-  if (/android/i.test(ua)) return "android";
-  if (/iphone|ipad|ipod/i.test(ua)) return "ios";
-
-  return "desktop";
-}
-
-/* ------------------------------------------------------------------ */
-/* Platform symbols                                                   */
-/* ------------------------------------------------------------------ */
-
-type IconProps = {
-  className?: string;
-};
-
-function AndroidIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5506-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z" />
-    </svg>
-  );
-}
-
-function AppleIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
-    </svg>
-  );
-}
-
-function DesktopIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="2" y="3" width="20" height="14" rx="2.5" />
-      <rect x="8" y="19.5" width="8" height="2" rx="1" />
-    </svg>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Page styles                                                        */
-/* ------------------------------------------------------------------ */
-
-const HERO_CSS = `
-.live-dot {
-  display: inline-flex;
-  width: 9px;
-  height: 9px;
-  align-items: center;
-  justify-content: center;
-  animation: live-dot-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-}
-
-.live-dot-core {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  border-radius: 9999px;
-  background: radial-gradient(circle at 30% 30%, #c8e896, #a8d977 70%);
-  box-shadow: 0 0 8px 1px rgba(168, 217, 119, 0.6);
-  animation: live-dot-breathe 2.4s ease-in-out infinite;
-}
-
-.live-dot-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  background: #a8d977;
-  opacity: 0;
-  animation: live-dot-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-.live-dot-ring-2 {
-  animation-delay: 1.2s;
-}
-
-@keyframes live-dot-pop {
-  from {
-    transform: scale(0);
-    opacity: 0;
+  let links;
+  if (worker) {
+    links = [
+      {
+        to: "/worker",
+        label: "My Attendance & Payments",
+        shortLabel: "Attendance",
+        icon: HardHat,
+        primary: true,
+      },
+    ];
+  } else if (me?.role === "super_admin") {
+    // The platform admin only manages businesses and their users.
+    links = nav.filter((item) => item.superOnly);
+  } else {
+    // Only show a page if this business has been assigned it (or it isn't a
+    // togglable page at all — Dashboard, Manage Users, Business Settings).
+    links = nav.filter(
+      (item) =>
+        !item.superOnly &&
+        (!item.adminOnly || isMasterAdmin()) &&
+        (!item.feature || isFeatureEnabled(business, item.feature as FeatureKey)),
+    );
   }
 
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
+  return { links, worker };
 }
 
-@keyframes live-dot-ping {
-  0% {
-    transform: scale(1);
-    opacity: 0.55;
-  }
-
-  80%,
-  100% {
-    transform: scale(3.2);
-    opacity: 0;
-  }
-}
-
-@keyframes live-dot-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.15);
-  }
-}
-
-.marquee-row {
-  display: flex;
-  width: max-content;
-  gap: 0.625rem;
-  animation: marquee-scroll 34s linear infinite;
-}
-
-.marquee-row--reverse {
-  animation-direction: reverse;
-  animation-duration: 40s;
-}
-
-@keyframes marquee-scroll {
-  from {
-    transform: translateX(0);
-  }
-
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .live-dot,
-  .live-dot-core,
-  .live-dot-ring {
-    animation: none !important;
-  }
-
-  .live-dot-ring {
-    display: none;
-  }
-
-  .marquee-row {
-    animation: none !important;
-  }
-}
-`;
-
-/* ------------------------------------------------------------------ */
-/* Feature list                                                       */
-/* ------------------------------------------------------------------ */
-
-const FEATURES = [
-  { icon: Users, label: "Manage workers" },
-  { icon: CalendarCheck, label: "Attendance" },
-  { icon: MessageSquare, label: "Feedback" },
-  { icon: MapPin, label: "Worker locations" },
-  { icon: Truck, label: "Manage rentals" },
-  { icon: Receipt, label: "Receipts" },
-  { icon: BarChart3, label: "Reports" },
-  { icon: ClipboardList, label: "Diary" },
-  { icon: StickyNote, label: "Notes" },
-] as const;
-
-function FeaturePill({
-  icon: Icon,
-  label,
-}: {
-  icon: typeof Users;
-  label: string;
-}) {
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-[11px] font-medium text-white/70">
-      <Icon className="size-3.5 text-[#a8d977]" />
-      {label}
-    </span>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Flowing wave-line background                                       */
-/* ------------------------------------------------------------------ */
-
-function HeroWaveLines({ className }: { className?: string }) {
-  const lineCount = 90;
+function NavLinks({ onClick }: { onClick?: () => void }) {
+  const path = useRouterState({
+    select: (s) => s.location.pathname,
+  });
+  const { links } = useNavLinks();
 
   return (
-    <svg
-      viewBox="0 0 1200 900"
-      preserveAspectRatio="none"
-      className={className}
-      aria-hidden="true"
-    >
-      {Array.from({ length: lineCount }, (_, i) => {
-        const y = -120 + i * 11;
-        const bow = i * 2.4;
-        const fade = i / lineCount;
-
-        const opacity =
-          0.025 + Math.sin(fade * Math.PI) * 0.16;
+    <nav className="flex flex-col gap-1 px-4 py-5">
+      {links.map(({ to, label, icon: Icon }) => {
+        const active = path === to || path.startsWith(to + "/");
 
         return (
-          <path
-            key={i}
-            d={`
-              M -120 ${y + 170}
-              C 220 ${y + 170},
-                380 ${y - 30 + bow},
-                640 ${y + 145 + bow}
-              S 1120 ${y - 55 + bow},
-                1320 ${y - 100 + bow}
-            `}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeOpacity={opacity}
-          />
+          <Link
+            key={to}
+            to={to}
+            onClick={onClick}
+            className={cn(
+              "touch-target flex items-center gap-3 text-sm font-semibold transition-all",
+              active
+                ? "rounded-xl bg-sidebar-accent px-4 py-3 text-primary"
+                : "rounded-xl px-4 py-3 text-sidebar-foreground hover:bg-sidebar-accent",
+            )}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            {label}
+          </Link>
         );
       })}
-    </svg>
+    </nav>
+  );
+}
+
+/**
+ * Explore more — same plain circle-icon + label tile used by the
+ * secondary nav grid (Diary / Notes, Reports, etc.) rather than its own
+ * bordered, tinted card style, so "Explore more" reads as one more row
+ * of nav tiles instead of a visually distinct block.
+ */
+function ExploreLinks() {
+  const { business } = useSession();
+  const contact = business?.whatsapp || (business?.phone ? `91${business.phone.replace(/\D/g, "")}` : "");
+  const exploreLinks = [
+    business?.website_url && { href: business.website_url, label: "Official website", icon: Globe },
+    business?.instagram_url && { href: business.instagram_url, label: "Instagram", icon: Instagram },
+    business?.youtube_url && { href: business.youtube_url, label: "YouTube", icon: Youtube },
+    contact && { href: `https://wa.me/${contact}`, label: "WhatsApp", icon: MessageCircle },
+    business?.maps_url && { href: business.maps_url, label: "Visit location", icon: MapPin },
+    contact && { href: `tel:+${contact}`, label: "Call Now", icon: Phone },
+  ].filter(Boolean) as { href: string; label: string; icon: typeof Globe }[];
+  if (exploreLinks.length === 0) return null;
+  return (
+    <div className="mx-4 mt-5 border-t border-sidebar-border pt-5">
+      <div className="flex items-center gap-2 px-3 pb-3 text-xs font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/65">
+        <Compass className="h-4 w-4" />
+        Explore more
+      </div>
+
+      <div className="grid grid-cols-4 gap-1 px-1">
+        {exploreLinks.map(({ href, label, icon: Icon }) => (
+          <a
+            key={href}
+            href={href}
+            target={href.startsWith("http") ? "_blank" : undefined}
+            rel={href.startsWith("http") ? "noreferrer" : undefined}
+            className="group touch-target flex flex-col items-center gap-1.5 rounded-2xl px-1 py-2 text-center transition-colors hover:bg-sidebar-accent"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/25 text-sidebar-foreground transition-colors group-hover:bg-primary/35">
+              <Icon className="h-5 w-5" />
+            </span>
+            <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-sidebar-foreground">
+              {label}
+            </span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Signed in as" text block for the admin/manager sidebar — same plain
+ * style as the worker sidebar's version, just above Sign out. Covers both
+ * a workers-table row login (admin or manager role) and the single shared
+ * master login, which has no row and is always full admin.
+ */
+function SignedInLabel() {
+  const { me } = useSession();
+  if (!me) return null;
+
+  return (
+    <div className="min-w-0 text-sm">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/60">
+        Signed in as
+      </div>
+
+      <div className="truncate font-semibold">{me.name}</div>
+      {me.role === "super_admin" && (
+        <div className="mt-0.5 truncate text-xs text-sidebar-foreground/70">Platform admin</div>
+      )}
+    </div>
+  );
+}
+
+function SidebarContent({
+  onNav,
+  workerName,
+  workerId,
+  dark,
+  onToggleTheme,
+}: {
+  onNav?: () => void;
+  workerName?: string;
+  workerId?: string | null;
+  dark: boolean;
+  onToggleTheme: () => void;
+}) {
+  const isWorkerSidebar = workerName !== undefined;
+  const { business } = useSession();
+  const brandName = business?.name ?? PLATFORM_NAME;
+  const brandLocation = business?.location ?? "";
+  const locationSharingEnabled = isFeatureEnabled(business, "worker_locations");
+
+  const ThemeToggle = (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={onToggleTheme}
+      className="w-full justify-center gap-2 font-semibold"
+    >
+      {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+
+      {dark ? "Light mode" : "Dark mode"}
+    </Button>
+  );
+
+  return (
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
+      {/* ================================
+          ADMIN / MANAGER SIDEBAR
+         ================================ */}
+      {!isWorkerSidebar && (
+        <>
+          {/* MOBILE/TABLET LOGO + TITLE */}
+          <div className="flex items-center gap-2 p-4 lg:hidden">
+            <BrandLogo alt={brandName} className="h-9 w-9" />
+
+            <div className="min-w-0">
+              <div className="text-sm font-bold leading-tight tracking-tight">
+                {brandName}
+              </div>
+
+              {brandLocation && (
+                <div className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/70">
+                  {brandLocation}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto py-4">
+            <NavLinks onClick={onNav} />
+            <ExploreLinks />
+          </div>
+
+          <div className="space-y-2 border-t border-sidebar-border p-4">
+            {ThemeToggle}
+
+            <ChangePasswordDialog />
+
+            <SignedInLabel />
+
+            <ConfirmDelete
+              onConfirm={lock}
+              title="Sign out of this account?"
+              description="You will need to sign in again to access the dashboard."
+              confirmLabel="Sign out"
+            >
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full justify-center rounded-lg bg-primary font-semibold"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </Button>
+            </ConfirmDelete>
+
+            <AppCredit />
+
+            <div className="text-[11px] leading-relaxed text-sidebar-foreground/60">
+              {brandName}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ================================
+          WORKER SIDEBAR
+         ================================ */}
+      {isWorkerSidebar && (
+        <>
+          <div className="flex-1 overflow-y-auto">
+            <div className="flex flex-col items-center px-6 pt-8 text-center">
+              <BrandLogo alt={brandName} ringWidth={4} className="h-28 w-28" />
+
+              <div className="mt-4 text-base font-bold tracking-tight">{brandName}</div>
+
+              {brandLocation && (
+                <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/65">
+                  {brandLocation}
+                </div>
+              )}
+            </div>
+
+            <ExploreLinks />
+          </div>
+
+          <div className="space-y-3 border-t border-sidebar-border p-4">
+            {ThemeToggle}
+
+            {locationSharingEnabled && <WorkerLocationToggle workerId={workerId ?? null} />}
+
+            <div className="min-w-0 text-sm">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/60">
+                Signed in as
+              </div>
+
+              <div className="truncate font-semibold">{workerName || "Worker"}</div>
+            </div>
+
+            <ConfirmDelete
+              onConfirm={lock}
+              title="Sign out of this worker account?"
+              description="You will need to sign in again to view attendance and payment records."
+              confirmLabel="Sign out"
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-center border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </Button>
+            </ConfirmDelete>
+
+            <AppCredit />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "MORE" MENU CONTENT — shared by the phone bottom sheet and the tablet /
+ * desktop flyout, so both look exactly the same: a "More" header with a close
+ * button, a 3-column grid of round icon chips, then the theme / account
+ * controls and Sign out.
+ */
+function MoreMenuContent({
+  onClose,
+  workerName,
+  workerId,
+  dark,
+  onToggleTheme,
+}: {
+  onClose: () => void;
+  workerName?: string;
+  workerId?: string | null;
+  dark: boolean;
+  onToggleTheme: () => void;
+}) {
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  const { links } = useNavLinks();
+  const { business } = useSession();
+  const locationSharingEnabled = isFeatureEnabled(business, "worker_locations");
+  const isWorkerSidebar = workerName !== undefined;
+  // Everything without a permanent nav slot — those are already one tap away.
+  const secondary = links.filter((l) => !l.primary);
+
+  return (
+    <>
+      <div className="flex shrink-0 items-center border-b border-sidebar-border px-4 py-3">
+        <span className="text-sm font-bold">More</span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        {secondary.length > 0 && (
+          <div className="grid grid-cols-3 gap-1">
+            {secondary.map(({ to, label, icon: Icon }) => {
+              const active = path === to || path.startsWith(to + "/");
+
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={onClose}
+                  className="group flex flex-col items-center gap-1.5 rounded-2xl px-1 py-2 text-center transition-colors hover:bg-sidebar-accent"
+                >
+                  <span
+                    className={cn(
+                      "flex h-11 w-11 items-center justify-center rounded-full transition-colors",
+                      active
+                        ? "bg-foreground text-background"
+                        : "bg-primary/25 text-sidebar-foreground group-hover:bg-primary/35",
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
+                    {label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-4 space-y-2.5 border-t border-sidebar-border pt-4">
+          {/* Admin/manager: theme + account buttons sit side by side.
+              Worker: theme button stays full width, location toggle below. */}
+          <div className={cn(!isWorkerSidebar && "flex gap-2")}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleTheme}
+              className={cn(
+                "justify-center gap-2 font-semibold",
+                isWorkerSidebar ? "w-full" : "min-w-0 flex-1 whitespace-nowrap px-2 text-xs",
+              )}
+            >
+              {dark ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+              {dark ? "Light mode" : "Dark mode"}
+            </Button>
+
+            {!isWorkerSidebar && (
+              <ChangePasswordDialog className="min-w-0 flex-1 whitespace-nowrap px-2 text-xs" />
+            )}
+          </div>
+
+          {isWorkerSidebar && locationSharingEnabled && <WorkerLocationToggle workerId={workerId ?? null} />}
+
+          {isWorkerSidebar && <ExploreLinks />}
+
+          {isWorkerSidebar ? (
+            <div className="min-w-0 text-sm">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Signed in as
+              </div>
+              <div className="truncate font-semibold">{workerName || "Worker"}</div>
+            </div>
+          ) : (
+            <SignedInLabel />
+          )}
+
+          <ConfirmDelete
+            onConfirm={lock}
+            title={isWorkerSidebar ? "Sign out of this worker account?" : "Sign out of this account?"}
+            description={
+              isWorkerSidebar
+                ? "You will need to sign in again to view attendance and payment records."
+                : "You will need to sign in again to access the dashboard."
+            }
+            confirmLabel="Sign out"
+          >
+            <Button
+              variant={isWorkerSidebar ? "outline" : "default"}
+              size="sm"
+              className={cn(
+                "w-full justify-center rounded-lg font-semibold",
+                isWorkerSidebar
+                  ? "border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  : "bg-primary",
+              )}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </Button>
+          </ConfirmDelete>
+
+          <AppCredit />
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * PHONE "MORE" SHEET (< 768px)
+ * Opens from the bottom (where the bottom-nav's "More" tab is). It shows the
+ * same card as the tablet/desktop flyout — see MoreMenuContent.
+ */
+function MobileMoreSheet({
+  onNav,
+  workerName,
+  workerId,
+  dark,
+  onToggleTheme,
+}: {
+  onNav?: () => void;
+  workerName?: string;
+  workerId?: string | null;
+  dark: boolean;
+  onToggleTheme: () => void;
+}) {
+  return (
+    <div className="flex max-h-[min(34rem,calc(100dvh-2rem))] flex-col overflow-hidden rounded-2xl">
+      <MoreMenuContent
+        onClose={() => onNav?.()}
+        workerName={workerName}
+        workerId={workerId}
+        dark={dark}
+        onToggleTheme={onToggleTheme}
+      />
+    </div>
+  );
+}
+
+/**
+ * TABLET/DESKTOP "MORE" FLYOUT (>= 768px)
+ * The rail's "More" button opens this compact panel anchored beside the rail
+ * (a full-width bottom drawer stretched across a big screen reads as an
+ * oversized, empty box). The card itself is MoreMenuContent, shared with the
+ * phone sheet.
+ */
+function MoreFlyout({
+  open,
+  onOpenChange,
+  onNav,
+  workerName,
+  workerId,
+  dark,
+  onToggleTheme,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onNav?: () => void;
+  workerName?: string;
+  workerId?: string | null;
+  dark: boolean;
+  onToggleTheme: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onOpenChange(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onOpenChange]);
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 bg-slate-950/20"
+        onClick={() => onOpenChange(false)}
+        aria-hidden
+      />
+
+      <div
+        role="dialog"
+        aria-label="More"
+        className="fixed bottom-4 left-[calc(var(--shell-rail-w)+0.75rem)] z-50 flex max-h-[min(34rem,calc(100dvh-2rem))] w-[21rem] flex-col overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl"
+      >
+        <MoreMenuContent
+          onClose={() => {
+            onNav?.();
+            onOpenChange(false);
+          }}
+          workerName={workerName}
+          workerId={workerId}
+          dark={dark}
+          onToggleTheme={onToggleTheme}
+        />
+      </div>
+    </>
+  );
+}
+
+
+/**
+ * NAVIGATION BAR
+ * Phones: floating bottom tab bar. Tablet/desktop (md+): fixed icon rail on
+ * the left — logo on top, the main tabs beneath it, and "More" pinned to the
+ * very bottom of the rail.
+ * The first 4 `primary` nav items, plus a permanent "More" tab that
+ * opens the "More" card (remaining nav items, explore links, theme,
+ * account) — a bottom sheet on phones, a flyout beside the rail on larger screens. Fixed to the viewport bottom, safe-area
+ * aware (see `.shell-bottomnav` in styles.css) so it clears the iOS
+ * home indicator when installed as a standalone PWA.
+ */
+function BottomNav({
+  onOpenMore,
+  isMoreOpen,
+}: {
+  onOpenMore: () => void;
+  isMoreOpen: boolean;
+}) {
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  const { links } = useNavLinks();
+
+  const primary = links.filter((l) => l.primary).slice(0, 4);
+  const tabs = primary.length > 0 ? primary : links.slice(0, 4);
+  // Phone-only quick action above the tabs; shown only when this account
+  // actually has the Rentals page.
+  const canAddRental = links.some((l) => l.to === "/rentals");
+
+  return (
+    <nav
+      className="shell-bottomnav md:overflow-y-auto md:overflow-x-hidden md:[scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden"
+      aria-label="Primary"
+    >
+      <Link
+        to={links[0]?.to ?? "/dashboard"}
+        aria-label="Home"
+        className="hidden shrink-0 items-center justify-center md:mb-2 md:flex"
+      >
+        <BrandLogo alt="Logo" className="h-9 w-9" />
+      </Link>
+
+      <div className="shell-dock">
+        {canAddRental && (
+          <Link
+            to="/rentals"
+            search={{ new: true }}
+            aria-label="Add rental"
+            className="shell-addpill"
+          >
+            <Plus className="h-4 w-4" />
+            Add Rental
+          </Link>
+        )}
+
+      <div className="shell-navbar">
+        {tabs.map((item) => {
+          const { to, label, shortLabel, icon: Icon } = item;
+          const active = path === to || path.startsWith(to + "/");
+
+          return (
+            <Link
+              key={to}
+              to={to}
+              title={label}
+              aria-label={label}
+              className={cn("shell-navtab", active && "shell-navtab-active")}
+            >
+              <Icon className="shell-navtab-icon" />
+              <span className="shell-navtab-label">{shortLabel ?? label}</span>
+            </Link>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={onOpenMore}
+          aria-label="More"
+          title="More"
+          className={cn("shell-navtab md:mt-auto md:shrink-0", isMoreOpen && "shell-navtab-active")}
+        >
+          <MoreHorizontal className="shell-navtab-icon" />
+          <span className="shell-navtab-label">More</span>
+        </button>
+      </div>
+      </div>
+    </nav>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Landing page                                                       */
+/* Mobile header title: slow "scroll -> stop -> scroll" marquee         */
 /* ------------------------------------------------------------------ */
 
-export function AppLanding() {
-  const [detected, setDetected] = useState<Device>("desktop");
-  const [pick, setPick] = useState<Device>("desktop");
+/**
+ * The business name shown in the mobile header, next to the logo.
+ * Static — no scrolling/sliding. If the name is too long for the
+ * available width it's simply truncated with an ellipsis.
+ */
+function MobileMarqueeTitle({ text }: { text: string }) {
+  return (
+    <div className="min-w-0 flex-1">
+      <h1 className="truncate text-fluid-sm font-bold leading-6 sm:text-base sm:leading-6">
+        {text}
+      </h1>
+    </div>
+  );
+}
 
+export function AppLayout({ children }: { children: ReactNode }) {
+  /*
+   * IMPORTANT:
+  * true = desktop sidebar OPEN after login/refresh.
+   *
+  * The mobileMoreOpen state controls the More tab's bottom sheet.
+   */
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+
+  // Which "More" surface to render for it: a bottom sheet on phones,
+  // a compact flyout anchored beside the rail on tablet/desktop. See
+  // MobileMoreSheet / MoreFlyout below.
+  const deviceType = useDeviceType();
+  const isMobileDevice = deviceType === "mobile";
+
+  // Worker accounts don't get the bottom-nav / tablet-rail shell at
+  // all — just the original single hamburger-button sidebar, at every
+  // screen size (slide-in sheet below `lg`, persistent panel at `lg`+).
+  // One state drives both, same as it always did.
+  const [workerSidebarOpen, setWorkerSidebarOpen] = useState(false);
+
+  const [dark, setDark] = useState(false);
+  const { me, business } = useSession();
+  const worker = me?.role === "worker";
+  const workerName = me?.name ?? "Worker";
+  const workerId = me?.workerId ?? null;
+
+  /* ================================
+     LOAD THEME
+     ================================ */
   useEffect(() => {
-    const d = detectDevice();
+    const stored = localStorage.getItem("mbs-theme");
 
-    setDetected(d);
-    setPick(d);
+    if (stored === "dark") {
+      document.documentElement.classList.add("dark");
+      setDark(true);
+    }
   }, []);
 
-  const devicePanels = {
-    android: {
-      title: "Phone & tablet",
-      body: "Download the free APK and install it directly — no Play Store needed.",
-      cta: (
-        <Button
-          asChild
-          className="mt-4 h-11 w-full gap-2 rounded-full text-sm font-semibold sm:w-auto sm:px-8"
-        >
-          <a href={APK_URL} download>
-            <Download className="size-4" />
-            Download APK
-          </a>
-        </Button>
-      ),
-    },
+  // The right-click menu can also switch the theme: follow the <html class="dark"> flag so
+  // the sidebar's own toggle always shows the real state.
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setDark(root.classList.contains("dark"));
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
 
-    ios: {
-      title: "iPhone & iPad",
-      body: "There's no App Store app yet — use the dashboard in Safari, then add it to your Home Screen for the full-screen app feel.",
-      cta: (
-        <Button
-          asChild
-          className="mt-4 h-11 w-full gap-2 rounded-full text-sm font-semibold sm:w-auto sm:px-8"
-        >
-          <Link to="/dashboard">
-            <Home className="size-4" />
-            Open in Safari
-          </Link>
-        </Button>
-      ),
-    },
+  /* ================================
+     THEME TOGGLE
+     ================================ */
+  const toggleTheme = () => {
+    const next = !dark;
 
-    desktop: {
-      title: "Windows, Mac & Linux",
-      body: "No install needed — use Chrome, Safari or Firefox for the best experience.",
-      cta: (
-        <Button
-          asChild
-          className="mt-4 h-11 w-full gap-2 rounded-full text-sm font-semibold sm:w-auto sm:px-8"
-        >
-          <Link to="/dashboard">
-            <Home className="size-4" />
-            Open the dashboard
-          </Link>
-        </Button>
-      ),
-    },
-  } as const;
+    setDark(next);
 
-  const activePanel = devicePanels[pick];
+    document.documentElement.classList.toggle("dark", next);
+
+    localStorage.setItem("mbs-theme", next ? "dark" : "light");
+
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute("content", next ? "#0e1911" : "#f3f6ee");
+    }
+  };
+
+  const sharedSidebarProps = {
+    workerName: worker ? workerName : undefined,
+    workerId: worker ? workerId : undefined,
+    dark,
+    onToggleTheme: toggleTheme,
+  };
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-background">
-      <style>{HERO_CSS}</style>
+    // NOTE: `shell-root` (not the `bg-background` utility) on purpose — see
+    // the comment on `.shell-root` in styles.css. `bg-background` carries a
+    // `backdrop-filter`, and a `backdrop-filter` on this div (an ancestor of
+    // the fixed `.shell-bottomnav` below) turns it into the containing block
+    // for that fixed nav, so the nav bounces along with the page instead of
+    // staying pinned to the screen during over-swipe.
+    <div className="flex min-h-dvh shell-root">
+      {worker ? (
+        <>
+          {/* ==========================================
+              WORKER: CLASSIC SIDEBAR (all screen sizes)
+              Persistent panel at >= lg, slide-in sheet
+              below that — one hamburger button drives
+              both. No bottom-nav, no tablet rail.
+             ========================================== */}
 
-      {/* ============================================================ */}
-      {/* FULL PAGE WAVE BACKGROUND                                    */}
-      {/* ============================================================ */}
+          {workerSidebarOpen && (
+            <aside className="sticky top-0 hidden h-screen w-[var(--shell-sidebar-w)] shrink-0 overflow-hidden border-r border-sidebar-border lg:flex">
+              <SidebarContent {...sharedSidebarProps} />
+            </aside>
+          )}
 
-      <HeroWaveLines
-        className="
-          pointer-events-none
-          absolute
-          inset-0
-          z-0
-          h-full
-          w-full
-          text-foreground
-          opacity-50
-        "
-      />
-
-      {/* ============================================================ */}
-      {/* PAGE CONTENT                                                  */}
-      {/* ============================================================ */}
-
-      <div className="relative z-10">
-
-        {/* ========================================================== */}
-        {/* HERO                                                        */}
-        {/* ========================================================== */}
-
-        <div className="relative overflow-hidden bg-[#0a130d]">
-
-          {/* Green hero wave lines */}
-
-          <HeroWaveLines
-            className="
-              pointer-events-none
-              absolute
-              inset-0
-              z-0
-              h-full
-              w-full
-              text-[#d9f5c0]
-              opacity-40
-            "
-          />
-
-          {/* Hero glow */}
-
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-24 -top-24 z-0 h-[26rem] w-[26rem] rounded-full bg-[#7ab558]/25 blur-[100px]"
-          />
-
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-16 top-1/3 z-0 h-[22rem] w-[22rem] rounded-full bg-[#22331c]/60 blur-[100px]"
-          />
-
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top,_rgba(168,217,119,0.08),_transparent_60%)]"
-          />
-
-          {/* ======================================================== */}
-          {/* NAV                                                       */}
-          {/* ======================================================== */}
-
-          <div className="relative z-10 flex items-center px-6 pt-6 sm:px-10 sm:pt-8">
-            <div className="flex items-center gap-2.5">
-
-              <BrandLogo
-                className="h-8 w-8 shrink-0"
-                alt={PLATFORM_NAME}
-              />
-
-              <BrandName
-                className="truncate text-base font-bold tracking-tight"
-                onDark
-              />
-
-            </div>
-          </div>
-
-          {/* ======================================================== */}
-          {/* HEADLINE                                                  */}
-          {/* ======================================================== */}
-
-          <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center px-6 pb-14 pt-10 text-center sm:px-10 sm:pb-20 sm:pt-14">
-
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3.5 py-1 text-[11px] font-medium uppercase tracking-wide text-[#c8e896]">
-              One app, every device
-            </span>
-
-            <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl">
-              Welcome to <BrandName onDark />
-            </h1>
-
-            {/* NEW TAGLINE */}
-
-            <p className="mx-auto mt-4 max-w-xl text-sm text-white/60 sm:text-base">
-              Manage your workforce, rentals, payments and records effortlessly
-              — in one app.
-            </p>
-
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-medium text-white/70">
-              <span>Real-time tracking</span>
-
-              <span className="text-white/25">•</span>
-
-              <span>Secure records</span>
-
-              <span className="text-white/25">•</span>
-
-              <span>1-click sign in</span>
-            </div>
-
-            <Button
-              asChild
-              className="mt-8 h-12 w-full gap-2 rounded-full bg-[#a8d977] px-8 text-sm font-semibold text-[#0e1911] shadow-lg shadow-[#a8d977]/20 hover:bg-[#c8e896] sm:w-auto"
+          <Sheet open={workerSidebarOpen} onOpenChange={setWorkerSidebarOpen}>
+            <SheetContent
+              side="left"
+              className="w-[min(78vw,340px)] max-w-none border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground shadow-2xl lg:hidden [&>button]:hidden"
             >
-              <Link to="/dashboard">
-                <Home className="size-4" />
-                Go to dashboard
-              </Link>
-            </Button>
+              <SidebarContent
+                onNav={() => setWorkerSidebarOpen(false)}
+                {...sharedSidebarProps}
+              />
+            </SheetContent>
+          </Sheet>
+        </>
+      ) : (
+        <>
+          {/* ==========================================
+              DESKTOP SIDEBAR (>= 1024px)
 
-            <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs text-white/60">
-              <ShieldCheck className="size-4 shrink-0 text-[#a8d977]" />
-              You'll be asked to sign in with your account.
-            </div>
+              IMPORTANT:
+              `desktopOpen` controls whether it exists.
 
-          </div>
+              false -> hidden
+              true  -> visible
+             ========================================== */}
 
-          {/* ======================================================== */}
-          {/* FEATURE MARQUEE                                          */}
-          {/* ======================================================== */}
+          {/* ==========================================
+              "MORE" SURFACE
+              Phone: bottom sheet, matching the bottom-nav
+              tab it's opened from. Tablet/desktop: a
+              compact flyout anchored beside the rail —
+              see MoreFlyout for why this isn't just the
+              same sheet stretched wider.
+             ========================================== */}
 
-          <div className="relative z-10 space-y-2.5 overflow-hidden pb-10 [mask-image:linear-gradient(90deg,transparent,black_10%,black_90%,transparent)]">
-
-            <div className="marquee-row">
-              {[...FEATURES, ...FEATURES].map((f, i) => (
-                <FeaturePill
-                  key={`r1-${i}`}
-                  icon={f.icon}
-                  label={f.label}
+          {isMobileDevice ? (
+            <Sheet open={mobileMoreOpen} onOpenChange={setMobileMoreOpen}>
+              <SheetContent
+                side="bottom"
+                className="inset-x-auto bottom-[calc(0.85rem+env(safe-area-inset-bottom,0px))] left-3 right-3 max-h-[85vh] rounded-2xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl [&>button]:hidden"
+              >
+                <MobileMoreSheet
+                  onNav={() => setMobileMoreOpen(false)}
+                  {...sharedSidebarProps}
                 />
-              ))}
+              </SheetContent>
+            </Sheet>
+          ) : (
+            <MoreFlyout
+              open={mobileMoreOpen}
+              onOpenChange={setMobileMoreOpen}
+              onNav={() => setMobileMoreOpen(false)}
+              {...sharedSidebarProps}
+            />
+          )}
+        </>
+      )}
+
+      {/* ==========================================
+          MAIN CONTENT AREA
+         ========================================== */}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className={cn("site-header sticky top-0 z-40 h-16 border-b border-border px-4 lg:px-6", !worker && "md:hidden")}>
+          <div className="flex h-full items-center justify-between gap-4">
+            {/* =====================================
+                LEFT SIDE
+               ===================================== */}
+
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              {worker ? (
+                /* =================================
+                   WORKER MENU BUTTON
+                   Visible at every screen size —
+                   the single entry point to the
+                   classic sidebar (sheet below lg,
+                   persistent panel at lg+).
+                   ================================= */
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full border-white/40 bg-white/25 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.05]"
+                  onClick={() => setWorkerSidebarOpen((previous) => !previous)}
+                  aria-label={workerSidebarOpen ? "Close sidebar" : "Open sidebar"}
+                  title={workerSidebarOpen ? "Close sidebar" : "Open sidebar"}
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              ) : (
+                /* ===================================
+                    DESKTOP MENU
+
+                    This button opens
+                    and closes the sidebar.
+                    (Mobile has no header menu button —
+                    the bottom-nav "More" tab is the one
+                    entry point there. Tablet uses the
+                    rail's "More" button.)
+                   =================================== */
+                null
+              )}
+
+              {/* ===================================
+                  MOBILE LOGO/TITLE
+                  Tablet already shows the logo atop
+                  its rail (admin/manager only); desktop
+                  inside the full sidebar — so this is
+                  phone-only for admin/manager. For a
+                  worker (no rail), show it up to lg too.
+                 =================================== */}
+
+              <div className={cn("flex min-w-0 flex-1 items-center gap-2", worker ? "lg:hidden" : "md:hidden")}>
+                <BrandLogo alt="Logo" className="h-9 w-9" />
+
+                <MobileMarqueeTitle text={business?.name ?? PLATFORM_NAME} />
+              </div>
             </div>
 
-            <div className="marquee-row marquee-row--reverse">
-              {[
-                ...FEATURES.slice().reverse(),
-                ...FEATURES.slice().reverse(),
-              ].map((f, i) => (
-                <FeaturePill
-                  key={`r2-${i}`}
-                  icon={f.icon}
-                  label={f.label}
-                />
-              ))}
-            </div>
+            {/* =====================================
+                RIGHT SIDE
+               ===================================== */}
 
+            <div className="flex items-center gap-1" />
           </div>
-        </div>
+        </header>
 
-        {/* ============================================================ */}
-        {/* PICK YOUR DEVICE                                             */}
-        {/* ============================================================ */}
+        {/* ========================================
+            PAGE CONTENT
+           ======================================== */}
 
-        <div className="relative border-t border-border/60 dark:border-white/[0.06]">
+        <main
+          className={cn(
+            "page-pad flex-1 overflow-x-hidden",
+            !worker && "shell-content-offset",
+            worker && "lg:h-[calc(100dvh-4rem)] lg:overflow-y-hidden",
+          )}
+        >
+          {children}
+        </main>
 
-          <div className="mx-auto max-w-2xl px-6 py-14 sm:px-10 sm:py-20">
+        {/* ========================================
+            RESPONSIVE ADMIN NAVIGATION
+            Admin/manager only — workers use the
+            classic sidebar at every screen size. It is a bottom bar on
+            mobile and a left icon rail on tablet/desktop.
+           ======================================== */}
 
-            <div className="text-center">
-
-              <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                Pick your device
-              </h2>
-
-              <p className="mt-2 text-sm text-muted-foreground">
-                Android, iPhone or computer — choose yours to see how to get
-                started.
-              </p>
-
-            </div>
-
-            {/* ====================================================== */}
-            {/* DEVICE BUTTONS                                          */}
-            {/* ====================================================== */}
-
-            <div className="mt-7 grid grid-cols-3 gap-2.5">
-
-              {(
-                [
-                  {
-                    value: "android",
-                    label: "Android",
-                    icon: AndroidIcon,
-                  },
-                  {
-                    value: "ios",
-                    label: "iOS",
-                    icon: AppleIcon,
-                  },
-                  {
-                    value: "desktop",
-                    label: "Computer",
-                    icon: DesktopIcon,
-                  },
-                ] as const
-              ).map(({ value, label, icon: Icon }) => {
-
-                const active = pick === value;
-
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setPick(value)}
-                    className={cn(
-                      "relative flex flex-col items-center gap-2 rounded-2xl border px-3 py-4 text-xs font-medium transition-all duration-200",
-
-                      active
-                        ? "border-primary bg-primary/10 text-primary dark:border-primary/70 dark:bg-primary/15"
-                        : "border-border bg-card/40 text-muted-foreground hover:border-primary/40 hover:text-foreground dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-primary/50",
-                    )}
-                  >
-
-                    {detected === value && (
-                      <span
-                        className="live-dot absolute right-2.5 top-2.5"
-                        aria-hidden="true"
-                      >
-                        <span className="live-dot-ring" />
-                        <span className="live-dot-ring live-dot-ring-2" />
-                        <span className="live-dot-core" />
-                      </span>
-                    )}
-
-                    <Icon className="size-6" />
-
-                    {label}
-
-                  </button>
-                );
-              })}
-
-            </div>
-
-            {/* ====================================================== */}
-            {/* ACTIVE DEVICE PANEL                                    */}
-            {/* ====================================================== */}
-
-            <div className="mt-4 rounded-2xl border border-border bg-card p-5 text-center dark:border-white/10 dark:bg-white/[0.04] sm:p-6">
-
-              <p className="text-sm font-semibold text-foreground">
-                {activePanel.title}
-              </p>
-
-              <p className="mx-auto mt-1.5 max-w-sm text-xs text-muted-foreground">
-                {activePanel.body}
-              </p>
-
-              {activePanel.cta}
-
-            </div>
-
-            {/* ====================================================== */}
-            {/* VERSION                                                  */}
-            {/* ====================================================== */}
-
-            <p className="mt-8 text-center text-[11px] text-muted-foreground/70">
-              Android app version {APP_VERSION} · {ANDROID_PACKAGE}
-            </p>
-
-          </div>
-        </div>
-
+        {!worker && (
+          <BottomNav
+            onOpenMore={() => setMobileMoreOpen(true)}
+            isMoreOpen={mobileMoreOpen}
+          />
+        )}
       </div>
     </div>
   );
