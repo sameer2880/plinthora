@@ -4,7 +4,6 @@ import {
   Boxes,
   FileBarChart,
   Receipt,
-  Menu,
   Moon,
   Sun,
   LogOut,
@@ -163,6 +162,14 @@ export function useNavLinks() {
         icon: HardHat,
         primary: true,
       },
+      {
+        // Same route, `?tab=feedback` (see routes/_authenticated/worker.tsx).
+        to: "/worker",
+        tab: "feedback",
+        label: "Feedback",
+        icon: MessagesSquare,
+        primary: true,
+      },
     ];
   } else if (me?.role === "super_admin") {
     // The platform admin only manages businesses and their users.
@@ -219,10 +226,10 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
  * bordered, tinted card style, so "Explore more" reads as one more row
  * of nav tiles instead of a visually distinct block.
  */
-function ExploreLinks() {
+function useExploreItems() {
   const { business } = useSession();
   const contact = business?.whatsapp || (business?.phone ? `91${business.phone.replace(/\D/g, "")}` : "");
-  const exploreLinks = [
+  return [
     business?.website_url && { href: business.website_url, label: "Official website", icon: Globe },
     business?.instagram_url && { href: business.instagram_url, label: "Instagram", icon: Instagram },
     business?.youtube_url && { href: business.youtube_url, label: "YouTube", icon: Youtube },
@@ -230,6 +237,10 @@ function ExploreLinks() {
     business?.maps_url && { href: business.maps_url, label: "Visit location", icon: MapPin },
     contact && { href: `tel:+${contact}`, label: "Call Now", icon: Phone },
   ].filter(Boolean) as { href: string; label: string; icon: typeof Globe }[];
+}
+
+function ExploreLinks() {
+  const exploreLinks = useExploreItems();
   if (exploreLinks.length === 0) return null;
   return (
     <div className="mx-4 mt-5 border-t border-sidebar-border pt-5">
@@ -461,6 +472,10 @@ function MoreMenuContent({
   const isWorkerSidebar = workerName !== undefined;
   // Everything without a permanent nav slot — those are already one tap away.
   const secondary = links.filter((l) => !l.primary);
+  // Workers have no extra pages, so their grid is the business's contact /
+  // social shortcuts — same tiles, same tray as the admin's More panel.
+  const exploreItems = useExploreItems();
+  const hasTiles = isWorkerSidebar ? exploreItems.length > 0 : secondary.length > 0;
 
   return (
     <>
@@ -472,42 +487,57 @@ function MoreMenuContent({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-3">
-        {secondary.length > 0 && (
+        {hasTiles && (
           <div className="more-inset grid grid-cols-3 gap-1">
-            {secondary.map(({ to, label, icon: Icon }) => {
-              const active = path === to || path.startsWith(to + "/");
+            {isWorkerSidebar
+              ? exploreItems.map(({ href, label, icon: Icon }) => (
+                  <a
+                    key={href}
+                    href={href}
+                    target={href.startsWith("http") ? "_blank" : undefined}
+                    rel={href.startsWith("http") ? "noreferrer" : undefined}
+                    onClick={onClose}
+                    className="more-tile"
+                  >
+                    <span className="more-chip">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="line-clamp-2 text-[11px] font-semibold leading-tight">
+                      {label}
+                    </span>
+                  </a>
+                ))
+              : secondary.map(({ to, label, icon: Icon }) => {
+                  const active = path === to || path.startsWith(to + "/");
 
-              return (
-                <Link
-                  key={to}
-                  to={to}
-                  onClick={onClose}
-                  className={cn("more-tile", active && "more-tile-active")}
-                >
-                  <span className="more-chip">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <span className="line-clamp-2 text-[11px] font-semibold leading-tight">
-                    {label}
-                  </span>
-                </Link>
-              );
-            })}
+                  return (
+                    <Link
+                      key={to}
+                      to={to}
+                      onClick={onClose}
+                      className={cn("more-tile", active && "more-tile-active")}
+                    >
+                      <span className="more-chip">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className="line-clamp-2 text-[11px] font-semibold leading-tight">
+                        {label}
+                      </span>
+                    </Link>
+                  );
+                })}
           </div>
         )}
 
-        <div className={cn("space-y-2.5", secondary.length > 0 && "mt-3")}>
+        <div className={cn("space-y-2.5", hasTiles && "mt-3")}>
           {/* Admin/manager: theme + account buttons sit side by side.
               Worker: theme button stays full width, location toggle below. */}
-          <div className={cn(!isWorkerSidebar && "flex gap-2")}>
+          <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={onToggleTheme}
-              className={cn(
-                "more-btn justify-center gap-2 font-semibold",
-                isWorkerSidebar ? "w-full" : "min-w-0 flex-1 whitespace-nowrap px-2 text-xs",
-              )}
+              className="more-btn min-w-0 flex-1 justify-center gap-2 whitespace-nowrap px-2 text-xs font-semibold"
             >
               {dark ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
               {dark ? "Light mode" : "Dark mode"}
@@ -519,8 +549,6 @@ function MoreMenuContent({
           </div>
 
           {isWorkerSidebar && locationSharingEnabled && <WorkerLocationToggle workerId={workerId ?? null} />}
-
-          {isWorkerSidebar && <ExploreLinks />}
 
           {isWorkerSidebar ? (
             <div className="min-w-0 text-sm">
@@ -544,14 +572,9 @@ function MoreMenuContent({
             confirmLabel="Sign out"
           >
             <Button
-              variant={isWorkerSidebar ? "outline" : "default"}
+              variant="default"
               size="sm"
-              className={cn(
-                "w-full justify-center font-semibold",
-                isWorkerSidebar
-                  ? "more-btn border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  : "more-signout",
-              )}
+              className="more-signout w-full justify-center font-semibold"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Sign out
@@ -679,6 +702,9 @@ function BottomNav({
   isMoreOpen: boolean;
 }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const currentTab = useRouterState({
+    select: (s) => (s.location.search as { tab?: string } | undefined)?.tab,
+  });
   const { links } = useNavLinks();
 
   const primary = links.filter((l) => l.primary).slice(0, 4);
@@ -732,12 +758,19 @@ function BottomNav({
       <div className="shell-navbar">
         {tabs.map((item) => {
           const { to, label, shortLabel, icon: Icon } = item;
-          const active = path === to || path.startsWith(to + "/");
+          const tab = (item as { tab?: string }).tab;
+          // Worker tabs share `/worker` and differ by `?tab=`.
+          const active = tab
+            ? path === to && currentTab === tab
+            : to === "/worker"
+              ? path === to && !currentTab
+              : path === to || path.startsWith(to + "/");
 
           return (
             <Link
-              key={to}
+              key={`${to}${tab ?? ""}`}
               to={to}
+              search={(tab ? { tab } : {}) as never}
               title={label}
               aria-label={label}
               className={cn("shell-navtab", active && "shell-navtab-active")}
@@ -797,12 +830,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   // MobileMoreSheet / MoreFlyout below.
   const deviceType = useDeviceType();
   const isMobileDevice = deviceType === "mobile";
-
-  // Worker accounts don't get the bottom-nav / tablet-rail shell at
-  // all — just the original single hamburger-button sidebar, at every
-  // screen size (slide-in sheet below `lg`, persistent panel at `lg`+).
-  // One state drives both, same as it always did.
-  const [workerSidebarOpen, setWorkerSidebarOpen] = useState(false);
 
   const [dark, setDark] = useState(false);
   const { me, business } = useSession();
@@ -865,75 +892,33 @@ export function AppLayout({ children }: { children: ReactNode }) {
     // for that fixed nav, so the nav bounces along with the page instead of
     // staying pinned to the screen during over-swipe.
     <div className="flex min-h-dvh shell-root">
-      {worker ? (
-        <>
-          {/* ==========================================
-              WORKER: CLASSIC SIDEBAR (all screen sizes)
-              Persistent panel at >= lg, slide-in sheet
-              below that — one hamburger button drives
-              both. No bottom-nav, no tablet rail.
-             ========================================== */}
+      {/* ==========================================
+          "MORE" SURFACE
+          Phone: bottom sheet, matching the bottom-nav
+          tab it's opened from. Tablet/desktop: a
+          compact flyout anchored beside the rail.
+          Workers use the same shell as admins now.
+         ========================================== */}
 
-          {workerSidebarOpen && (
-            <aside className="sticky top-0 hidden h-screen w-[var(--shell-sidebar-w)] shrink-0 overflow-hidden border-r border-sidebar-border lg:flex">
-              <SidebarContent {...sharedSidebarProps} />
-            </aside>
-          )}
-
-          <Sheet open={workerSidebarOpen} onOpenChange={setWorkerSidebarOpen}>
-            <SheetContent
-              side="left"
-              className="w-[min(78vw,340px)] max-w-none border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground shadow-2xl lg:hidden [&>button]:hidden"
-            >
-              <SidebarContent
-                onNav={() => setWorkerSidebarOpen(false)}
-                {...sharedSidebarProps}
-              />
-            </SheetContent>
-          </Sheet>
-        </>
-      ) : (
-        <>
-          {/* ==========================================
-              DESKTOP SIDEBAR (>= 1024px)
-
-              IMPORTANT:
-              `desktopOpen` controls whether it exists.
-
-              false -> hidden
-              true  -> visible
-             ========================================== */}
-
-          {/* ==========================================
-              "MORE" SURFACE
-              Phone: bottom sheet, matching the bottom-nav
-              tab it's opened from. Tablet/desktop: a
-              compact flyout anchored beside the rail —
-              see MoreFlyout for why this isn't just the
-              same sheet stretched wider.
-             ========================================== */}
-
-          {isMobileDevice ? (
-            <Sheet open={mobileMoreOpen} onOpenChange={setMobileMoreOpen}>
-              <SheetContent
-                side="bottom"
-                className="inset-x-auto bottom-[calc(0.7rem+env(safe-area-inset-bottom,0px))] left-2 right-2 mx-auto max-h-[85vh] max-w-[27rem] rounded-[2rem] border-0 bg-transparent p-0 shadow-none [&>button]:hidden"
-              >
-                <MobileMoreSheet
-                  onNav={() => setMobileMoreOpen(false)}
-                  {...sharedSidebarProps}
-                />
-              </SheetContent>
-            </Sheet>
-          ) : (
-            <MoreFlyout
-              open={mobileMoreOpen}
-              onOpenChange={setMobileMoreOpen}
+      {isMobileDevice ? (
+        <Sheet open={mobileMoreOpen} onOpenChange={setMobileMoreOpen}>
+          <SheetContent
+            side="bottom"
+            className="inset-x-auto bottom-[calc(0.7rem+env(safe-area-inset-bottom,0px))] left-2 right-2 mx-auto max-h-[85vh] max-w-[27rem] rounded-[2rem] border-0 bg-transparent p-0 shadow-none [&>button]:hidden"
+          >
+            <MobileMoreSheet
               onNav={() => setMobileMoreOpen(false)}
               {...sharedSidebarProps}
             />
-          )}
-        </>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <MoreFlyout
+          open={mobileMoreOpen}
+          onOpenChange={setMobileMoreOpen}
+          onNav={() => setMobileMoreOpen(false)}
+          {...sharedSidebarProps}
+        />
       )}
 
       {/* ==========================================
@@ -941,45 +926,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
          ========================================== */}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className={cn("site-header sticky top-0 z-40 h-16 border-b border-border px-4 lg:px-6", !worker && "md:hidden")}>
+        <header className="site-header sticky top-0 z-40 h-16 border-b border-border px-4 lg:px-6 md:hidden">
           <div className="flex h-full items-center justify-between gap-4">
             {/* =====================================
                 LEFT SIDE
                ===================================== */}
 
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              {worker ? (
-                /* =================================
-                   WORKER MENU BUTTON
-                   Visible at every screen size —
-                   the single entry point to the
-                   classic sidebar (sheet below lg,
-                   persistent panel at lg+).
-                   ================================= */
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="rounded-full border-white/40 bg-white/25 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.05]"
-                  onClick={() => setWorkerSidebarOpen((previous) => !previous)}
-                  aria-label={workerSidebarOpen ? "Close sidebar" : "Open sidebar"}
-                  title={workerSidebarOpen ? "Close sidebar" : "Open sidebar"}
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-              ) : (
-                /* ===================================
-                    DESKTOP MENU
-
-                    This button opens
-                    and closes the sidebar.
-                    (Mobile has no header menu button —
-                    the bottom-nav "More" tab is the one
-                    entry point there. Tablet uses the
-                    rail's "More" button.)
-                   =================================== */
-                null
-              )}
-
               {/* ===================================
                   MOBILE LOGO/TITLE
                   Tablet already shows the logo atop
@@ -989,7 +942,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   worker (no rail), show it up to lg too.
                  =================================== */}
 
-              <div className={cn("flex min-w-0 flex-1 items-center gap-2", worker ? "lg:hidden" : "md:hidden")}>
+              <div className="flex min-w-0 flex-1 items-center gap-2 md:hidden">
                 <BrandLogo alt="Logo" className="h-9 w-9" />
 
                 <MobileMarqueeTitle text={business?.name ?? PLATFORM_NAME} />
@@ -1009,11 +962,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
            ======================================== */}
 
         <main
-          className={cn(
-            "page-pad flex-1 overflow-x-hidden",
-            !worker && "shell-content-offset",
-            worker && "lg:h-[calc(100dvh-4rem)] lg:overflow-y-hidden",
-          )}
+          className="page-pad shell-content-offset flex-1 overflow-x-hidden"
         >
           {children}
         </main>
@@ -1025,12 +974,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
             mobile and a left icon rail on tablet/desktop.
            ======================================== */}
 
-        {!worker && (
-          <BottomNav
-            onOpenMore={() => setMobileMoreOpen(true)}
-            isMoreOpen={mobileMoreOpen}
-          />
-        )}
+        <BottomNav
+          onOpenMore={() => setMobileMoreOpen(true)}
+          isMoreOpen={mobileMoreOpen}
+        />
       </div>
     </div>
   );
