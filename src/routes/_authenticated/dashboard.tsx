@@ -386,6 +386,7 @@ function RentalsDashboard() {
                     tick={{ fontSize: isMobile ? 10 : 12, fill: "var(--muted-foreground)" }}
                   />
                   <Bar
+ isAnimationActive={false}
                     dataKey="revenue"
                     radius={999}
                     maxBarSize={48}
@@ -453,6 +454,7 @@ function RentalsDashboard() {
                       <YAxis hide domain={[0, (max: number) => Math.max(max, 1)]} />
                       <Tooltip contentStyle={tooltipStyle} cursor={false} />
                       <Area
+ isAnimationActive={false}
                         type="monotone"
                         dataKey={trendMode}
                         name={trendMode === "issued" ? "Issued" : "Returned"}
@@ -954,6 +956,7 @@ function WorkerDashboard() {
                     tick={{ fontSize: isMobile ? 10 : 12, fill: "var(--muted-foreground)" }}
                   />
                   <Bar
+ isAnimationActive={false}
                     dataKey="present"
                     radius={999}
                     maxBarSize={48}

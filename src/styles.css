@@ -203,12 +203,10 @@
 /* Glassmorphism: every surface built from these tokens becomes frosted glass
    that blurs and tints whatever sits behind it (the gradient canvas on body,
    or content scrolling underneath a sticky header/sidebar/modal). */
-.bg-card,
-.bg-popover,
-.bg-sidebar,
-.bg-background,
-.bg-muted,
-.bg-secondary {
+/* Perf: blur is kept only on floating popovers. Applying it to every card /
+   muted / secondary surface forced the GPU to re-blur dozens of layers on
+   every page change and scroll, which caused the lag and glitches. */
+.bg-popover {
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
 }
@@ -388,8 +386,6 @@
   border-radius: 2rem;
   background-color: rgb(243 247 238 / 94%);
   border: 1px solid rgb(255 255 255 / 90%);
-  backdrop-filter: blur(22px) saturate(170%);
-  -webkit-backdrop-filter: blur(22px) saturate(170%);
   box-shadow:
     0 18px 40px -14px rgb(22 38 28 / 32%),
     0 2px 8px rgb(79 122 61 / 10%),
@@ -614,8 +610,6 @@
   background-color: rgb(243 247 238 / 95%);
   border: 1px solid rgb(255 255 255 / 90%);
   color: #1f3a25;
-  backdrop-filter: blur(22px) saturate(170%);
-  -webkit-backdrop-filter: blur(22px) saturate(170%);
   box-shadow:
     0 24px 50px -16px rgb(22 38 28 / 38%),
     0 2px 8px rgb(79 122 61 / 10%),
