@@ -2,11 +2,28 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { MapPinned, RadioTower, Clock, ExternalLink, RefreshCw } from "lucide-react";
+import {
+  MapPinned,
+  RadioTower,
+  Clock,
+  ExternalLink,
+  RefreshCw,
+  Phone,
+  Plus,
+  Minus,
+  Maximize2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { isWithinWorkingHours, WORK_HOURS_LABEL } from "@/hooks/use-worker-location-sharing";
 import { AdminOnly } from "@/components/AdminOnly";
@@ -33,10 +50,15 @@ const LIVE_THRESHOLD_MS = 3 * 60 * 1000;
 // Poll for fresh positions every 15s while this page is open.
 const REFRESH_INTERVAL_MS = 15_000;
 
+const DEFAULT_ZOOM = 17;
+const MIN_ZOOM = 3;
+const MAX_ZOOM = 21;
+
 type WorkerLocationRow = {
   worker_id: string;
   name: string;
   active: boolean;
+  phone: string | null;
   sharing_enabled: boolean;
   latitude: number | null;
   longitude: number | null;
@@ -54,6 +76,16 @@ function WorkerLocationsPage() {
 
   const withinHours = isWithinWorkingHours(now);
 
+  // Worker whose big map card is open (stored by id so it stays fresh
+  // with the 15s refresh) + the current zoom level of that big map.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+
+  const openWorker = (id: string) => {
+    setZoom(DEFAULT_ZOOM);
+    setSelectedId(id);
+  };
+
   const {
     data: rows = [],
     isLoading,
@@ -67,7 +99,7 @@ function WorkerLocationsPage() {
         await Promise.all([
           supabase
             .from("workers")
-            .select("id, name, active, role")
+            .select("id, name, active, role, phone")
             .eq("role", "worker")
             .order("name"),
           supabase
@@ -90,6 +122,7 @@ function WorkerLocationsPage() {
             worker_id: worker.id,
             name: worker.name,
             active: worker.active,
+            phone: worker.phone ?? null,
             sharing_enabled: Boolean(location?.sharing_enabled),
             latitude: location?.latitude ?? null,
             longitude: location?.longitude ?? null,
@@ -112,6 +145,14 @@ function WorkerLocationsPage() {
     },
     enabled: isMasterAdmin(),
   });
+
+  const selected =
+    rows.find(
+      (row) => row.worker_id === selectedId && row.latitude != null && row.longitude != null,
+    ) ?? null;
+  const selectedLive =
+    selected?.updated_at != null &&
+    Date.now() - new Date(selected.updated_at).getTime() < LIVE_THRESHOLD_MS;
 
   const liveCount = rows.filter(
     (row) =>
@@ -220,17 +261,28 @@ function WorkerLocationsPage() {
 
                 <CardContent className="p-4">
                   {hasFix && embedUrl ? (
-                    <div className="overflow-hidden rounded-lg border">
+                    <div className="group relative overflow-hidden rounded-lg border">
                       <iframe
                         title={`${row.name} location`}
                         src={embedUrl}
-                        className="h-40 w-full"
+                        className="h-56 w-full sm:h-64"
                         loading="lazy"
                         referrerPolicy="no-referrer-when-downgrade"
                       />
+                      {/* Transparent layer so a tap opens the big card */}
+                      <button
+                        type="button"
+                        onClick={() => openWorker(row.worker_id)}
+                        aria-label={`Open ${row.name} location in a bigger view`}
+                        className="absolute inset-0 flex cursor-pointer items-end justify-end bg-transparent p-2"
+                      >
+                        <span className="flex items-center gap-1 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-semibold shadow">
+                          <Maximize2 className="h-3 w-3" /> Tap to expand
+                        </span>
+                      </button>
                     </div>
                   ) : (
-                    <div className="flex h-40 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
+                    <div className="flex h-56 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground sm:h-64">
                       No location available
                     </div>
                   )}
@@ -252,6 +304,90 @@ function WorkerLocationsPage() {
           })}
         </div>
       )}
+
+      <Dialog open={selected != null} onOpenChange={(open) => !open && setSelectedId(null)}>
+        <DialogContent className="flex h-[92dvh] max-w-4xl flex-col gap-3 overflow-hidden p-3 sm:p-4">
+          {selected && (
+            <>
+              <DialogHeader className="pr-8">
+                <DialogTitle className="flex items-center gap-2">
+                  {selected.name}
+                  <Badge
+                    variant={selectedLive ? "default" : "secondary"}
+                    className="shrink-0"
+                  >
+                    {selectedLive ? "Live" : "Stale"}
+                  </Badge>
+                </DialogTitle>
+                <DialogDescription>
+                  {selected.updated_at
+                    ? `Updated ${formatDistanceToNow(new Date(selected.updated_at), { addSuffix: true })}`
+                    : "Location"}
+                  {selected.accuracy_m != null && ` · accuracy ±${Math.round(selected.accuracy_m)} m`}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
+                <iframe
+                  key={`${selected.latitude},${selected.longitude},${zoom}`}
+                  title={`${selected.name} location (large)`}
+                  src={`https://maps.google.com/maps?q=${selected.latitude},${selected.longitude}&z=${zoom}&t=h&output=embed`}
+                  className="h-full w-full"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+
+                <div className="absolute right-3 top-3 flex flex-col overflow-hidden rounded-lg border bg-background shadow-md">
+                  <button
+                    type="button"
+                    aria-label="Zoom in"
+                    onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + 1))}
+                    disabled={zoom >= MAX_ZOOM}
+                    className="flex h-10 w-10 items-center justify-center hover:bg-muted disabled:opacity-40"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                  <div className="h-px bg-border" />
+                  <button
+                    type="button"
+                    aria-label="Zoom out"
+                    onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - 1))}
+                    disabled={zoom <= MIN_ZOOM}
+                    className="flex h-10 w-10 items-center justify-center hover:bg-muted disabled:opacity-40"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {selected.phone ? (
+                  <a
+                    href={`tel:${selected.phone.replace(/[^\d+]/g, "")}`}
+                    className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                  >
+                    <Phone className="h-4 w-4" />
+                    Call {selected.name} · {selected.phone}
+                  </a>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 rounded-md border border-dashed px-4 py-3 text-sm text-muted-foreground">
+                    <Phone className="h-4 w-4" />
+                    No phone number saved
+                  </div>
+                )}
+                <a
+                  href={`https://www.google.com/maps?q=${selected.latitude},${selected.longitude}&t=h`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-1.5 rounded-md border px-4 py-3 text-sm font-semibold transition-colors hover:bg-muted"
+                >
+                  Open in Google Maps
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
     </AdminOnly>
   );
