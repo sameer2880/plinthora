@@ -4,6 +4,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* "split" = show the two-panel sign-in card (green illustration + form).
+   Desktop (>=1024px) AND tablets held sideways (landscape, >=768px wide,
+   tall enough that it isn't a phone). */
+@custom-variant split {
+  @media (min-width: 1024px) {
+    @slot;
+  }
+
+  @media (min-width: 768px) and (min-height: 480px) and (orientation: landscape) {
+    @slot;
+  }
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

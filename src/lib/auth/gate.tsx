@@ -884,13 +884,13 @@ export function Gate({
       {/* MAIN LOGIN CARD                                              */}
       {/* ============================================================ */}
 
-      <div className="relative z-10 flex w-full max-w-[420px] flex-col overflow-hidden rounded-[2rem] bg-card shadow-[0_24px_70px_-12px_rgb(16_48_92/18%)] ring-1 ring-black/5 dark:bg-[#141f16] dark:shadow-[0_24px_70px_-12px_rgb(0_0_0/65%)] dark:ring-1 dark:ring-white/10 md:max-w-[460px] lg:max-w-[1000px] lg:flex-row">
+      <div className="relative z-10 flex w-full max-w-[420px] flex-col overflow-hidden rounded-[2rem] bg-card shadow-[0_24px_70px_-12px_rgb(16_48_92/18%)] ring-1 ring-black/5 dark:bg-[#141f16] dark:shadow-[0_24px_70px_-12px_rgb(0_0_0/65%)] dark:ring-1 dark:ring-white/10 md:max-w-[460px] split:max-w-[1000px] split:flex-row">
 
         {/* ======================================================== */}
         {/* ILLUSTRATION PANEL                                        */}
         {/* ======================================================== */}
 
-        <div className="relative hidden overflow-hidden bg-gradient-to-br from-[#7ab558] via-primary to-[#22331c] lg:flex lg:w-[46%] lg:items-center lg:justify-center">
+        <div className="relative hidden overflow-hidden bg-gradient-to-br from-[#7ab558] via-primary to-[#22331c] split:flex split:w-[46%] split:items-center split:justify-center">
 
           {/* Green panel wave lines */}
 
@@ -949,7 +949,7 @@ export function Gate({
         {/* FORM PANEL                                                 */}
         {/* ======================================================== */}
 
-        <div className="relative flex w-full flex-1 items-center justify-center overflow-hidden px-6 py-10 sm:px-10 md:px-12 lg:px-14 lg:py-14">
+        <div className="relative flex w-full flex-1 items-center justify-center overflow-hidden px-6 py-10 sm:px-10 md:px-12 split:px-12 split:py-10">
 
           {/* Very subtle lines behind the form */}
 
@@ -978,7 +978,7 @@ export function Gate({
 
             {/* Mobile illustration */}
 
-            <div className="mx-auto mb-6 flex h-32 w-32 items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-[#eaf3e2] to-[#dbe9cd] dark:from-[#1c2c20] dark:to-[#12201a] dark:ring-1 dark:ring-white/10 lg:hidden">
+            <div className="mx-auto mb-6 flex h-32 w-32 items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-[#eaf3e2] to-[#dbe9cd] dark:from-[#1c2c20] dark:to-[#12201a] dark:ring-1 dark:ring-white/10 split:hidden">
               <LoginIllustration className="h-24 w-24" />
             </div>
 

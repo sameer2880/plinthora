@@ -9,3 +9,13 @@ export const PLATFORM_NAME_PARTS = ["Plinth", "ora"] as const;
 export const PLATFORM_NAME: string = PLATFORM_NAME_PARTS.join("");
 export const PLATFORM_TAGLINE =
   "The foundation for your rental business — rentals, returns, payments and worker records in one place.";
+
+/**
+ * Platform contact details, shown on the "Need access?" dialog.
+ * Leave a value empty ("") to hide that option.
+ */
+export const CONTACT_EMAIL = "plinthoraapp@gmail.com";
+/** Full Instagram profile link — CONFIRM this is your real handle. */
+export const CONTACT_INSTAGRAM_URL = "https://www.instagram.com/mbs_centrings_nereducherla";
+/** WhatsApp number with country code, digits only, e.g. "919876543210". */
+export const CONTACT_WHATSAPP = "";
