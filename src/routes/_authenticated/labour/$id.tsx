@@ -673,7 +673,7 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
       </div>
 
       <Dialog open={dayOpen} onOpenChange={(o) => (o ? setDayOpen(true) : void requestCloseDay())}>
-        <DialogContent className="max-h-[92vh] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl border-border/80 p-4 shadow-2xl sm:p-6">
+        <DialogContent className="max-h-[92dvh] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl border-border/80 p-4 shadow-2xl sm:p-6">
           <DialogHeader className="border-b border-border pb-4 pr-8">
             <DialogTitle className="text-lg font-bold sm:text-xl">
               {dayStart(selectedDate).toLocaleDateString("en-IN", {

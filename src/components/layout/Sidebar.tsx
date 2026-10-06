@@ -1296,7 +1296,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <Sheet open={mobileMoreOpen} onOpenChange={setMobileMoreOpen}>
           <SheetContent
             side="bottom"
-            className="inset-x-auto bottom-[calc(0.7rem+env(safe-area-inset-bottom,0px))] left-2 right-2 mx-auto max-h-[85vh] max-w-[27rem] rounded-[2rem] border-0 bg-transparent p-0 shadow-none [&>button]:hidden"
+            className="inset-x-auto bottom-[calc(0.7rem+env(safe-area-inset-bottom,0px))] left-2 right-2 mx-auto max-h-[85dvh] max-w-[27rem] rounded-[2rem] border-0 bg-transparent p-0 shadow-none [&>button]:hidden"
           >
             <MobileMoreSheet
               onNav={() => setMobileMoreOpen(false)}

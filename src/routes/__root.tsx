@@ -271,7 +271,15 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
-      <Toaster richColors position="top-right" />
+      <Toaster
+        richColors
+        position="top-right"
+        mobileOffset={{
+          top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+          left: "0.75rem",
+          right: "0.75rem",
+        }}
+      />
       <ConfirmDialogHost />
     </QueryClientProvider>
   );

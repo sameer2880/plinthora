@@ -318,7 +318,7 @@ function MarkAttendanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => void handleOpenChange(v)}>
-      <DialogContent className="max-h-[92vh] w-[calc(100%-1.5rem)] max-w-4xl overflow-y-auto rounded-2xl p-4 sm:p-6">
+      <DialogContent className="max-h-[92dvh] w-[calc(100%-1.5rem)] max-w-4xl overflow-y-auto rounded-2xl p-4 sm:p-6">
         <DialogHeader className="border-b border-border pb-3 pr-8">
           <DialogTitle className="flex items-center gap-2 text-lg font-bold sm:text-xl">
             <CalendarCheck className="h-5 w-5 text-primary" /> Mark Attendance

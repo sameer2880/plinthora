@@ -276,7 +276,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[92dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editingGroup ? "Edit Rental" : "New Rental"}</DialogTitle>
         </DialogHeader>

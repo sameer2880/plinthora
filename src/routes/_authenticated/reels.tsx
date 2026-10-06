@@ -68,7 +68,7 @@ function Reels() {
             key={key}
             src={REELS_URL}
             title="Reel Management"
-            className="w-full h-[calc(100vh-14rem)] min-h-[480px] border-0 bg-background"
+            className="w-full h-[calc(100dvh-14rem)] min-h-[480px] border-0 bg-background"
             allow="camera; microphone; clipboard-write; fullscreen"
           />
         </CardContent>

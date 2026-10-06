@@ -347,6 +347,14 @@
   .btn-comfortable {
     min-height: var(--shell-touch-target);
   }
+
+  /* Text fields under 16px make iOS Safari / WebViews zoom the page in on
+     focus and leave it zoomed. Unlayered, so it beats Tailwind's text-sm. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* ---- Fluid section/page padding -----------------------------------------

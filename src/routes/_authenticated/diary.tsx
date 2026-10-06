@@ -179,7 +179,7 @@ function Diary() {
       </div>
 
       <div className="flex gap-2 flex-wrap items-center">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-[min(200px,100%)]">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search notes…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
