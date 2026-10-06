@@ -1065,7 +1065,7 @@ export function Gate({
                   }
                   className="text-sm font-semibold text-primary transition-opacity hover:opacity-80 hover:underline focus-visible:outline-none focus-visible:underline"
                 >
-                  Sign in with more options
+                  More ways to sign in
                 </button>
               </div>
 
