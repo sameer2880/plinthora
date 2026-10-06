@@ -162,3 +162,54 @@ export const getLastSignInsFn = createServerFn({ method: "GET" })
     }
     return result;
   });
+
+/**
+ * Platform admin only: makes a one-time sign-in link for a user, to hand over
+ * by WhatsApp / copy-paste.
+ *
+ *   kind "magic" — signs the user straight in. Their password is untouched.
+ *   kind "reset" — signs the user in AND makes the app ask them to choose a new
+ *                  password right away (same screen as first sign-in). Any
+ *                  device they are signed in on is signed out.
+ *
+ * Staff accounts use a made-up login address (<id>@login.centring.local), so
+ * there is no mailbox to email — the link is created here and shared by hand.
+ * Only the hashed one-time token leaves this function; the browser builds the
+ * full address from it (see /auth/link). The token is single-use and expires
+ * (Supabase → Auth → "Email OTP expiration").
+ */
+export const createLoginLinkFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), kind: z.enum(["magic", "reset"]) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const h = await import("./helpers.server");
+    await h.requireSuperAdmin(context as unknown as UserContext);
+    const caller = await h.getCaller(context as unknown as UserContext);
+    const target = await h.loadTarget(caller, data.id);
+
+    if (!target.active) throw new Error("This account is deactivated. Activate it first.");
+    if (!target.auth_user_id) throw new Error("This user has no login yet — save them with a mobile number first");
+
+    const admin = await h.adminClient();
+    const { data: authUser, error: userError } = await admin.auth.admin.getUserById(target.auth_user_id);
+    const loginEmail = authUser?.user?.email;
+    if (userError || !loginEmail) throw new Error(userError?.message ?? "Unable to find this user's login");
+
+    const type = data.kind === "reset" ? "recovery" : "magiclink";
+    const { data: link, error } = await admin.auth.admin.generateLink({ type, email: loginEmail });
+    const tokenHash = link?.properties?.hashed_token;
+    if (error || !tokenHash) throw new Error(error?.message ?? "Unable to create the link");
+
+    if (data.kind === "reset") {
+      // They must pick a new password after using the link, and any signed-in device is dropped.
+      const { error: rowError } = await admin
+        .from("workers")
+        .update({ must_set_password: true, session_token: null })
+        .eq("id", target.id);
+      if (rowError) throw new Error(rowError.message);
+    }
+
+    return { tokenHash, type, name: target.name, phone: target.phone };
+  });

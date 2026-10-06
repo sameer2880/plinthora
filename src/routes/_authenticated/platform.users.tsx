@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Pencil, Plus, Power, Search, ShieldAlert, Trash2, Users } from "lucide-react";
+import { KeyRound, Link2, Pencil, Plus, Power, Search, ShieldAlert, Trash2, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { LoginLinkDialog } from "@/components/LoginLinkDialog";
 import { createUserFn, deleteUserFn, resetPasswordFn, updateUserFn } from "@/lib/api/users.functions";
 import { isSuperAdmin } from "@/lib/auth/access";
 import { MOBILE_REGEX } from "@/lib/auth/identity";
@@ -71,6 +72,7 @@ function PlatformUsers() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [linkFor, setLinkFor] = useState<UserRow | null>(null);
 
   const filter = businessParam ?? "all";
 
@@ -319,6 +321,9 @@ function PlatformUsers() {
                 <Button size="icon" variant="outline" aria-label="Edit" onClick={() => openEdit(u)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
+                <Button size="icon" variant="outline" aria-label="Sign-in link" title="Sign-in / reset link" onClick={() => setLinkFor(u)} disabled={!u.active}>
+                  <Link2 className="h-4 w-4" />
+                </Button>
                 <ConfirmDelete
                   onConfirm={() => reset.mutate(u)}
                   title={`Reset ${u.name}'s password?`}
@@ -353,6 +358,8 @@ function PlatformUsers() {
           </Card>
         ))}
       </div>
+
+      <LoginLinkDialog user={linkFor} onClose={() => setLinkFor(null)} />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

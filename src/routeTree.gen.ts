@@ -24,6 +24,7 @@ import { Route as AuthenticatedRentalsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedWorkerRouteImport } from './routes/_authenticated/worker'
 import { Route as AuthenticatedWorkerLocationsRouteImport } from './routes/_authenticated/worker-locations'
+import { Route as AuthLinkRouteImport } from './routes/auth.link'
 import { Route as ReceiptIdRouteImport } from './routes/receipt/$id'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AuthenticatedLabourIndexRouteImport } from './routes/_authenticated/labour/index'
@@ -113,6 +114,11 @@ const AuthenticatedWorkerLocationsRoute =
     path: '/worker-locations',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthLinkRoute = AuthLinkRouteImport.update({
+  id: '/auth/link',
+  path: '/auth/link',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReceiptIdRoute = ReceiptIdRouteImport.update({
   id: '/receipt/$id',
   path: '/receipt/$id',
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/worker': typeof AuthenticatedWorkerRoute
   '/worker-locations': typeof AuthenticatedWorkerLocationsRoute
+  '/auth/link': typeof AuthLinkRoute
   '/receipt/$id': typeof ReceiptIdRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/labour/$id': typeof AuthenticatedLabourIdRoute
@@ -205,6 +212,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/worker': typeof AuthenticatedWorkerRoute
   '/worker-locations': typeof AuthenticatedWorkerLocationsRoute
+  '/auth/link': typeof AuthLinkRoute
   '/receipt/$id': typeof ReceiptIdRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/labour/$id': typeof AuthenticatedLabourIdRoute
@@ -232,6 +240,7 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/worker': typeof AuthenticatedWorkerRoute
   '/_authenticated/worker-locations': typeof AuthenticatedWorkerLocationsRoute
+  '/auth/link': typeof AuthLinkRoute
   '/receipt/$id': typeof ReceiptIdRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/labour/$id': typeof AuthenticatedLabourIdRoute
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/worker'
     | '/worker-locations'
+    | '/auth/link'
     | '/receipt/$id'
     | '/.mcp/invoke-tool/$tool'
     | '/labour/$id'
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/worker'
     | '/worker-locations'
+    | '/auth/link'
     | '/receipt/$id'
     | '/.mcp/invoke-tool/$tool'
     | '/labour/$id'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/_authenticated/worker'
     | '/_authenticated/worker-locations'
+    | '/auth/link'
     | '/receipt/$id'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/labour/$id'
@@ -327,6 +339,7 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  AuthLinkRoute: typeof AuthLinkRoute
   ReceiptIdRoute: typeof ReceiptIdRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
 }
@@ -437,6 +450,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/worker-locations'
       preLoaderRoute: typeof AuthenticatedWorkerLocationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/auth/link': {
+      id: '/auth/link'
+      path: '/auth/link'
+      fullPath: '/auth/link'
+      preLoaderRoute: typeof AuthLinkRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/receipt/$id': {
       id: '/receipt/$id'
@@ -554,6 +574,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  AuthLinkRoute: AuthLinkRoute,
   ReceiptIdRoute: ReceiptIdRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
 }
