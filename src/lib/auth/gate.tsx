@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { AccessRequestDialog } from "@/components/AccessRequestDialog";
-import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
+import { SignInOptionsDialog } from "@/components/SignInOptionsDialog";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandName } from "@/components/BrandName";
 import { LoginIllustration } from "@/components/LoginIllustration";
@@ -222,8 +222,8 @@ export function Gate({
   const [showPassword, setShowPassword] =
     useState(false);
 
-  // "Forgot password?" — username/email + last 4 digits of mobile number.
-  const [forgotOpen, setForgotOpen] = useState(false);
+  // "Sign in with more options" — login with link, ask your admin.
+  const [linkOpen, setLinkOpen] = useState(false);
 
   // "Need access? Contact your admin" — the request form.
   const [accessOpen, setAccessOpen] = useState(false);
@@ -1061,11 +1061,11 @@ export function Gate({
                 <button
                   type="button"
                   onClick={() =>
-                    setForgotOpen(true)
+                    setLinkOpen(true)
                   }
                   className="text-sm font-semibold text-primary transition-opacity hover:opacity-80 hover:underline focus-visible:outline-none focus-visible:underline"
                 >
-                  Forgot password?
+                  Sign in with more options
                 </button>
               </div>
 
@@ -1101,20 +1101,14 @@ export function Gate({
       </div>
 
       {/* ============================================================ */}
-      {/* FORGOT PASSWORD                                               */}
+      {/* SIGN IN WITH MORE OPTIONS                                     */}
       {/* ============================================================ */}
 
-      <ForgotPasswordDialog
-        open={forgotOpen}
-        onOpenChange={setForgotOpen}
-        initialIdentifier={u}
-        onDone={(identifier) => {
-          setU(identifier);
-          setP("");
-          setErr("");
-        }}
+      <SignInOptionsDialog
+        open={linkOpen}
+        onOpenChange={setLinkOpen}
         onAskAdmin={() => {
-          setForgotOpen(false);
+          setLinkOpen(false);
           setAccessType("forgot_credentials");
           setAccessOpen(true);
         }}
