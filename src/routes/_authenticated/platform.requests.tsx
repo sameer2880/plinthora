@@ -42,6 +42,7 @@ import {
   REQUEST_TYPE_LABEL,
   STATUS_LABEL,
   buildAccountMessage,
+  loginLinkUrl,
   suggestUsername,
   type AccessRequestRow,
   type AccountResult,
@@ -189,8 +190,8 @@ function CreateAccountDialog({
           </div>
 
           <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-            Their mobile number is the first password. They're asked to choose their own straight after signing in. Next
-            you can send the login details on WhatsApp.
+            The account starts with a random password. Next you get a one-time link to send on WhatsApp; they open it and
+            choose their own password.
           </p>
         </div>
 
@@ -231,6 +232,7 @@ function WhatsAppDialog({
       kind: result.kind,
       isNewBusiness: row.request_type === "new_business" && result.kind === "created",
       appUrl: window.location.origin,
+      linkUrl: result.invite ? loginLinkUrl(window.location.origin, result.invite) : null,
     }),
   );
 
@@ -340,7 +342,7 @@ function PlatformRequests() {
     mutationFn: (row: AccessRequestRow) => createAccountFromRequestFn({ data: { id: row.id, resetExisting: true } }),
     onSuccess: (result, row) => {
       refresh();
-      toast.success("Password reset to their mobile number");
+      toast.success("Old password cancelled — send them the reset link");
       setWhatsApp({ row, result });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -458,7 +460,7 @@ function PlatformRequests() {
                       <ConfirmDelete
                         onConfirm={() => reset.mutate(r)}
                         title={`Reset ${r.name}'s password?`}
-                        description={`Their password becomes their mobile number (${r.phone}) and they must choose a new one at next sign-in. You can then send the details on WhatsApp.`}
+                        description="Their old password stops working right away and their signed-in devices are signed out. You then send them a one-time link on WhatsApp to choose a new password."
                         confirmLabel="Reset password"
                       >
                         <Button size="sm" disabled={reset.isPending}>
@@ -517,7 +519,7 @@ function PlatformRequests() {
             const row = createFor;
             setCreateFor(null);
             refresh();
-            toast.success("Account created — their mobile number is the first password");
+            toast.success("Account created — send them the one-time link");
             setWhatsApp({ row, result });
           }}
         />

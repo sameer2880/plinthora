@@ -187,11 +187,11 @@ export const deleteAccessRequestFn = createServerFn({ method: "POST" })
 /* ------------------------------------------------------------------ */
 
 /**
- * Turns a request into a working login whose first password is the requester's mobile
- * number (they must choose their own at first sign-in):
+ * Turns a request into a working login. The account starts with a random password and the
+ * result carries a one-time link; the requester chooses their own password when they open it:
  *
  *  - a login already uses this mobile number and `resetExisting` is set
- *      -> its password is reset to the mobile number
+ *      -> its old password is cancelled and a reset link is returned
  *  - "new business" request  -> creates the business and its first admin
  *  - anything else           -> creates a user in the chosen business
  *
@@ -243,13 +243,7 @@ export const createAccountFromRequestFn = createServerFn({ method: "POST" })
       }
       if (!found.active) throw new Error("This account is deactivated. Activate it on the Users page first.");
 
-      const { error } = await admin.auth.admin.updateUserById(found.auth_user_id as string, { password: phone });
-      if (error) throw new Error(error.message);
-      const { error: rowError } = await admin
-        .from("workers")
-        .update({ must_set_password: true, session_token: null })
-        .eq("id", found.id as string);
-      if (rowError) throw new Error(rowError.message);
+      const invite = await h.issueResetLink({ id: found.id as string, auth_user_id: found.auth_user_id as string });
 
       const { data: biz } = await admin.from("businesses").select("name").eq("id", found.business_id as string).maybeSingle();
       await markReady();
@@ -259,6 +253,7 @@ export const createAccountFromRequestFn = createServerFn({ method: "POST" })
         email: (found.email as string | null) ?? null,
         phone,
         businessName: (biz?.name as string | undefined) ?? null,
+        invite,
       };
     }
 
@@ -277,8 +272,9 @@ export const createAccountFromRequestFn = createServerFn({ method: "POST" })
         .single();
       if (error || !business) throw new Error(error?.message ?? "Unable to create the business");
 
+      let authUserId: string;
       try {
-        await h.provisionUser({
+        const created = await h.provisionUser({
           businessId: business.id as string,
           name,
           phone,
@@ -287,12 +283,14 @@ export const createAccountFromRequestFn = createServerFn({ method: "POST" })
           role: "admin",
           daily_wage: 0,
         });
+        authUserId = created.authUserId;
       } catch (e) {
         await admin.from("businesses").delete().eq("id", business.id);
         throw e;
       }
+      const invite = await h.createAccessLink(authUserId, "recovery").catch(() => null);
       await markReady();
-      return { kind: "created", username, email, phone, businessName };
+      return { kind: "created", username, email, phone, businessName, invite };
     }
 
     /* ---- a user in an existing business ---- */
@@ -300,7 +298,7 @@ export const createAccountFromRequestFn = createServerFn({ method: "POST" })
     const { data: biz } = await admin.from("businesses").select("id, name").eq("id", data.businessId).maybeSingle();
     if (!biz) throw new Error("Business not found");
 
-    await h.provisionUser({
+    const created = await h.provisionUser({
       businessId: biz.id as string,
       name,
       phone,
@@ -309,6 +307,7 @@ export const createAccountFromRequestFn = createServerFn({ method: "POST" })
       role: data.role,
       daily_wage: 0,
     });
+    const invite = await h.createAccessLink(created.authUserId, "recovery").catch(() => null);
     await markReady();
-    return { kind: "created", username, email, phone, businessName: biz.name as string };
+    return { kind: "created", username, email, phone, businessName: biz.name as string, invite };
   });

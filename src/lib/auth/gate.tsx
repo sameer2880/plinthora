@@ -19,14 +19,15 @@ import {
 } from "@/components/ui/dialog";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { AccessRequestDialog } from "@/components/AccessRequestDialog";
-import { SignInOptionsDialog } from "@/components/SignInOptionsDialog";
+import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandName } from "@/components/BrandName";
 import { LoginIllustration } from "@/components/LoginIllustration";
 import { supabase } from "@/integrations/supabase/client";
 import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
 import { lock } from "@/lib/auth/lock";
-import { resolveLoginFn } from "@/lib/api/auth.functions";
+import { signInFn } from "@/lib/api/auth.functions";
+import { passwordProblem } from "@/lib/auth/password";
 import { PLATFORM_TAGLINE } from "@/lib/brand";
 import { registerNativePush, unregisterNativePush } from "@/lib/native-push";
 import { stopNativeLocation } from "@/lib/native-location";
@@ -222,8 +223,8 @@ export function Gate({
   const [showPassword, setShowPassword] =
     useState(false);
 
-  // "Sign in with more options" — login with link, ask your admin.
-  const [linkOpen, setLinkOpen] = useState(false);
+  // "Forgot password?" — explains how to get a reset link from the admin.
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   // "Need access? Contact your admin" — the request form.
   const [accessOpen, setAccessOpen] = useState(false);
@@ -513,40 +514,59 @@ export function Gate({
     setBusy(true);
 
     try {
-      let loginEmail: string;
+      // Sign-in happens on the server: it checks the name and password, enforces the
+      // one-device rule and returns a session (see signInFn).
+      const attempt = (takeover: boolean) =>
+        signInFn({
+          data: {
+            identifier,
+            password: p,
+            deviceToken: localStorage.getItem(DEVICE_TOKEN_KEY),
+            takeover,
+          },
+        });
+
+      let result;
 
       try {
-        loginEmail = (
-          await resolveLoginFn({
-            data: {
-              identifier,
-            },
-          })
-        ).email;
+        result = await attempt(false);
+
+        if (result.status === "needs_takeover") {
+          const takeOver = await confirmTakeover();
+
+          if (!takeOver) return;
+
+          result = await attempt(true);
+        }
       } catch {
+        setErr("Unable to sign in right now. Please try again.");
+
+        return;
+      }
+
+      if (result.status !== "ok") {
         setErr(
-          "Unable to sign in right now. Please try again.",
+          result.status === "error"
+            ? result.message
+            : "Unable to sign in right now. Please try again.",
         );
 
         return;
       }
 
-      const { error } =
-        await supabase.auth.signInWithPassword({
-          email: loginEmail,
-          password: p,
-        });
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: result.accessToken,
+        refresh_token: result.refreshToken,
+      });
 
-      if (error) {
-        setErr(
-          /banned|deactivated/i.test(
-            error.message,
-          )
-            ? "This account is deactivated"
-            : "Invalid credentials",
-        );
+      if (sessionError) {
+        setErr("Unable to sign in right now. Please try again.");
 
         return;
+      }
+
+      if (result.deviceToken) {
+        localStorage.setItem(DEVICE_TOKEN_KEY, result.deviceToken);
       }
 
       const res = await loadSessionState();
@@ -561,59 +581,8 @@ export function Gate({
         return;
       }
 
-      let next = res.state;
+      const next = res.state;
       const me = next.me!;
-
-      if (me.workerId) {
-        const local = localStorage.getItem(
-          DEVICE_TOKEN_KEY,
-        );
-
-        if (
-          me.sessionToken &&
-          me.sessionToken !== local
-        ) {
-          const takeOver = await confirmTakeover();
-
-          if (!takeOver) {
-            await supabase.auth.signOut();
-            return;
-          }
-        }
-
-        const token = crypto.randomUUID();
-
-        const { error: claimError } =
-          await supabase.rpc(
-            "claim_device",
-            {
-              p_token: token,
-            },
-          );
-
-        if (claimError) {
-          await supabase.auth.signOut();
-
-          setErr(
-            "Unable to start your device session",
-          );
-
-          return;
-        }
-
-        localStorage.setItem(
-          DEVICE_TOKEN_KEY,
-          token,
-        );
-
-        next = {
-          ...next,
-          me: {
-            ...me,
-            sessionToken: token,
-          },
-        };
-      }
 
       applyState(next);
       setPhase("ready");
@@ -647,10 +616,10 @@ export function Gate({
     const password =
       newPassword.trim();
 
-    if (password.length < 6) {
-      setNewPasswordErr(
-        "Password must be at least 6 characters",
-      );
+    const problem = passwordProblem(password);
+
+    if (problem) {
+      setNewPasswordErr(problem);
 
       return;
     }
@@ -753,9 +722,9 @@ export function Gate({
           </h1>
 
           <p className="mt-2 text-sm text-muted-foreground">
-            Set a password for your account to
-            continue. You won't need to use your
-            mobile number as your password again.
+            Choose a password for your account to
+            continue. Use at least 8 characters with
+            letters and numbers.
           </p>
 
           <form
@@ -770,7 +739,7 @@ export function Gate({
               }
               autoComplete="new-password"
               autoFocus
-              placeholder="New password (min. 6 characters)"
+              placeholder="New password (min. 8 characters, letters and numbers)"
               className={inputClass}
             />
 
@@ -1061,11 +1030,11 @@ export function Gate({
                 <button
                   type="button"
                   onClick={() =>
-                    setLinkOpen(true)
+                    setForgotOpen(true)
                   }
                   className="text-sm font-semibold text-primary transition-opacity hover:opacity-80 hover:underline focus-visible:outline-none focus-visible:underline"
                 >
-                  More ways to sign in
+                  Forgot password?
                 </button>
               </div>
 
@@ -1101,14 +1070,14 @@ export function Gate({
       </div>
 
       {/* ============================================================ */}
-      {/* SIGN IN WITH MORE OPTIONS                                     */}
+      {/* FORGOT PASSWORD                                               */}
       {/* ============================================================ */}
 
-      <SignInOptionsDialog
-        open={linkOpen}
-        onOpenChange={setLinkOpen}
+      <ForgotPasswordDialog
+        open={forgotOpen}
+        onOpenChange={setForgotOpen}
         onAskAdmin={() => {
-          setLinkOpen(false);
+          setForgotOpen(false);
           setAccessType("forgot_credentials");
           setAccessOpen(true);
         }}

@@ -60,6 +60,8 @@ export interface AccountResult {
   email: string | null;
   phone: string;
   businessName: string | null;
+  /** One-time link for the person (null if it couldn't be made — use Users → reset link). */
+  invite?: { tokenHash: string; type: "recovery" | "magiclink" } | null;
 }
 
 /** e.g. "Ravi Kumar" + 9876543210 -> "ravikumar3210". Only a suggestion the admin can edit. */
@@ -80,6 +82,8 @@ export function buildAccountMessage(input: {
   kind: "created" | "reset";
   isNewBusiness?: boolean;
   appUrl: string;
+  /** Full one-time link (see loginLinkUrl). Without it the message just points to the app. */
+  linkUrl?: string | null;
 }) {
   const login = input.username?.trim() || input.phone;
   const intro =
@@ -95,10 +99,18 @@ export function buildAccountMessage(input: {
     intro,
     "",
     ...(input.businessName && !input.isNewBusiness ? [`Business: ${input.businessName}`] : []),
-    `Username: ${login}`,
-    `Password: ${input.phone} (your mobile number)`,
-    "",
-    `Sign in: ${input.appUrl}`,
-    "You'll be asked to choose your own new password right after you sign in.",
+    ...(input.linkUrl
+      ? [
+          "Open this link to set your password and sign in. It works once and expires soon, so don't share it:",
+          input.linkUrl,
+          "",
+          `After that you sign in at ${input.appUrl} with: ${login}`,
+        ]
+      : [`Ask your admin for your one-time sign-in link, then sign in at ${input.appUrl} with: ${login}`]),
   ].join("\n");
+}
+
+/** The address the one-time link opens (see routes/auth.link.tsx). */
+export function loginLinkUrl(origin: string, link: { tokenHash: string; type: string }) {
+  return `${origin}/auth/link?token_hash=${encodeURIComponent(link.tokenHash)}&type=${link.type}`;
 }

@@ -15,9 +15,9 @@
  *
  * migrate-users : gives every existing `workers` row a real Supabase Auth
  *                 account (they sign in with mobile number, email or username). Users keep the
- *                 password they had if it is 6+ characters; otherwise their
- *                 mobile number becomes the password and they are asked to
- *                 choose a new one at first sign-in. Safe to re-run.
+ *                 password they had if it is 6+ characters; otherwise they get a
+ *                 random password and need a one-time link from Manage Users
+ *                 (Send reset link) to get in and choose their own. Safe to re-run.
  * super-admin   : creates (or updates) the platform "default admin" — the account
  *                 that adds/manages/deletes businesses and manages their users
  *                 (it never sees a business's own data). --name/--username/--phone
@@ -26,6 +26,10 @@
  *                 to change those (the password is left alone).
  */
 import { createClient } from "@supabase/supabase-js";
+import { randomBytes } from "node:crypto";
+
+/** Long random password (letters, digits, symbols) for accounts that have no usable password yet. */
+const randomPassword = () => `Aa1!${randomBytes(24).toString("base64url")}`;
 
 // Must match AUTH_EMAIL_DOMAIN in src/lib/auth/identity.ts
 const AUTH_EMAIL_DOMAIN = "login.centring.local";
@@ -80,7 +84,7 @@ async function migrateUsers() {
     const email = workerAuthEmail(row.id);
     const legacy = (row.password ?? "").trim();
     const keepsOwnPassword = legacy.length >= 6 && legacy !== phone;
-    const password = keepsOwnPassword ? legacy : phone;
+    const password = keepsOwnPassword ? legacy : randomPassword();
     const mustSetPassword = !keepsOwnPassword || row.must_set_password === true;
 
     let user;

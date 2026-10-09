@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { MOBILE_REGEX, workerAuthEmail } from "@/lib/auth/identity";
+import { workerAuthEmail } from "@/lib/auth/identity";
 import { userSchema, type Role, type UserContext } from "./schemas";
 
 /**
@@ -28,8 +28,15 @@ export const createUserFn = createServerFn({ method: "POST" })
     if (caller.role === "manager" && data.role !== "worker") {
       throw new Error("Managers can only add workers. Ask the admin to create a manager or admin.");
     }
-    await h.provisionUser({ ...data, businessId });
-    return { ok: true as const };
+    const created = await h.provisionUser({ ...data, businessId });
+    // The account starts with a random password nobody knows; the invite link is the way in.
+    let invite: { tokenHash: string; type: "recovery" | "magiclink" } | null = null;
+    try {
+      invite = await h.createAccessLink(created.authUserId, "recovery");
+    } catch (e) {
+      console.error("[createUserFn] account created but the invite link failed:", e);
+    }
+    return { ok: true as const, name: data.name, phone: data.phone, invite };
   });
 
 export const updateUserFn = createServerFn({ method: "POST" })
@@ -56,7 +63,7 @@ export const updateUserFn = createServerFn({ method: "POST" })
       // Legacy row without a login yet — create the account now.
       const { data: created, error } = await admin.auth.admin.createUser({
         email: workerAuthEmail(target.id),
-        password: data.phone,
+        password: h.randomPassword(),
         email_confirm: true,
         user_metadata: { name: data.name, business_id: target.business_id, role },
       });
@@ -89,6 +96,12 @@ export const updateUserFn = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+/**
+ * Reset = their old password stops working at once, their signed-in devices are
+ * locked out, and a one-time link comes back for the admin to hand over
+ * (WhatsApp / copy). They choose a new password when they open it. Nobody's
+ * mobile number is ever used as a password.
+ */
 export const resetPasswordFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
@@ -96,20 +109,9 @@ export const resetPasswordFn = createServerFn({ method: "POST" })
     const h = await import("./helpers.server");
     const caller = await h.getCaller(context as unknown as UserContext);
     const target = await h.loadTarget(caller, data.id);
-    if (!target.phone || !MOBILE_REGEX.test(target.phone)) {
-      throw new Error("Add a valid mobile number before resetting the password");
-    }
-    if (!target.auth_user_id) throw new Error("This user has no login yet — save them with a mobile number first");
-
-    const admin = await h.adminClient();
-    const { error } = await admin.auth.admin.updateUserById(target.auth_user_id, { password: target.phone });
-    if (error) throw new Error(error.message);
-    const { error: rowError } = await admin
-      .from("workers")
-      .update({ must_set_password: true, session_token: null })
-      .eq("id", target.id);
-    if (rowError) throw new Error(rowError.message);
-    return { phone: target.phone };
+    if (!target.active) throw new Error("This account is deactivated. Activate it first.");
+    const link = await h.issueResetLink(target);
+    return { ...link, name: target.name, phone: target.phone };
   });
 
 export const deleteUserFn = createServerFn({ method: "POST" })
@@ -164,8 +166,8 @@ export const getLastSignInsFn = createServerFn({ method: "GET" })
   });
 
 /**
- * Platform admin only: makes a one-time sign-in link for a user, to hand over
- * by WhatsApp / copy-paste.
+ * Makes a one-time link for a user, to hand over by WhatsApp / copy-paste.
+ * ("reset": admin / manager / platform admin within their reach; "magic": platform admin only.)
  *
  *   kind "magic" — signs the user straight in. Their password is untouched.
  *   kind "reset" — signs the user in AND makes the app ask them to choose a new
@@ -185,31 +187,16 @@ export const createLoginLinkFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const h = await import("./helpers.server");
-    await h.requireSuperAdmin(context as unknown as UserContext);
+    // A magic link signs in WITHOUT a password change, so only the platform admin may make one.
+    // A reset link forces a new password, so business admins and managers may make it for the people they manage.
+    if (data.kind === "magic") await h.requireSuperAdmin(context as unknown as UserContext);
     const caller = await h.getCaller(context as unknown as UserContext);
     const target = await h.loadTarget(caller, data.id);
 
     if (!target.active) throw new Error("This account is deactivated. Activate it first.");
     if (!target.auth_user_id) throw new Error("This user has no login yet — save them with a mobile number first");
 
-    const admin = await h.adminClient();
-    const { data: authUser, error: userError } = await admin.auth.admin.getUserById(target.auth_user_id);
-    const loginEmail = authUser?.user?.email;
-    if (userError || !loginEmail) throw new Error(userError?.message ?? "Unable to find this user's login");
-
-    const type = data.kind === "reset" ? "recovery" : "magiclink";
-    const { data: link, error } = await admin.auth.admin.generateLink({ type, email: loginEmail });
-    const tokenHash = link?.properties?.hashed_token;
-    if (error || !tokenHash) throw new Error(error?.message ?? "Unable to create the link");
-
-    if (data.kind === "reset") {
-      // They must pick a new password after using the link, and any signed-in device is dropped.
-      const { error: rowError } = await admin
-        .from("workers")
-        .update({ must_set_password: true, session_token: null })
-        .eq("id", target.id);
-      if (rowError) throw new Error(rowError.message);
-    }
-
-    return { tokenHash, type, name: target.name, phone: target.phone };
+    const link =
+      data.kind === "reset" ? await h.issueResetLink(target) : await h.createAccessLink(target.auth_user_id, "magiclink");
+    return { ...link, name: target.name, phone: target.phone };
   });

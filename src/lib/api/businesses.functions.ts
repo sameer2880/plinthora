@@ -48,8 +48,9 @@ export const createBusinessFn = createServerFn({ method: "POST" })
       .single();
     if (error || !business) throw new Error(error?.message ?? "Unable to create the business");
 
+    let adminAuthUserId: string;
     try {
-      await h.provisionUser({
+      const created = await h.provisionUser({
         businessId: business.id,
         name: data.adminName,
         phone: data.adminPhone,
@@ -58,11 +59,19 @@ export const createBusinessFn = createServerFn({ method: "POST" })
         role: "admin",
         daily_wage: 0,
       });
+      adminAuthUserId = created.authUserId;
     } catch (e) {
       await admin.from("businesses").delete().eq("id", business.id);
       throw e;
     }
-    return { businessId: business.id as string };
+    // The first admin gets a one-time invite link (their account starts with a random password).
+    let invite: { tokenHash: string; type: "recovery" | "magiclink" } | null = null;
+    try {
+      invite = await h.createAccessLink(adminAuthUserId, "recovery");
+    } catch (e) {
+      console.error("[createBusinessFn] business created but the invite link failed:", e);
+    }
+    return { businessId: business.id as string, invite };
   });
 
 /**

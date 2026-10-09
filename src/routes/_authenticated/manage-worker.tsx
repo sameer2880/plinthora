@@ -39,6 +39,7 @@ import type { UserRole } from "@/lib/auth/roles";
 import { isMasterAdmin, isManager } from "@/lib/auth/access";
 import { MOBILE_REGEX } from "@/lib/auth/identity";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { LoginLinkDialog } from "@/components/LoginLinkDialog";
 import {
   createUserFn,
   deleteUserFn,
@@ -113,6 +114,13 @@ function ManageUsers() {
   const [q, setQ] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | UserRole>("all");
   const [delUser, setDelUser] = useState<ManagedUser | null>(null);
+  // One-time link just made for someone (new account invite, or a password reset) — shown so it can be sent.
+  const [handover, setHandover] = useState<{
+    user: { id: string; name: string; phone: string | null };
+    kind: "invite" | "reset";
+    tokenHash: string;
+    type: string;
+  } | null>(null);
 
   // A manager only ever gets to see (and add) Workers here — Admins and
   // other Managers are hidden from them entirely. The full admin (master
@@ -150,7 +158,7 @@ function ManageUsers() {
         throw new Error("Enter a valid email address");
       }
       if (!payload.phone) {
-        throw new Error("Mobile number is required — it's the login id and the account's first-time password");
+        throw new Error("Mobile number is required — it's the login id");
       }
       if (!MOBILE_REGEX.test(payload.phone)) {
         throw new Error("Mobile number must be 10 digits and start with 6, 7, 8 or 9");
@@ -163,16 +171,30 @@ function ManageUsers() {
         // does. Editing never touches passwords.
         await updateUserFn({ data: { ...payload, id: editing.id, active: editing.active } });
       } else {
-        // New users can't be given a password — their login starts out as their
-        // mobile number and they're forced to choose their own at first sign-in.
-        await createUserFn({ data: payload });
+        // New users can't be given a password. The account starts with a random one nobody knows,
+        // and the returned one-time link is how they get in (they choose their own password then).
+        const created = await createUserFn({ data: payload });
+        return created;
       }
+      return null;
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ["workers"] });
-      toast.success(
-        editing ? "User updated" : "User added — they can sign in with their mobile number as the password",
-      );
+      if (created?.invite) {
+        setHandover({
+          user: { id: "", name: created.name, phone: created.phone },
+          kind: "invite",
+          tokenHash: created.invite.tokenHash,
+          type: created.invite.type,
+        });
+        toast.success("User added — send them the invite link");
+      } else {
+        toast.success(
+          editing
+            ? "User updated"
+            : "User added — open their profile and use “Send reset link” to give them access",
+        );
+      }
       setOpen(false);
       setEditing(null);
       setForm(emptyForm());
@@ -194,14 +216,18 @@ function ManageUsers() {
 
   const resetPassword = useMutation({
     mutationFn: async (user: ManagedUser) => {
-      if (!user.phone) {
-        throw new Error("Add a mobile number before resetting the password");
-      }
-      await resetPasswordFn({ data: { id: user.id } });
+      const link = await resetPasswordFn({ data: { id: user.id } });
+      return { user, link };
     },
-    onSuccess: (_, user) => {
+    onSuccess: ({ user, link }) => {
       qc.invalidateQueries({ queryKey: ["workers"] });
-      toast.success(`Password reset to ${user.phone}. They'll be asked to set a new one at next sign-in.`);
+      setHandover({
+        user: { id: user.id, name: user.name, phone: user.phone },
+        kind: "reset",
+        tokenHash: link.tokenHash,
+        type: link.type,
+      });
+      toast.success("Old password cancelled. Send them the reset link.");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -228,7 +254,7 @@ function ManageUsers() {
     onSuccess: (_, user) => {
       qc.invalidateQueries({ queryKey: ["workers"] });
       setEditing((current) => (current?.id === user.id ? { ...current, active: true } : current));
-      toast.success("Login enabled. They sign in with their mobile number and password.");
+      toast.success("Login enabled. Use “Send reset link” if they need a new password.");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -529,8 +555,8 @@ function ManageUsers() {
             </div>
             {!editing && (
               <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-                No password to set here — their mobile number is the first-time password. They'll be
-                asked to set their own password the first time they sign in.
+                No password to set here. After you save, you get a one-time link to send them; they
+                open it and choose their own password.
               </p>
             )}
             <div>
@@ -542,16 +568,12 @@ function ManageUsers() {
                 <ConfirmDelete
                   onConfirm={() => resetPassword.mutate(editing)}
                   title={`Reset ${editing.name}'s password?`}
-                  description={
-                    editing.phone
-                      ? `Their password will be reset to their mobile number (${editing.phone}). They'll be asked to set a new password the next time they sign in.`
-                      : "Add a mobile number for this user first — it's used as the reset password."
-                  }
-                  confirmLabel="Reset password"
+                  description="Their current password stops working right away and their signed-in devices are signed out. You get a one-time link to send them; they open it and choose a new password."
+                  confirmLabel="Make reset link"
                 >
-                  <Button type="button" variant="outline" disabled={!editing.phone || resetPassword.isPending}>
+                  <Button type="button" variant="outline" disabled={resetPassword.isPending}>
                     <KeyRound className="h-4 w-4 mr-1.5" />
-                    Reset password
+                    Send reset link
                   </Button>
                 </ConfirmDelete>
                 {!editing.active && (
@@ -590,6 +612,13 @@ function ManageUsers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LoginLinkDialog
+        user={handover?.user ?? null}
+        allowMagic={false}
+        ready={handover ? { kind: handover.kind, tokenHash: handover.tokenHash, type: handover.type } : null}
+        onClose={() => setHandover(null)}
+      />
     </div>
     </AdminOnly>
   );

@@ -5,28 +5,40 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createLoginLinkFn } from "@/lib/api/users.functions";
+import { loginLinkUrl } from "@/lib/access-requests";
 import { PLATFORM_NAME } from "@/lib/brand";
 import { whatsappUrl } from "@/lib/rentals";
 
 type Kind = "magic" | "reset";
+type Ready = { kind: Kind | "invite"; tokenHash: string; type: string };
 
 /**
- * Platform admin: create a one-time sign-in link ("magic link") or a
- * password-reset link for a user, then copy it or send it on WhatsApp.
+ * Creates a one-time link for a user, then copies it or sends it on WhatsApp.
+ *  - Platform admin: a "magic" sign-in link or a password-reset link.
+ *  - Business admin / manager (allowMagic = false): the password-reset link only.
+ *  - `ready` skips the choice and shows a link that was just made (new account invite or reset).
  */
 export function LoginLinkDialog({
   user,
   onClose,
+  allowMagic = true,
+  ready = null,
 }: {
   user: { id: string; name: string; phone: string | null } | null;
   onClose: () => void;
+  allowMagic?: boolean;
+  ready?: Ready | null;
 }) {
   const [busy, setBusy] = useState<Kind | null>(null);
-  const [result, setResult] = useState<{ kind: Kind; url: string } | null>(null);
+  const [made, setMade] = useState<{ kind: Kind | "invite"; url: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const result =
+    made ?? (ready ? { kind: ready.kind, url: loginLinkUrl(window.location.origin, ready) } : null);
+  const setResult = (v: { kind: Kind | "invite"; url: string } | null) => setMade(v);
+
   const close = () => {
-    setResult(null);
+    setMade(null);
     setCopied(false);
     onClose();
   };
@@ -37,8 +49,7 @@ export function LoginLinkDialog({
     setCopied(false);
     try {
       const r = await createLoginLinkFn({ data: { id: user.id, kind } });
-      const url = `${window.location.origin}/auth/link?token_hash=${encodeURIComponent(r.tokenHash)}&type=${r.type}`;
-      setResult({ kind, url });
+      setResult({ kind, url: loginLinkUrl(window.location.origin, r) });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Unable to create the link");
     } finally {
@@ -58,7 +69,9 @@ export function LoginLinkDialog({
   };
 
   const message = result
-    ? result.kind === "reset"
+    ? result.kind === "invite"
+      ? `Hi ${user?.name}, your ${PLATFORM_NAME} account is ready. Open this link to choose your password and sign in. It works once and expires soon, so don't share it:\n${result.url}`
+      : result.kind === "reset"
       ? `Hi ${user?.name}, use this link to reset your ${PLATFORM_NAME} password. It works once and expires soon:\n${result.url}`
       : `Hi ${user?.name}, use this link to sign in to ${PLATFORM_NAME}. It works once and expires soon:\n${result.url}`
     : "";
@@ -67,7 +80,7 @@ export function LoginLinkDialog({
     <Dialog open={user !== null} onOpenChange={(o) => !o && close()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Sign-in link for {user?.name}</DialogTitle>
+          <DialogTitle>{ready ? `Link for ${user?.name}` : `Sign-in link for ${user?.name}`}</DialogTitle>
           <DialogDescription>
             Creates a one-time link. Anyone who opens it gets into this account, so send it only to {user?.name}.
           </DialogDescription>
@@ -75,6 +88,7 @@ export function LoginLinkDialog({
 
         {!result ? (
           <div className="grid gap-2">
+            {allowMagic && (
             <Button variant="outline" className="h-auto justify-start gap-3 py-3 text-left" disabled={busy !== null} onClick={() => generate("magic")}>
               {busy === "magic" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4 shrink-0" />}
               <span>
@@ -82,17 +96,18 @@ export function LoginLinkDialog({
                 <span className="block text-xs font-normal text-muted-foreground">Signs them in without a password. Their password stays as it is.</span>
               </span>
             </Button>
+            )}
             <Button variant="outline" className="h-auto justify-start gap-3 py-3 text-left" disabled={busy !== null} onClick={() => generate("reset")}>
               {busy === "reset" ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4 shrink-0" />}
               <span>
                 <span className="block font-semibold">Password reset link</span>
-                <span className="block text-xs font-normal text-muted-foreground">Signs them in and asks for a new password. Their other device is signed out.</span>
+                <span className="block text-xs font-normal text-muted-foreground">Cancels their old password, signs out their devices, and asks them to choose a new password.</span>
               </span>
             </Button>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm font-medium">{result.kind === "reset" ? "Password reset link ready" : "Magic sign-in link ready"}</p>
+            <p className="text-sm font-medium">{result.kind === "invite" ? "Invite link ready" : result.kind === "reset" ? "Password reset link ready" : "Magic sign-in link ready"}</p>
             <div className="flex gap-2">
               <Input readOnly value={result.url} onFocus={(e) => e.currentTarget.select()} className="font-mono text-xs" />
               <Button size="icon" variant="outline" aria-label="Copy link" onClick={copy}>
@@ -107,9 +122,11 @@ export function LoginLinkDialog({
                   </a>
                 </Button>
               )}
-              <Button variant="outline" onClick={() => setResult(null)}>
-                Make a different link
-              </Button>
+              {!ready && (
+                <Button variant="outline" onClick={() => setResult(null)}>
+                  Make a different link
+                </Button>
+              )}
               <Button variant="ghost" onClick={close}>
                 Done
               </Button>

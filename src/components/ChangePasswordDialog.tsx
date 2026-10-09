@@ -11,6 +11,7 @@ import { useSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { lock } from "@/lib/auth/lock";
+import { passwordProblem } from "@/lib/auth/password";
 
 const ROLE_DISPLAY = {
   manager: { label: "Manager", icon: Shield, className: "bg-primary/10 text-primary" },
@@ -46,9 +47,8 @@ export function ChangePasswordDialog({
       const { data: userData } = await supabase.auth.getUser();
       const email = userData.user?.email;
       if (!email) throw new Error("No account found for this session");
-      if (next.length < 6) {
-        throw new Error("New password must be at least 6 characters");
-      }
+      const problem = passwordProblem(next);
+      if (problem) throw new Error(problem);
       if (next !== confirm) {
         throw new Error("New passwords do not match");
       }

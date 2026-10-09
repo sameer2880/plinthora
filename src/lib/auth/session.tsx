@@ -117,7 +117,7 @@ export async function loadSessionState(): Promise<LoadResult> {
   const businessId = businessIdRes.data as string | null;
 
   if (!isSuper && (!worker || !worker.active)) {
-    return { ok: false, reason: "inactive", message: "This account is deactivated" };
+    return { ok: false, reason: "inactive", message: "This account is deactivated, or it was signed in on another device" };
   }
 
   let business: Business | null = null;

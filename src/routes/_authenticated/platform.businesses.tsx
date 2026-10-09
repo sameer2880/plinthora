@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { createBusinessFn, deleteBusinessFn } from "@/lib/api/businesses.functions";
+import { LoginLinkDialog } from "@/components/LoginLinkDialog";
 import { isSuperAdmin } from "@/lib/auth/access";
 import { MOBILE_REGEX } from "@/lib/auth/identity";
 import { PLATFORM_NAME } from "@/lib/brand";
@@ -117,6 +118,9 @@ function PlatformBusinesses() {
     qc.invalidateQueries({ queryKey: ["platform"] });
   };
 
+  // One-time link for the new business's first admin.
+  const [inviteFor, setInviteFor] = useState<{ name: string; phone: string; tokenHash: string; type: string } | null>(null);
+
   const create = useMutation({
     mutationFn: async () => {
       const adminPhone = form.adminPhone.trim();
@@ -125,7 +129,7 @@ function PlatformBusinesses() {
       if (!MOBILE_REGEX.test(adminPhone)) {
         throw new Error("Admin mobile must be 10 digits and start with 6, 7, 8 or 9");
       }
-      await createBusinessFn({
+      const created = await createBusinessFn({
         data: {
           name: form.name.trim(),
           short_name: form.short_name.trim() || undefined,
@@ -139,11 +143,16 @@ function PlatformBusinesses() {
           enabledPages: form.enabledPages,
         },
       });
-      return adminPhone;
+      return { adminPhone, adminName: form.adminName.trim(), invite: created.invite };
     },
-    onSuccess: (adminPhone) => {
+    onSuccess: ({ adminPhone, adminName, invite }) => {
       refresh();
-      toast.success(`Business created. Its admin signs in with ${adminPhone} as both login and first password.`);
+      if (invite) {
+        setInviteFor({ name: adminName, phone: adminPhone, tokenHash: invite.tokenHash, type: invite.type });
+        toast.success("Business created. Send its admin the one-time link.");
+      } else {
+        toast.success("Business created. Make the admin's link from Users → Sign-in link.");
+      }
       setCreateOpen(false);
       setForm(emptyCreate());
     },
@@ -374,8 +383,8 @@ function PlatformBusinesses() {
                 <Input type="email" value={form.adminEmail} onChange={(e) => setForm({ ...form, adminEmail: e.target.value })} />
               </div>
               <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-                The admin signs in with their mobile number, email or username. Their mobile number is the
-                first-time password — they're asked to choose their own straight away.
+                The admin signs in with their mobile number, email or username. After you create the business you
+                get a one-time link to send them; they open it and choose their own password.
               </p>
             </div>
 
@@ -493,6 +502,13 @@ function PlatformBusinesses() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LoginLinkDialog
+        user={inviteFor ? { id: "", name: inviteFor.name, phone: inviteFor.phone } : null}
+        allowMagic={false}
+        ready={inviteFor ? { kind: "invite", tokenHash: inviteFor.tokenHash, type: inviteFor.type } : null}
+        onClose={() => setInviteFor(null)}
+      />
     </div>
   );
 }

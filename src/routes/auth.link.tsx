@@ -7,6 +7,7 @@ import { BrandName } from "@/components/BrandName";
 import { supabase } from "@/integrations/supabase/client";
 import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
 import { loadSessionState } from "@/lib/auth/session";
+import { claimDeviceFn } from "@/lib/api/auth.functions";
 import { PLATFORM_NAME } from "@/lib/brand";
 
 /**
@@ -53,24 +54,23 @@ function AuthLinkPage() {
         return;
       }
 
+      // One signed-in device per staff/worker account: this device takes over, because the admin
+      // deliberately sent the link to it. The server records the session and signs the others out.
+      // (Done before loading the account: until then the database only trusts the previous session.)
+      try {
+        const { deviceToken } = await claimDeviceFn();
+        if (deviceToken) localStorage.setItem(DEVICE_TOKEN_KEY, deviceToken);
+      } catch {
+        await supabase.auth.signOut();
+        setError("Unable to start your device session. Please try again.");
+        return;
+      }
+
       const res = await loadSessionState();
       if (!res.ok) {
         await supabase.auth.signOut();
         setError(res.message || "Unable to sign in. Ask your admin for a new link.");
         return;
-      }
-
-      // One signed-in device per staff/worker account: this device takes over,
-      // because the admin deliberately sent the link to it.
-      if (res.state.me?.workerId) {
-        const token = crypto.randomUUID();
-        const { error: claimError } = await supabase.rpc("claim_device", { p_token: token });
-        if (claimError) {
-          await supabase.auth.signOut();
-          setError("Unable to start your device session. Please try again.");
-          return;
-        }
-        localStorage.setItem(DEVICE_TOKEN_KEY, token);
       }
 
       // Full reload so the app's sign-in gate starts from the new session

@@ -34,7 +34,7 @@ if no platform admin exists yet — that's why step 3 comes first.
 
 `npm run dev`, open the address it prints, sign in as the platform admin, then **Businesses → Add business**
 (name plus the business's first admin). That admin signs in with their mobile number, email or username;
-their mobile number is the first password and the app asks them to choose their own straight away.
+they receive a one-time link and choose their own password when they open it.
 They then add their managers and workers under **Manage Users**.
 
 > The migration also creates one starter business, "M.B.S CENTRING WORKS". Rename it from

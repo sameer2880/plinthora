@@ -1,53 +1,89 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { UNKNOWN_LOGIN_EMAIL, workerAuthEmail } from "@/lib/auth/identity";
-
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
- * Sign-in: turns whatever the person typed — mobile number, email or username —
- * into the address their Supabase Auth account uses. Public on purpose (nobody
- * is signed in yet). It returns only that opaque address, never a mobile number
- * or any other detail, and an unknown identifier just gets an address that
- * cannot sign in.
+ * Sign-in happens on the server, in one step:
+ *   typed mobile / email / username + password  ->  a session.
  *
- * Works the same for every kind of user: workers, managers, business admins and
- * the platform admin.
+ * Why: the browser never learns which Auth address belongs to a typed name
+ * (the old lookup returned a real address for known people and a different one
+ * for unknown people, so accounts could be told apart). Here a wrong name and a
+ * wrong password give the same answer in the same shape, and attempts are rate
+ * limited per IP address (not per account, so nobody can lock another person out).
+ *
+ * It also enforces the one-device rule: a staff/worker account that is signed
+ * in elsewhere needs a confirmed takeover, and a successful sign-in signs every
+ * other session of that account out (the database policies also refuse them).
  */
-export const resolveLoginFn = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ identifier: z.string().trim().min(1).max(200) }).parse(input))
-  .handler(async ({ data }) => {
-    const h = await import("./helpers.server");
-    const admin = await h.adminClient();
-    const raw = data.identifier;
-    const digits = raw.replace(/[\s+-]/g, "");
+export type SignInResult =
+  | { status: "ok"; accessToken: string; refreshToken: string; deviceToken: string | null }
+  | { status: "needs_takeover" }
+  | { status: "error"; message: string };
 
-    let column: "phone" | "email" | "username";
-    let value: string;
-    if (/^\d{10,12}$/.test(digits)) {
-      column = "phone";
-      value = digits.slice(-10);
-    } else if (raw.includes("@")) {
-      column = "email";
-      value = raw.toLowerCase();
-    } else {
-      column = "username";
-      value = raw.toLowerCase();
+const GENERIC = "Invalid credentials";
+
+export const signInFn = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        identifier: z.string().trim().min(1).max(200),
+        password: z.string().min(1).max(200),
+        deviceToken: z.string().max(100).nullish(),
+        takeover: z.boolean().default(false),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }): Promise<SignInResult> => {
+    const h = await import("./helpers.server");
+
+    // Rate limits are per IP address, so a stranger can slow themselves down but cannot lock a real user out.
+    const ip = h.clientIp();
+    const idKey = (await h.hmacHex(data.identifier.toLowerCase())).slice(0, 24);
+    const okIp = await h.withinRateLimit(`signin:ip:${ip}`, 60, 600);
+    const okPair = await h.withinRateLimit(`signin:pair:${ip}:${idKey}`, 8, 900);
+    if (!okIp || !okPair) return { status: "error", message: "Too many sign-in attempts. Please wait a few minutes and try again." };
+
+    // Unknown names still go through a real password check against an address that cannot exist.
+    const email = (await h.resolveLoginEmail(data.identifier)) ?? (await h.decoyLoginEmail(data.identifier));
+
+    const anon = await h.anonClient();
+    const { data: signedIn, error } = await anon.auth.signInWithPassword({ email, password: data.password });
+    if (error || !signedIn.session || !signedIn.user) {
+      return { status: "error", message: /banned|deactivated/i.test(error?.message ?? "") ? "This account is deactivated" : GENERIC };
+    }
+    const { access_token: accessToken, refresh_token: refreshToken } = signedIn.session;
+
+    const admin = await h.adminClient();
+    const { data: worker } = await admin
+      .from("workers")
+      .select("id, session_token")
+      .eq("auth_user_id", signedIn.user.id)
+      .maybeSingle();
+
+    let deviceToken: string | null = null;
+    if (worker) {
+      const elsewhere = Boolean(worker.session_token) && worker.session_token !== (data.deviceToken ?? null);
+      if (elsewhere && !data.takeover) {
+        await admin.auth.admin.signOut(accessToken, "local"); // drop the session we just made
+        return { status: "needs_takeover" };
+      }
+      deviceToken = await h.claimDevice(signedIn.user.id, accessToken);
     }
 
-    // 1. Business users (worker / manager / admin)
-    let staff = admin.from("workers").select("id").not("auth_user_id", "is", null).eq("active", true);
-    staff = column === "phone" ? staff.eq("phone", value) : staff.ilike(column, h.escapeLike(value));
-    const { data: staffRows } = await staff.limit(2);
-    if (staffRows && staffRows.length === 1) return { email: workerAuthEmail(staffRows[0].id as string) };
-    if (staffRows && staffRows.length > 1) return { email: UNKNOWN_LOGIN_EMAIL }; // ambiguous
+    return { status: "ok", accessToken, refreshToken, deviceToken };
+  });
 
-    // 2. The platform admin
-    let platform = admin.from("platform_admins").select("email");
-    platform = column === "phone" ? platform.eq("phone", value) : platform.ilike(column, h.escapeLike(value));
-    const { data: platformRows } = await platform.limit(2);
-    if (platformRows && platformRows.length === 1 && platformRows[0].email) return { email: platformRows[0].email as string };
-
-    // 3. Nothing matched: an email may still be an Auth address as typed.
-    if (column === "email") return { email: value };
-    return { email: UNKNOWN_LOGIN_EMAIL };
+/**
+ * Used after a one-time link sign-in (/auth/link): this device takes over the
+ * account and every other session is signed out. Returns the device token to keep.
+ */
+export const claimDeviceFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const h = await import("./helpers.server");
+    const token = getRequest()?.headers.get("authorization")?.replace("Bearer ", "") ?? "";
+    const deviceToken = await h.claimDevice(context.userId as string, token);
+    return { deviceToken };
   });
