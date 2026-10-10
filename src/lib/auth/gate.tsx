@@ -149,6 +149,43 @@ function isThisDevice(me: Me) {
 /* Password / session card                                            */
 /* ------------------------------------------------------------------ */
 
+/** Full-screen "please wait" with a spinner. `overlay` floats it over the page underneath. */
+function LoadingScreen({
+  title = "Loading…",
+  subtitle = "Please wait",
+  overlay = false,
+}: {
+  title?: string;
+  subtitle?: string;
+  overlay?: boolean;
+}) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={
+        overlay
+          ? "fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-background/85 p-6 backdrop-blur-sm"
+          : "relative flex min-h-dvh flex-col items-center justify-center gap-4 overflow-hidden bg-background p-6"
+      }
+    >
+      {!overlay && (
+        <WaveLines className="pointer-events-none absolute inset-0 h-full w-full text-foreground opacity-20" />
+      )}
+      <div className="relative z-10 flex flex-col items-center gap-4 text-center">
+        <span className="relative flex h-16 w-16 items-center justify-center">
+          <span className="absolute inset-0 rounded-full border-4 border-primary/15" />
+          <Loader2 className="h-16 w-16 animate-spin stroke-[1.5] text-primary" />
+        </span>
+        <div>
+          <p className="text-base font-semibold text-foreground">{title}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CardShell({
   children,
 }: {
@@ -686,27 +723,7 @@ export function Gate({
   /* ---------------------------------------------------------------- */
 
   if (phase === "loading") {
-    return (
-      <div className="relative flex min-h-dvh flex-col items-center justify-center gap-3 overflow-hidden bg-background p-4 text-sm text-muted-foreground">
-        <WaveLines
-          className="
-            pointer-events-none
-            absolute
-            inset-0
-            h-full
-            w-full
-            text-foreground
-            opacity-20
-          "
-        />
-
-        <div className="relative z-10 flex flex-col items-center gap-3">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-
-          <span>Loading...</span>
-        </div>
-      </div>
-    );
+    return <LoadingScreen title="Loading…" subtitle="Please wait a moment" />;
   }
 
   /* ---------------------------------------------------------------- */
@@ -802,9 +819,10 @@ export function Gate({
   if (phase === "ready") {
     if (redirectTo) {
       return (
-        <div className="flex min-h-dvh items-center justify-center bg-background">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
+        <LoadingScreen
+          title="Loading your account…"
+          subtitle="Please wait, this will only take a moment"
+        />
       );
     }
 
@@ -822,6 +840,14 @@ export function Gate({
   return (
     <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#eef6e6] px-4 py-6 sm:px-6 md:py-10 dark:bg-[#0a130d]">
       <style>{PAGE_CSS}</style>
+
+      {busy && (
+        <LoadingScreen
+          overlay
+          title="Signing you in…"
+          subtitle="Loading your account, please wait"
+        />
+      )}
 
       {/* ============================================================ */}
       {/* FULL PAGE WAVE LINES                                        */}
@@ -1054,9 +1080,14 @@ export function Gate({
                 disabled={busy}
                 className="h-12 w-full rounded-full text-sm font-semibold shadow-md shadow-primary/20 transition-transform active:scale-[0.99]"
               >
-                {busy
-                  ? "Signing in…"
-                  : "Sign in"}
+                {busy ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Please wait…
+                  </span>
+                ) : (
+                  "Sign in"
+                )}
               </Button>
             </form>
 
