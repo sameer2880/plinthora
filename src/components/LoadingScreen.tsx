@@ -1,4 +1,6 @@
 import { Loader2 } from "lucide-react";
+import pLogoDark from "@/assets/plinthora-p.png";
+import pLogoLight from "@/assets/plinthora-p-light.png";
 import { WaveLines } from "@/components/WaveLines";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +34,7 @@ export function LoadingScreen({
         <WaveLines className="pointer-events-none absolute inset-0 h-full w-full text-foreground opacity-20" />
       )}
       <div className="relative z-10 flex flex-col items-center gap-4 text-center">
-        <Spinner className="h-16 w-16" />
+        <Spinner logo className="h-16 w-16" />
         <div>
           <p className="text-base font-semibold text-foreground">{title}</p>
           <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
@@ -42,11 +44,34 @@ export function LoadingScreen({
   );
 }
 
-/** Just the spinning ring. `className` sets its size, e.g. "h-10 w-10". */
-export function Spinner({ className }: { className?: string }) {
+/**
+ * Just the spinning ring. `className` sets its size, e.g. "h-10 w-10".
+ * `logo` shows the Plinthora "P" inside the ring (use it for the larger loaders only,
+ * it is too small to read in a button). The P is dark green on the light theme and
+ * the original white P on the dark theme, so it is visible in both.
+ */
+export function Spinner({ className, logo = false }: { className?: string; logo?: boolean }) {
   return (
     <span className={cn("relative inline-flex shrink-0 items-center justify-center", className)}>
       <span className="absolute inset-0 rounded-full border-4 border-primary/15" />
+      {logo && (
+        <>
+          <img
+            src={pLogoLight}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="absolute h-[52%] w-[52%] select-none object-contain dark:hidden"
+          />
+          <img
+            src={pLogoDark}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="absolute hidden h-[52%] w-[52%] select-none object-contain dark:block"
+          />
+        </>
+      )}
       <Loader2 className="h-full w-full animate-spin stroke-[1.5] text-primary" />
     </span>
   );
@@ -68,7 +93,7 @@ export function LoadingBlock({
       aria-live="polite"
       className={cn("flex flex-col items-center justify-center gap-3 px-4 py-10 text-center", className)}
     >
-      <Spinner className="h-12 w-12" />
+      <Spinner logo className="h-12 w-12" />
       <div>
         <p className="text-sm font-semibold text-foreground">{title}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
