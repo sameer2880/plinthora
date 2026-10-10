@@ -1174,7 +1174,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
   * The mobileMoreOpen state controls the More tab's bottom sheet.
    */
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
-  const routePath = useRouterState({ select: (s) => s.location.pathname });
+  // The page that is really on screen. `location` jumps to the NEXT page the moment a tap
+  // happens, while the old page is still showing - keying the animation on that played the
+  // fade on the old page and then snapped the new one in. `resolvedLocation` only changes
+  // once the new page is ready, so the fade plays on the page that is arriving.
+  const routePath = useRouterState({
+    select: (s) => (s.resolvedLocation ?? s.location).pathname,
+  });
 
 
   // Phone: bottom sheet. Tablet: flyout beside the rail. Desktop: the full
