@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { A4Sheet } from "@/components/A4Sheet";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicReceiptFn } from "@/lib/api/receipts.functions";
 import type { Rental } from "@/lib/rentals";
@@ -48,10 +49,11 @@ function PublicReceiptPage() {
   const receiptNumber = rows.length > 1 ? rows[0].group_id || rows[0].id : rows[0].id;
 
   return (
-    <div className="min-h-screen bg-gray-200 py-6 px-3 sm:py-10 sm:px-6 print:min-h-0 print:bg-white print:p-0">
+    <div className="min-h-screen bg-gray-200 py-4 px-2 sm:py-10 sm:px-6 print:min-h-0 print:bg-white print:p-0">
       <style>{`@page { size: A4; margin: 0; }`}</style>
+      <A4Sheet>
       <article
-        className="receipt-sheet mx-auto w-full max-w-[210mm] bg-white p-6 text-gray-700 shadow-xl sm:p-[15mm] print:max-w-none print:p-[15mm] print:shadow-none"
+        className="receipt-sheet w-full bg-white p-[15mm] text-gray-700 shadow-xl print:max-w-none print:p-[15mm] print:shadow-none"
         style={{ minHeight: "297mm" }}
       >
         {/* Title + business details (right aligned, no logo) */}
@@ -67,14 +69,14 @@ function PublicReceiptPage() {
         </div>
 
         {/* Bill To (left) + receipt details (right) */}
-        <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mb-8 flex flex-row items-start justify-between gap-6">
           <div className="text-sm text-gray-700">
             <div className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-500">Bill To</div>
             <div className="font-semibold text-gray-800">{receipt.customer_name}</div>
             {receipt.customer_address && <div>{receipt.customer_address}</div>}
             {receipt.customer_phone && <div>{receipt.customer_phone}</div>}
           </div>
-          <div className="w-full space-y-1 text-xs sm:w-64">
+          <div className="w-64 space-y-1 text-xs">
             <div className="flex justify-between gap-4">
               <span className="text-gray-500">Receipt No.:</span>
               <span className="font-bold text-gray-800">{receiptNumber.slice(0, 8).toUpperCase()}</span>
@@ -134,7 +136,7 @@ function PublicReceiptPage() {
 
         {/* Totals */}
         <div className="mb-12 flex justify-end">
-          <div className="w-full sm:w-[55%]">
+          <div className="w-[55%]">
             <div className="flex justify-between border-b border-gray-200 px-3 py-2 text-xs text-gray-600">
               <span>SUBTOTAL (₹):</span>
               <span>{Number(receipt.total_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
@@ -183,6 +185,7 @@ function PublicReceiptPage() {
           {business?.location ? `, ${business.location}` : ""}.
         </div>
       </article>
+      </A4Sheet>
     </div>
   );
 }

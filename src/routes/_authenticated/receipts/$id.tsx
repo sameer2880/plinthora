@@ -12,6 +12,7 @@ import { isMasterAdmin, isManager } from "@/lib/auth/access";
 import { useSession } from "@/lib/auth/session";
 import { PLATFORM_NAME } from "@/lib/brand";
 import { LoadingBlock } from "@/components/LoadingScreen";
+import { A4Sheet } from "@/components/A4Sheet";
 
 export const Route = createFileRoute("/_authenticated/receipts/$id")({
   head: () => ({
@@ -237,8 +238,9 @@ function ReceiptPage() {
         </div>
       </div>
 
+      <A4Sheet>
       <article
-        className="receipt-sheet mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 text-gray-700 shadow-sm transition-shadow duration-200 sm:p-10 print:rounded-none print:border-0 print:shadow-none"
+        className="receipt-sheet min-h-[297mm] w-full rounded-lg border border-gray-200 bg-white p-[15mm] text-gray-700 shadow-md print:min-h-0 print:rounded-none print:border-0 print:shadow-none"
       >
         {/* Title + business details (right aligned, no logo) */}
         <div className="mb-10 text-right">
@@ -253,14 +255,14 @@ function ReceiptPage() {
         </div>
 
         {/* Bill To (left) + receipt details (right) */}
-        <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mb-8 flex flex-row items-start justify-between gap-6">
           <div className="text-sm text-gray-700">
             <div className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-500">Bill To</div>
             <div className="font-semibold text-gray-800">{receipt.customer_name}</div>
             {receipt.customer_address && <div>{receipt.customer_address}</div>}
             {receipt.customer_phone && <div>{receipt.customer_phone}</div>}
           </div>
-          <div className="w-full space-y-1 text-xs sm:w-64">
+          <div className="w-64 space-y-1 text-xs">
             <div className="flex justify-between gap-4">
               <span className="text-gray-500">Receipt No.:</span>
               <span className="font-bold text-gray-800">{receiptNumber.slice(0, 8).toUpperCase()}</span>
@@ -320,7 +322,7 @@ function ReceiptPage() {
 
         {/* Totals */}
         <div className="mb-12 flex justify-end">
-          <div className="w-full sm:w-[55%]">
+          <div className="w-[55%]">
             <div className="flex justify-between border-b border-gray-200 px-3 py-2 text-xs text-gray-600">
               <span>SUBTOTAL (₹):</span>
               <span>{Number(receipt.total_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
@@ -383,6 +385,7 @@ function ReceiptPage() {
           {business?.location ? `, ${business.location}` : ""}.
         </div>
       </article>
+      </A4Sheet>
     </div>
   );
 }
