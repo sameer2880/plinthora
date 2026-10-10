@@ -26,7 +26,7 @@ import { LoginIllustration } from "@/components/LoginIllustration";
 import { supabase } from "@/integrations/supabase/client";
 import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
 import { lock } from "@/lib/auth/lock";
-import { claimDeviceFn, signInFn } from "@/lib/api/auth.functions";
+import { signInFn } from "@/lib/api/auth.functions";
 import { passwordProblem } from "@/lib/auth/password";
 import { PLATFORM_TAGLINE } from "@/lib/brand";
 import { registerNativePush, unregisterNativePush } from "@/lib/native-push";
@@ -219,6 +219,8 @@ export function Gate({
   const [u, setU] = useState("");
   const [p, setP] = useState("");
   const [err, setErr] = useState("");
+  // Green message on the sign-in page (e.g. after a password was changed).
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] =
     useState(false);
@@ -500,6 +502,7 @@ export function Gate({
     e.preventDefault();
 
     setErr("");
+    setNotice("");
 
     const identifier = u.trim();
 
@@ -645,42 +648,24 @@ export function Gate({
 
       if (error) throw error;
 
-      // Password saved. Take a fresh session (the account just changed), then
-      // make sure this device still owns the account before the flag is cleared.
-      await supabase.auth.refreshSession().catch(() => undefined);
-
-      try {
-        const { deviceToken } = await claimDeviceFn();
-        if (deviceToken) localStorage.setItem(DEVICE_TOKEN_KEY, deviceToken);
-      } catch {
-        /* the earlier claim (from the link) is still valid; carry on */
-      }
-
+      // Password saved. The link only resets the password: clear the flag, end this
+      // temporary session and send the person to the sign-in page to use the new password.
       const { error: clearError } = await supabase.rpc("clear_must_set_password");
       if (clearError) throw clearError;
-
-      const res = await loadSessionState();
-      if (!res.ok || !res.state.me) {
-        throw new Error(
-          "Your password was saved, but we couldn't open your account. Please sign in with your new password.",
-        );
-      }
 
       setNewPassword("");
       setNewPasswordConfirm("");
 
-      // Straight into the app: no "go and sign in again" step.
-      const me = res.state.me;
-      const destination =
-        me.role === "worker"
-          ? "/worker"
-          : me.role === "super_admin"
-            ? "/platform/businesses"
-            : "/dashboard";
+      localStorage.removeItem(DEVICE_TOKEN_KEY);
+      applyState(EMPTY);
+      await Promise.allSettled([unregisterNativePush(), stopNativeLocation()]);
+      await supabase.auth.signOut();
 
-      applyState(res.state);
-      setPhase("ready");
-      void navigate({ to: destination, replace: true });
+      setErr("");
+      setU("");
+      setP("");
+      setNotice("Password changed successfully. Sign in with your new password.");
+      setPhase("signed-out");
     } catch (error) {
       setNewPasswordErr(
         error instanceof Error
@@ -1035,6 +1020,12 @@ export function Gate({
                   )}
                 </button>
               </div>
+
+              {notice && !err && (
+                <p className="rounded-xl bg-primary/10 px-3 py-2 text-xs font-medium text-primary">
+                  {notice}
+                </p>
+              )}
 
               {err && (
                 <p className="text-xs font-medium text-destructive">
