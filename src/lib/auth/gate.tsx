@@ -865,7 +865,7 @@ export function Gate({
     <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#eef6e6] px-4 py-6 sm:px-6 md:py-10 dark:bg-[#0a130d]">
       <style>{PAGE_CSS}</style>
 
-      {busy && (
+      {busy && !takeoverOpen && (
         <LoadingScreen
           overlay
           title="Signing you in…"
