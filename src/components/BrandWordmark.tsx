@@ -15,7 +15,7 @@ export function BrandWordmark({ className }: { className?: string }) {
       src={wordmark}
       alt={PLATFORM_NAME}
       draggable={false}
-      className={cn("h-6 w-auto select-none dark:brightness-0 dark:invert", className)}
+      className={cn("h-5 w-auto select-none dark:brightness-0 dark:invert", className)}
     />
   );
 }

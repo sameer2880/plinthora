@@ -88,7 +88,7 @@ function AuthLinkPage() {
       <div className="w-full max-w-[420px] rounded-[2rem] border border-border/60 bg-card p-7 shadow-lg sm:p-9">
         <div className="mb-7 flex items-center gap-2">
           <BrandLogo className="h-9 w-9" />
-          <BrandWordmark className="h-6" />
+          <BrandWordmark className="h-5" />
         </div>
 
         {valid ? (
