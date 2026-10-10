@@ -1003,6 +1003,19 @@
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
+
+  /* Plinthora watermark on printed receipts: keep it in the bottom-right corner. */
+  .receipt-sheet {
+    position: relative !important;
+  }
+  .receipt-watermark {
+    display: block !important;
+    right: 5mm !important;
+    bottom: 5mm !important;
+    opacity: 0.25 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
 }
 
 /* ---- Brand logo: circular ring + subtle motion -----------------------------

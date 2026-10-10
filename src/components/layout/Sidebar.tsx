@@ -37,6 +37,7 @@ import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { WorkerLocationToggle } from "@/components/WorkerLocationToggle";
 import { BrandLogo } from "@/components/BrandLogo";
+import { AppWatermark } from "@/components/Watermark";
 import { AppCredit } from "@/components/AppCredit";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -1390,6 +1391,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
           isMoreOpen={mobileMoreOpen}
         />
       </div>
+
+      {/* Plinthora watermark, bottom-right, desktop only (hidden < lg and in print). */}
+      <AppWatermark />
     </div>
   );
 }

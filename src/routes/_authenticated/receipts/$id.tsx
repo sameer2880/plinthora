@@ -13,6 +13,7 @@ import { useSession } from "@/lib/auth/session";
 import { PLATFORM_NAME } from "@/lib/brand";
 import { LoadingBlock } from "@/components/LoadingScreen";
 import { A4Sheet } from "@/components/A4Sheet";
+import { ReceiptWatermark } from "@/components/Watermark";
 
 export const Route = createFileRoute("/_authenticated/receipts/$id")({
   head: () => ({
@@ -240,7 +241,7 @@ function ReceiptPage() {
 
       <A4Sheet>
       <article
-        className="receipt-sheet min-h-[297mm] w-full rounded-lg border border-gray-200 bg-white p-[15mm] text-gray-700 shadow-md print:min-h-0 print:rounded-none print:border-0 print:shadow-none"
+        className="receipt-sheet relative min-h-[297mm] w-full rounded-lg border border-gray-200 bg-white p-[15mm] text-gray-700 shadow-md print:min-h-0 print:rounded-none print:border-0 print:shadow-none"
       >
         {/* Title + business details (right aligned, no logo) */}
         <div className="mb-10 text-right">
@@ -384,6 +385,7 @@ function ReceiptPage() {
           Thank you for choosing {business?.name}
           {business?.location ? `, ${business.location}` : ""}.
         </div>
+        <ReceiptWatermark />
       </article>
       </A4Sheet>
     </div>

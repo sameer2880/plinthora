@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { A4Sheet } from "@/components/A4Sheet";
+import { ReceiptWatermark } from "@/components/Watermark";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicReceiptFn } from "@/lib/api/receipts.functions";
 import type { Rental } from "@/lib/rentals";
@@ -53,7 +54,7 @@ function PublicReceiptPage() {
       <style>{`@page { size: A4; margin: 0; }`}</style>
       <A4Sheet>
       <article
-        className="receipt-sheet w-full bg-white p-[15mm] text-gray-700 shadow-xl print:max-w-none print:p-[15mm] print:shadow-none"
+        className="receipt-sheet relative w-full bg-white p-[15mm] text-gray-700 shadow-xl print:max-w-none print:p-[15mm] print:shadow-none"
         style={{ minHeight: "297mm" }}
       >
         {/* Title + business details (right aligned, no logo) */}
@@ -184,6 +185,7 @@ function PublicReceiptPage() {
           Thank you for choosing {business?.name}
           {business?.location ? `, ${business.location}` : ""}.
         </div>
+        <ReceiptWatermark />
       </article>
       </A4Sheet>
     </div>
