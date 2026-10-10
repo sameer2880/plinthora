@@ -648,6 +648,30 @@ export function Gate({
     }
   };
 
+  /* ---------- sign-in / first-password screens are always light ---------- */
+
+  // Dark mode only applies inside the app. While the person is signed out (or choosing
+  // their first password) the <html> "dark" flag is removed, and the saved theme is put
+  // back as soon as they are in.
+  const forceLight =
+    phase === "signed-out" || (phase === "ready" && !!state.me?.mustSetPassword);
+
+  useEffect(() => {
+    if (!forceLight) return;
+    const root = document.documentElement;
+    root.classList.remove("dark");
+    const previousScheme = root.style.colorScheme;
+    root.style.colorScheme = "light";
+    return () => {
+      root.style.colorScheme = previousScheme;
+      try {
+        if (localStorage.getItem("mbs-theme") === "dark") root.classList.add("dark");
+      } catch {
+        /* storage unavailable: stay light */
+      }
+    };
+  }, [forceLight]);
+
   /* ---------- first sign-in: choose your own password ---------- */
 
   const submitNewPassword = async (
