@@ -1012,7 +1012,7 @@
     display: block !important;
     right: 5mm !important;
     bottom: 5mm !important;
-    opacity: 0.25 !important;
+    opacity: 1 !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }

@@ -1,11 +1,11 @@
-import logo from "@/assets/logo.png";
+import logo from "@/assets/plinthora-p.png";
 import { cn } from "@/lib/utils";
 
 /**
- * Plinthora "P" logo watermark.
+ * Plinthora "P" logo watermark (transparent-background P mark, full opacity).
  *
- * Always the Plinthora app logo (imported directly), never the signed-in
- * business's logo. Slightly transparent, click-through, and not selectable.
+ * Always the Plinthora app mark (imported directly), never the signed-in
+ * business's logo. Click-through and not selectable.
  */
 
 /**
@@ -21,7 +21,7 @@ export function AppWatermark({ className }: { className?: string }) {
       aria-hidden="true"
       draggable={false}
       className={cn(
-        "pointer-events-none fixed bottom-4 right-4 z-30 hidden h-14 w-14 select-none opacity-25 lg:block print:hidden",
+        "pointer-events-none fixed bottom-4 right-4 z-30 hidden h-14 w-14 select-none object-contain lg:block print:hidden",
         className,
       )}
     />
@@ -42,7 +42,7 @@ export function ReceiptWatermark({ className }: { className?: string }) {
       aria-hidden="true"
       draggable={false}
       className={cn(
-        "receipt-watermark pointer-events-none absolute bottom-[8mm] right-[8mm] h-16 w-16 select-none opacity-25",
+        "receipt-watermark pointer-events-none absolute bottom-[8mm] right-[8mm] h-16 w-16 select-none object-contain",
         className,
       )}
     />
