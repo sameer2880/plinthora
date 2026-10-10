@@ -18,6 +18,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { WaveLines } from "@/components/WaveLines";
+import { ConnectionLostScreen } from "@/components/ConnectionLostScreen";
+import {
+  friendlyNetworkMessage,
+  isNetworkError,
+  reportNetworkError,
+  reportSuccess,
+} from "@/lib/connection";
 import { AccessRequestDialog } from "@/components/AccessRequestDialog";
 import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -48,54 +57,6 @@ const EMPTY: SessionState = {
 
 const inputClass =
   "h-12 rounded-full border-border bg-background px-5 text-sm shadow-none dark:border-white/15 dark:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary/40";
-
-/* ------------------------------------------------------------------ */
-/* Flowing wave-line background                                       */
-/* ------------------------------------------------------------------ */
-
-function WaveLines({
-  className,
-}: {
-  className?: string;
-}) {
-  const lineCount = 90;
-
-  return (
-    <svg
-      viewBox="0 0 1200 900"
-      preserveAspectRatio="none"
-      className={className}
-      aria-hidden="true"
-    >
-      {Array.from({ length: lineCount }, (_, i) => {
-        const y = -120 + i * 11;
-        const bow = i * 2.4;
-        const fade = i / lineCount;
-
-        const opacity =
-          0.025 + Math.sin(fade * Math.PI) * 0.16;
-
-        return (
-          <path
-            key={i}
-            d={`
-              M -120 ${y + 170}
-              C 220 ${y + 170},
-                380 ${y - 30 + bow},
-                640 ${y + 145 + bow}
-              S 1120 ${y - 55 + bow},
-                1320 ${y - 100 + bow}
-            `}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeOpacity={opacity}
-          />
-        );
-      })}
-    </svg>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Small page animations                                              */
@@ -148,43 +109,6 @@ function isThisDevice(me: Me) {
 /* ------------------------------------------------------------------ */
 /* Password / session card                                            */
 /* ------------------------------------------------------------------ */
-
-/** Full-screen "please wait" with a spinner. `overlay` floats it over the page underneath. */
-function LoadingScreen({
-  title = "Loading…",
-  subtitle = "Please wait",
-  overlay = false,
-}: {
-  title?: string;
-  subtitle?: string;
-  overlay?: boolean;
-}) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className={
-        overlay
-          ? "fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-background/85 p-6 backdrop-blur-sm"
-          : "relative flex min-h-dvh flex-col items-center justify-center gap-4 overflow-hidden bg-background p-6"
-      }
-    >
-      {!overlay && (
-        <WaveLines className="pointer-events-none absolute inset-0 h-full w-full text-foreground opacity-20" />
-      )}
-      <div className="relative z-10 flex flex-col items-center gap-4 text-center">
-        <span className="relative flex h-16 w-16 items-center justify-center">
-          <span className="absolute inset-0 rounded-full border-4 border-primary/15" />
-          <Loader2 className="h-16 w-16 animate-spin stroke-[1.5] text-primary" />
-        </span>
-        <div>
-          <p className="text-base font-semibold text-foreground">{title}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function CardShell({
   children,
@@ -249,7 +173,7 @@ export function Gate({
   });
 
   const [phase, setPhase] = useState<
-    "loading" | "signed-out" | "ready"
+    "loading" | "signed-out" | "ready" | "offline"
   >("loading");
 
   const [state, setState] =
@@ -262,6 +186,8 @@ export function Gate({
   const [err, setErr] = useState("");
   // Green message on the sign-in page (e.g. after a password was changed).
   const [notice, setNotice] = useState("");
+  // Bumped by "Try again" to run the first session restore once more.
+  const [restoreTick, setRestoreTick] = useState(0);
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] =
     useState(false);
@@ -389,6 +315,10 @@ export function Gate({
         if (!res.ok) {
           if (res.reason === "inactive") {
             await signOutWith(res.message);
+          } else if (res.reason === "error" && isNetworkError(res.message)) {
+            // No internet / server unreachable: stay signed in and offer "Try again".
+            reportNetworkError();
+            setPhase("offline");
           } else {
             if (res.reason === "error") {
               setErr(res.message);
@@ -410,6 +340,7 @@ export function Gate({
 
         applyState(res.state);
         setPhase("ready");
+        reportSuccess();
       } catch (error) {
         console.warn(
           "Unable to restore the previous session",
@@ -417,7 +348,12 @@ export function Gate({
         );
 
         if (mounted) {
-          setPhase("signed-out");
+          if (isNetworkError(error)) {
+            reportNetworkError();
+            setPhase("offline");
+          } else {
+            setPhase("signed-out");
+          }
         }
       }
     })();
@@ -425,7 +361,19 @@ export function Gate({
     return () => {
       mounted = false;
     };
-  }, [applyState, signOutWith]);
+  }, [applyState, signOutWith, restoreTick]);
+
+  // "Try again" on the connection screen, and the banner's Retry / auto-reconnect.
+  useEffect(() => {
+    const onRetry = () => {
+      if (phase === "offline") {
+        setPhase("loading");
+        setRestoreTick((t) => t + 1);
+      }
+    };
+    window.addEventListener("mbs-retry", onRetry);
+    return () => window.removeEventListener("mbs-retry", onRetry);
+  }, [phase]);
 
   /* ---------- keep the session honest while the app is open ---------- */
 
@@ -443,6 +391,11 @@ export function Gate({
         const res = await loadSessionState();
 
         if (!res.ok) {
+          if (res.reason === "error" && isNetworkError(res.message)) {
+            reportNetworkError();
+            return;
+          }
+
           if (
             res.reason === "inactive" ||
             res.reason === "no-session"
@@ -462,6 +415,8 @@ export function Gate({
 
           return;
         }
+
+        reportSuccess();
 
         const previous = stateKey.current
           ? (JSON.parse(
@@ -555,6 +510,11 @@ export function Gate({
       return;
     }
 
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setErr("No internet connection. Check your network and try again.");
+      return;
+    }
+
     setBusy(true);
 
     try {
@@ -582,8 +542,11 @@ export function Gate({
 
           result = await attempt(true);
         }
-      } catch {
-        setErr("Unable to sign in right now. Please try again.");
+      } catch (error) {
+        setErr(
+          friendlyNetworkMessage(error) ??
+            "Unable to sign in right now. Please try again.",
+        );
 
         return;
       }
@@ -619,7 +582,9 @@ export function Gate({
         await supabase.auth.signOut();
 
         setErr(
-          res.message || "Unable to sign in",
+          friendlyNetworkMessage(res.message) ||
+            res.message ||
+            "Unable to sign in",
         );
 
         return;
@@ -745,6 +710,17 @@ export function Gate({
   /* ---------------------------------------------------------------- */
   /* Loading screen                                                   */
   /* ---------------------------------------------------------------- */
+
+  if (phase === "offline") {
+    return (
+      <ConnectionLostScreen
+        onRetry={() => {
+          setPhase("loading");
+          setRestoreTick((t) => t + 1);
+        }}
+      />
+    );
+  }
 
   if (phase === "loading") {
     return <LoadingScreen title="Loading…" subtitle="Please wait a moment" />;

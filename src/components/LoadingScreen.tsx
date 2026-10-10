@@ -1,0 +1,78 @@
+import { Loader2 } from "lucide-react";
+import { WaveLines } from "@/components/WaveLines";
+import { cn } from "@/lib/utils";
+
+/**
+ * The app's one loading animation: a spinning ring with a title and "please wait" line.
+ *
+ *  - <LoadingScreen />          whole-screen (page opening, account loading)
+ *  - <LoadingScreen overlay />  floats over the page underneath (signing in)
+ *  - <LoadingBlock />           the same animation sized for a list, table or card area
+ */
+export function LoadingScreen({
+  title = "Loading…",
+  subtitle = "Please wait",
+  overlay = false,
+}: {
+  title?: string;
+  subtitle?: string;
+  overlay?: boolean;
+}) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={
+        overlay
+          ? "fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-background/85 p-6 backdrop-blur-sm"
+          : "relative flex min-h-dvh flex-col items-center justify-center gap-4 overflow-hidden bg-background p-6"
+      }
+    >
+      {!overlay && (
+        <WaveLines className="pointer-events-none absolute inset-0 h-full w-full text-foreground opacity-20" />
+      )}
+      <div className="relative z-10 flex flex-col items-center gap-4 text-center">
+        <Spinner className="h-16 w-16" />
+        <div>
+          <p className="text-base font-semibold text-foreground">{title}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Just the spinning ring. `className` sets its size, e.g. "h-10 w-10". */
+export function Spinner({ className }: { className?: string }) {
+  return (
+    <span className={cn("relative inline-flex shrink-0 items-center justify-center", className)}>
+      <span className="absolute inset-0 rounded-full border-4 border-primary/15" />
+      <Loader2 className="h-full w-full animate-spin stroke-[1.5] text-primary" />
+    </span>
+  );
+}
+
+/** In-page loading state for lists, tables and cards. */
+export function LoadingBlock({
+  title = "Loading…",
+  subtitle = "Please wait",
+  className,
+}: {
+  title?: string;
+  subtitle?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={cn("flex flex-col items-center justify-center gap-3 px-4 py-10 text-center", className)}
+    >
+      <Spinner className="h-12 w-12" />
+      <div>
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+      </div>
+    </div>
+  );
+}

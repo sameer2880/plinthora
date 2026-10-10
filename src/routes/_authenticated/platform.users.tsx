@@ -19,6 +19,7 @@ import { isSuperAdmin } from "@/lib/auth/access";
 import { MOBILE_REGEX } from "@/lib/auth/identity";
 import type { UserRole } from "@/lib/auth/roles";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/platform/users")({
   validateSearch: (search: Record<string, unknown>): { business?: string } => ({
@@ -287,7 +288,7 @@ function PlatformUsers() {
         </div>
       </div>
 
-      {isLoading && <p className="py-10 text-center text-muted-foreground">Loading…</p>}
+      {isLoading && <LoadingBlock title="Loading users…" />}
       {!isLoading && visible.length === 0 && <p className="py-10 text-center text-muted-foreground">No users found.</p>}
 
       <div className="grid grid-cols-1 gap-3">

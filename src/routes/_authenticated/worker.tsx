@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/worker")({
   // `/worker` = attendance & payments, `/worker?tab=feedback` = feedback.
@@ -157,7 +158,7 @@ function WorkerFeedback({ id }: { id: string }) {
         </p>
 
         {isLoading ? (
-          <p className="px-1 text-sm text-muted-foreground">Loading…</p>
+          <LoadingBlock title="Loading your records…" />
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
             <MessageSquareText className="h-6 w-6" />

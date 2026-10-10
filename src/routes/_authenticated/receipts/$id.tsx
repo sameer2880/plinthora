@@ -11,6 +11,7 @@ import { Printer, ArrowLeft, SlidersHorizontal } from "lucide-react";
 import { isMasterAdmin, isManager } from "@/lib/auth/access";
 import { useSession } from "@/lib/auth/session";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/receipts/$id")({
   head: () => ({
@@ -77,7 +78,7 @@ function ReceiptPage() {
   }, [groupRows, selectedIds]);
 
 
-  if (isLoading) return <div className="text-muted-foreground">Loading receipt…</div>;
+  if (isLoading) return <LoadingBlock title="Loading receipt…" />;
   if (!r) return <div>Not found</div>;
 
   const effectiveSelectedIds = selectedIds ?? (groupRows ?? []).map((row) => row.id);

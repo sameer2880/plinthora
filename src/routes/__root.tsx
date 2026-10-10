@@ -7,6 +7,7 @@ import { ConfirmDialogHost } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PLATFORM_NAME, PLATFORM_TAGLINE } from "@/lib/brand";
 import { syncNativeStatusBar } from "@/lib/native-status-bar";
+import { ConnectionBanner } from "@/components/ConnectionBanner";
 
 import appCss from "../styles.css?url";
 
@@ -270,6 +271,7 @@ function RootComponent() {
   }, []);
   return (
     <QueryClientProvider client={queryClient}>
+      <ConnectionBanner />
       <Outlet />
       <Toaster
         richColors

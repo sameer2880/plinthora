@@ -18,6 +18,7 @@ import { MOBILE_REGEX } from "@/lib/auth/identity";
 import { PLATFORM_NAME } from "@/lib/brand";
 import { ALL_FEATURE_KEYS, FEATURE_PAGES, type FeatureKey } from "@/lib/features";
 import type { Business } from "@/lib/auth/session";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/platform/businesses")({
   head: () => ({
@@ -241,7 +242,7 @@ function PlatformBusinesses() {
         </Button>
       </div>
 
-      {isLoading && <p className="py-10 text-center text-muted-foreground">Loading…</p>}
+      {isLoading && <LoadingBlock title="Loading businesses…" />}
       {!isLoading && businesses.length === 0 && (
         <p className="py-10 text-center text-muted-foreground">No businesses yet. Add the first one.</p>
       )}

@@ -46,6 +46,7 @@ import {
   resetPasswordFn,
   updateUserFn,
 } from "@/lib/api/users.functions";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/manage-worker")({
   head: () => ({
@@ -116,7 +117,7 @@ function ManageUsers() {
   const [delUser, setDelUser] = useState<ManagedUser | null>(null);
   // One-time link just made for someone (new account invite, or a password reset) — shown so it can be sent.
   const [handover, setHandover] = useState<{
-    user: { id: string; name: string; phone: string | null };
+    user: { id: string; name: string; phone: string | null; email?: string | null };
     kind: "invite" | "reset";
     tokenHash: string;
     type: string;
@@ -182,7 +183,7 @@ function ManageUsers() {
       qc.invalidateQueries({ queryKey: ["workers"] });
       if (created?.invite) {
         setHandover({
-          user: { id: "", name: created.name, phone: created.phone },
+          user: { id: "", name: created.name, phone: created.phone, email: form.email.trim() || null },
           kind: "invite",
           tokenHash: created.invite.tokenHash,
           type: created.invite.type,
@@ -222,7 +223,7 @@ function ManageUsers() {
     onSuccess: ({ user, link }) => {
       qc.invalidateQueries({ queryKey: ["workers"] });
       setHandover({
-        user: { id: user.id, name: user.name, phone: user.phone },
+        user: { id: user.id, name: user.name, phone: user.phone, email: user.email },
         kind: "reset",
         tokenHash: link.tokenHash,
         type: link.type,
@@ -328,7 +329,7 @@ function ManageUsers() {
             )}
           </div>
 
-          {isLoading && <p className="text-center py-10 text-muted-foreground">Loading…</p>}
+          {isLoading && <LoadingBlock title="Loading users…" />}
           {!isLoading && filtered.length === 0 && (
             <p className="text-center py-10 text-muted-foreground">No users found. Add your first user.</p>
           )}

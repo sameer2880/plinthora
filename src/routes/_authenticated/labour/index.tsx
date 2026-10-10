@@ -34,6 +34,7 @@ import { PLATFORM_NAME } from "@/lib/brand";
 import { AdminOnly } from "@/components/AdminOnly";
 import { isMasterAdmin } from "@/lib/auth/access";
 import { cn } from "@/lib/utils";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/labour/")({
   head: () => ({
@@ -612,7 +613,7 @@ function LabourList() {
             <Input placeholder="Search worker by name or mobile" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
           </div>
 
-          {isLoading && <p className="text-center py-10 text-muted-foreground">Loading…</p>}
+          {isLoading && <LoadingBlock title="Loading workers…" />}
           {!isLoading && filtered.length === 0 && (
             <p className="text-center py-10 text-muted-foreground">
               No workers yet.{" "}

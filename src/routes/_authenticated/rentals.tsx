@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { canDeleteRentals } from "@/lib/auth/access";
 import { exportRentalsCsv, exportRentalsPdf, printRentals } from "@/lib/rentals-export";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/rentals")({
   // `/rentals?new=true` opens the "New Rental" form straight away
@@ -366,7 +367,7 @@ function RentalsPage() {
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {isLoading ? (
-              <div className="col-span-full text-center text-muted-foreground py-8">Loading…</div>
+              <LoadingBlock className="col-span-full" title="Loading rentals…" />
             ) : pageRows.length === 0 ? (
               <div className="col-span-full text-center text-muted-foreground py-8">No rentals found</div>
             ) : (

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AdminOnly } from "@/components/AdminOnly";
 import { isMasterAdmin } from "@/lib/auth/access";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 type Feedback = {
   id: string;
@@ -101,7 +102,7 @@ function FeedbackPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading feedback...</p>
+        <LoadingBlock title="Loading feedback…" />
       ) : feedback.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">

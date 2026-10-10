@@ -16,6 +16,7 @@ import {
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, LabelList, AreaChart, Area, Tooltip,
 } from "recharts";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -578,7 +579,7 @@ function RentalsDashboard() {
                 narrow screen). Tablet/desktop: the table below. */}
             {isMobile ? (
               <div className="mt-3 space-y-3">
-                {isLoading && <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>}
+                {isLoading && <LoadingBlock className="py-6" />}
                 {!isLoading && recent.length === 0 && (
                   <p className="py-6 text-center text-sm text-muted-foreground">
                     No rentals yet. Create your first one from the Rentals page.
@@ -633,7 +634,7 @@ function RentalsDashboard() {
                   <TableBody>
                     {isLoading && (
                       <TableRow>
-                        <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading…</TableCell>
+                        <TableCell colSpan={5} className="p-0"><LoadingBlock className="py-8" /></TableCell>
                       </TableRow>
                     )}
                     {!isLoading && recent.length === 0 && (
@@ -1099,7 +1100,7 @@ function WorkerDashboard() {
 
             {isMobile ? (
               <div className="mt-3 space-y-3">
-                {isLoading && <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>}
+                {isLoading && <LoadingBlock className="py-6" />}
                 {!isLoading && shownWorkers.length === 0 && (
                   <p className="py-6 text-center text-sm text-muted-foreground">
                     No workers yet. Add your first one from Manage Workers.
@@ -1149,7 +1150,7 @@ function WorkerDashboard() {
                   <TableBody>
                     {isLoading && (
                       <TableRow>
-                        <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Loading…</TableCell>
+                        <TableCell colSpan={4} className="p-0"><LoadingBlock className="py-8" /></TableCell>
                       </TableRow>
                     )}
                     {!isLoading && shownWorkers.length === 0 && (

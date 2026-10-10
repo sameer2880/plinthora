@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicReceiptFn } from "@/lib/api/receipts.functions";
 import type { Rental } from "@/lib/rentals";
 import { computeStatus, groupRentals } from "@/lib/rentals";
 import { PLATFORM_NAME } from "@/lib/brand";
-import { Loader2 } from "lucide-react";
 
 // Public on purpose — this is the page "Share Receipt" WhatsApp links open,
 // so the customer can view it without ever signing in. It fetches
@@ -38,12 +38,7 @@ function PublicReceiptPage() {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-200 text-sm text-muted-foreground">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
-        <span>Loading receipt…</span>
-      </div>
-    );
+    return <LoadingScreen title="Loading receipt…" subtitle="Please wait a moment" />;
   }
   if (!data) return <div className="p-8 text-center text-muted-foreground">Receipt not found</div>;
 

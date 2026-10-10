@@ -13,6 +13,7 @@ import { NotebookPen, Plus, Pencil, Trash2, Search, Download } from "lucide-reac
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { downloadCsv } from "@/lib/export";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/diary")({
   head: () => ({
@@ -202,7 +203,7 @@ function Diary() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <LoadingBlock title="Loading notes…" />
       ) : grouped.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground text-sm">

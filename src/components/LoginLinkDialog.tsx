@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { Check, Copy, KeyRound, Loader2, MessageCircle, Wand2 } from "lucide-react";
+import { Check, Copy, KeyRound, Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import { ShareButtons } from "@/components/ShareButtons";
+import { copyText } from "@/lib/share";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createLoginLinkFn } from "@/lib/api/users.functions";
 import { loginLinkUrl } from "@/lib/access-requests";
 import { PLATFORM_NAME } from "@/lib/brand";
-import { whatsappUrl } from "@/lib/rentals";
 
 type Kind = "magic" | "reset";
 type Ready = { kind: Kind | "invite"; tokenHash: string; type: string };
@@ -24,7 +25,7 @@ export function LoginLinkDialog({
   allowMagic = true,
   ready = null,
 }: {
-  user: { id: string; name: string; phone: string | null } | null;
+  user: { id: string; name: string; phone: string | null; email?: string | null } | null;
   onClose: () => void;
   allowMagic?: boolean;
   ready?: Ready | null;
@@ -59,13 +60,7 @@ export function LoginLinkDialog({
 
   const copy = async () => {
     if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.url);
-      setCopied(true);
-      toast.success("Link copied");
-    } catch {
-      toast.error("Couldn't copy — select the link and copy it by hand");
-    }
+    if (await copyText(result.url, "Link copied")) setCopied(true);
   };
 
   const message = result
@@ -74,6 +69,14 @@ export function LoginLinkDialog({
       : result.kind === "reset"
       ? `Hi ${user?.name}, use this link to reset your ${PLATFORM_NAME} password. It works once and expires soon:\n${result.url}`
       : `Hi ${user?.name}, use this link to sign in to ${PLATFORM_NAME}. It works once and expires soon:\n${result.url}`
+    : "";
+
+  const subject = result
+    ? result.kind === "invite"
+      ? `Your ${PLATFORM_NAME} account is ready`
+      : result.kind === "reset"
+        ? `Reset your ${PLATFORM_NAME} password`
+        : `Your ${PLATFORM_NAME} sign-in link`
     : "";
 
   return (
@@ -109,19 +112,13 @@ export function LoginLinkDialog({
           <div className="space-y-3">
             <p className="text-sm font-medium">{result.kind === "invite" ? "Invite link ready" : result.kind === "reset" ? "Password reset link ready" : "Magic sign-in link ready"}</p>
             <div className="flex gap-2">
-              <Input readOnly value={result.url} onFocus={(e) => e.currentTarget.select()} className="font-mono text-xs" />
-              <Button size="icon" variant="outline" aria-label="Copy link" onClick={copy}>
+              <Input readOnly value={result.url} onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1 font-mono text-xs" />
+              <Button size="icon" variant="outline" className="shrink-0" aria-label="Copy link" onClick={copy}>
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
+            <ShareButtons message={message} subject={subject} phone={user?.phone} email={user?.email} link={result.url} />
             <div className="flex flex-wrap gap-2">
-              {user?.phone && (
-                <Button asChild>
-                  <a href={whatsappUrl(user.phone, message)} target="_blank" rel="noreferrer">
-                    <MessageCircle className="mr-1.5 h-4 w-4" /> Send on WhatsApp
-                  </a>
-                </Button>
-              )}
               {!ready && (
                 <Button variant="outline" onClick={() => setResult(null)}>
                   Make a different link

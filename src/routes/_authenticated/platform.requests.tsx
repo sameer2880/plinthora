@@ -51,6 +51,7 @@ import {
 } from "@/lib/access-requests";
 import { isSuperAdmin } from "@/lib/auth/access";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/platform/requests")({
   head: () => ({
@@ -399,7 +400,7 @@ function PlatformRequests() {
         </div>
       </div>
 
-      {isLoading && <p className="py-10 text-center text-muted-foreground">Loading…</p>}
+      {isLoading && <LoadingBlock title="Loading requests…" />}
       {!isLoading && visible.length === 0 && <p className="py-10 text-center text-muted-foreground">No requests here.</p>}
 
       <div className="grid gap-3">

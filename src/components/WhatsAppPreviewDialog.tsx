@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { Copy, MessageCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { whatsappUrl } from "@/lib/rentals";
+import { ShareButtons } from "@/components/ShareButtons";
+import { PLATFORM_NAME } from "@/lib/brand";
 
 export interface WhatsAppPreview {
   /** Customer phone number the message goes to. */
@@ -22,6 +19,10 @@ export interface WhatsAppPreview {
   name?: string;
   /** Dialog heading. Defaults to "Send WhatsApp message". */
   title?: string;
+  /** Optional customer email — pre-fills the To: line when sending by email. */
+  email?: string | null;
+  /** Email subject. Defaults to the dialog heading. */
+  subject?: string;
 }
 
 /**
@@ -50,21 +51,6 @@ export function WhatsAppPreviewDialog({
 
   if (!preview) return null;
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(message);
-      toast.success("Message copied");
-    } catch {
-      toast.error("Couldn't copy — select the text and copy it manually");
-    }
-  };
-
-  const send = () => {
-    // Open inside the click handler so the browser doesn't block the popup.
-    window.open(whatsappUrl(preview.phone, message), "_blank", "noopener");
-    onClose();
-  };
-
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -83,14 +69,13 @@ export function WhatsAppPreviewDialog({
           className="text-sm"
         />
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={copy}>
-            <Copy className="mr-1.5 h-4 w-4" /> Copy
-          </Button>
-          <Button onClick={send} className="bg-[#25D366] text-white hover:bg-[#1ebe5b]">
-            <MessageCircle className="mr-1.5 h-4 w-4" /> Send on WhatsApp
-          </Button>
-        </DialogFooter>
+        <ShareButtons
+          message={message}
+          subject={preview.subject ?? `${preview.title ?? "Message"} — ${PLATFORM_NAME}`}
+          phone={preview.phone}
+          email={preview.email}
+          onShared={onClose}
+        />
       </DialogContent>
     </Dialog>
   );

@@ -29,6 +29,7 @@ import { isWithinWorkingHours, WORK_HOURS_LABEL } from "@/hooks/use-worker-locat
 import { AdminOnly } from "@/components/AdminOnly";
 import { isMasterAdmin } from "@/lib/auth/access";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/worker-locations")({
   head: () => ({
@@ -213,7 +214,7 @@ function WorkerLocationsPage() {
       </Card>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading worker locations...</p>
+        <LoadingBlock title="Loading worker locations…" />
       ) : rows.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
