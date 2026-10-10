@@ -1017,7 +1017,7 @@
     position: fixed !important;
     right: 0 !important;
     bottom: 0 !important;
-    opacity: 1 !important;
+    opacity: 0.3 !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
