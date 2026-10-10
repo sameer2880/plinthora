@@ -73,6 +73,8 @@ function PlatformUsers() {
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [linkFor, setLinkFor] = useState<UserRow | null>(null);
+  // A reset link that was just made (key button) — handed straight to the share dialog.
+  const [resetLink, setResetLink] = useState<{ user: UserRow; tokenHash: string; type: string } | null>(null);
 
   const filter = businessParam ?? "all";
 
@@ -188,9 +190,14 @@ function PlatformUsers() {
 
   const reset = useMutation({
     mutationFn: async (u: UserRow) => {
-      await resetPasswordFn({ data: { id: u.id } });
+      const link = await resetPasswordFn({ data: { id: u.id } });
+      return { user: u, link };
     },
-    onSuccess: (_, u) => toast.success(`Password reset to ${u.phone}. They'll be asked to choose a new one at next sign-in.`),
+    onSuccess: ({ user, link }) => {
+      refresh();
+      setResetLink({ user, tokenHash: link.tokenHash, type: link.type });
+      toast.success("Old password cancelled. Send them the reset link.");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -241,9 +248,9 @@ function PlatformUsers() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 max-w-full space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1 basis-60">
           <h2 className="flex items-center gap-2 text-2xl font-bold">
             <Users className="h-6 w-6 text-primary" /> Users
           </h2>
@@ -283,13 +290,13 @@ function PlatformUsers() {
       {isLoading && <p className="py-10 text-center text-muted-foreground">Loading…</p>}
       {!isLoading && visible.length === 0 && <p className="py-10 text-center text-muted-foreground">No users found.</p>}
 
-      <div className="grid gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {visible.map((u) => (
-          <Card key={u.id} className={u.active ? undefined : "opacity-70"}>
-            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
+          <Card key={u.id} className={`min-w-0 overflow-hidden ${u.active ? "" : "opacity-70"}`}>
+            <CardContent className="flex min-w-0 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="truncate font-semibold">{u.name}</span>
+                  <span className="min-w-0 break-words font-semibold [overflow-wrap:anywhere]">{u.name}</span>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${ROLE_BADGE[u.role]}`}>
                     {ROLE_LABEL[u.role]}
                   </span>
@@ -299,7 +306,7 @@ function PlatformUsers() {
                     </span>
                   )}
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
+                <div className="break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">
                   {businessName(u.business_id)}
                   {u.phone ? ` · ${u.phone}` : ""}
                   {u.username ? ` · @${u.username}` : ""}
@@ -317,7 +324,7 @@ function PlatformUsers() {
                   );
                 })()}
               </div>
-              <div className="flex shrink-0 gap-1.5">
+              <div className="flex shrink-0 flex-wrap gap-1.5">
                 <Button size="icon" variant="outline" aria-label="Edit" onClick={() => openEdit(u)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -327,7 +334,7 @@ function PlatformUsers() {
                 <ConfirmDelete
                   onConfirm={() => reset.mutate(u)}
                   title={`Reset ${u.name}'s password?`}
-                  description={`Their password becomes their mobile number (${u.phone ?? "—"}) and they must choose a new one at next sign-in.`}
+                  description="Their old password stops working right away and their signed-in devices are signed out. You then get a one-time link to send them; they open it and choose a new password."
                   confirmLabel="Reset password"
                 >
                   <Button size="icon" variant="outline" aria-label="Reset password">
@@ -360,6 +367,12 @@ function PlatformUsers() {
       </div>
 
       <LoginLinkDialog user={linkFor} onClose={() => setLinkFor(null)} />
+      <LoginLinkDialog
+        user={resetLink?.user ?? null}
+        allowMagic={false}
+        ready={resetLink ? { kind: "reset", tokenHash: resetLink.tokenHash, type: resetLink.type } : null}
+        onClose={() => setResetLink(null)}
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   Check,
-  Copy,
   Inbox,
   KeyRound,
   MessageCircle,
@@ -31,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { ShareButtons } from "@/components/ShareButtons";
 import {
   createAccountFromRequestFn,
   deleteAccessRequestFn,
@@ -51,7 +51,6 @@ import {
 } from "@/lib/access-requests";
 import { isSuperAdmin } from "@/lib/auth/access";
 import { PLATFORM_NAME } from "@/lib/brand";
-import { whatsappUrl } from "@/lib/rentals";
 
 export const Route = createFileRoute("/_authenticated/platform/requests")({
   head: () => ({
@@ -236,20 +235,7 @@ function WhatsAppDialog({
     }),
   );
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(message);
-      toast.success("Message copied");
-    } catch {
-      toast.error("Couldn't copy — select the text and copy it manually");
-    }
-  };
-
-  const send = () => {
-    // Open first (inside the click) so the browser doesn't block the popup.
-    window.open(whatsappUrl(result.phone, message), "_blank", "noopener");
-    onSent();
-  };
+  const linkUrl = result.invite ? loginLinkUrl(window.location.origin, result.invite) : null;
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -257,20 +243,20 @@ function WhatsAppDialog({
         <DialogHeader>
           <DialogTitle>Send login details</DialogTitle>
           <DialogDescription>
-            WhatsApp opens with this message ready for {row.name} ({result.phone}). Check it, then press send there.
+            Edit the message if you like, then copy the link or send it to {row.name} ({result.phone}) on WhatsApp or by email.
           </DialogDescription>
         </DialogHeader>
 
         <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={11} className="text-sm" />
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={copy}>
-            <Copy className="mr-1.5 h-4 w-4" /> Copy
-          </Button>
-          <Button onClick={send} className="bg-[#25D366] text-white hover:bg-[#1ebe5b]">
-            <MessageCircle className="mr-1.5 h-4 w-4" /> Open WhatsApp
-          </Button>
-        </DialogFooter>
+        <ShareButtons
+          message={message}
+          subject={`Your ${PLATFORM_NAME} ${result.kind === "reset" ? "password reset link" : "login details"}`}
+          phone={result.phone}
+          email={result.email}
+          link={linkUrl}
+          onShared={onSent}
+        />
       </DialogContent>
     </Dialog>
   );

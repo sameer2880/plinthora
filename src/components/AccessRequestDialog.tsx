@@ -75,7 +75,7 @@ function OptionRow({ option }: { option: ContactOption }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{option.label}</span>
-        <span className="block truncate text-xs text-muted-foreground">{option.hint}</span>
+        <span className="block text-xs text-muted-foreground">{option.hint}</span>
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
     </>
@@ -120,7 +120,7 @@ function TypePicker({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(t)}
-            className={`flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center transition-colors ${
+            className={`flex min-w-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center transition-colors ${
               active ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50 dark:border-white/15"
             }`}
           >
@@ -432,7 +432,7 @@ export function AccessRequestDialog({ open, onOpenChange, defaultType = "app_acc
 
             {/* Fallback if no email app is set up on the device. */}
             <div className="flex items-center justify-between gap-2 rounded-2xl border border-border px-3 py-2 text-xs dark:border-white/15">
-              <span className="min-w-0 truncate text-muted-foreground">
+              <span className="min-w-0 break-words text-muted-foreground [overflow-wrap:anywhere]">
                 Email app didn't open? Write to <span className="font-semibold text-foreground">{CONTACT_EMAIL}</span>
               </span>
               <Button

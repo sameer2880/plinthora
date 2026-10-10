@@ -26,7 +26,7 @@ import { LoginIllustration } from "@/components/LoginIllustration";
 import { supabase } from "@/integrations/supabase/client";
 import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
 import { lock } from "@/lib/auth/lock";
-import { signInFn } from "@/lib/api/auth.functions";
+import { claimDeviceFn, signInFn } from "@/lib/api/auth.functions";
 import { passwordProblem } from "@/lib/auth/password";
 import { PLATFORM_TAGLINE } from "@/lib/brand";
 import { registerNativePush, unregisterNativePush } from "@/lib/native-push";
@@ -645,26 +645,42 @@ export function Gate({
 
       if (error) throw error;
 
-      const {
-        error: clearError,
-      } = await supabase.rpc(
-        "clear_must_set_password",
-      );
+      // Password saved. Take a fresh session (the account just changed), then
+      // make sure this device still owns the account before the flag is cleared.
+      await supabase.auth.refreshSession().catch(() => undefined);
 
+      try {
+        const { deviceToken } = await claimDeviceFn();
+        if (deviceToken) localStorage.setItem(DEVICE_TOKEN_KEY, deviceToken);
+      } catch {
+        /* the earlier claim (from the link) is still valid; carry on */
+      }
+
+      const { error: clearError } = await supabase.rpc("clear_must_set_password");
       if (clearError) throw clearError;
 
-      if (state.me) {
-        applyState({
-          ...state,
-          me: {
-            ...state.me,
-            mustSetPassword: false,
-          },
-        });
+      const res = await loadSessionState();
+      if (!res.ok || !res.state.me) {
+        throw new Error(
+          "Your password was saved, but we couldn't open your account. Please sign in with your new password.",
+        );
       }
 
       setNewPassword("");
       setNewPasswordConfirm("");
+
+      // Straight into the app: no "go and sign in again" step.
+      const me = res.state.me;
+      const destination =
+        me.role === "worker"
+          ? "/worker"
+          : me.role === "super_admin"
+            ? "/platform/businesses"
+            : "/dashboard";
+
+      applyState(res.state);
+      setPhase("ready");
+      void navigate({ to: destination, replace: true });
     } catch (error) {
       setNewPasswordErr(
         error instanceof Error
