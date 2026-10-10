@@ -98,9 +98,14 @@ function RentalsPage() {
     navigate({ search: (prev) => ({ ...prev, new: undefined }), replace: true });
   }, [openNewForm, navigate]);
 
-  const activeFilterCount = [takenDate, phoneFilter, nameFilter, placeFilter].filter(Boolean).length;
+  const activeFilterCount =
+    [takenDate, phoneFilter, nameFilter, placeFilter].filter(Boolean).length +
+    (status !== "all" ? 1 : 0) +
+    (payment !== "all" ? 1 : 0);
 
   const clearFilters = () => {
+    setStatus("all");
+    setPayment("all");
     setTakenDate("");
     setPhoneFilter("");
     setNameFilter("");
@@ -275,19 +280,22 @@ function RentalsPage() {
                 placeholder="Search by name, mobile or material"
                 value={q}
                 onChange={(e) => { setQ(e.target.value); setPage(1); }}
-                className="pl-9 pr-9"
+                className="pl-9"
               />
+            </div>
               <Popover>
                 <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    title="Filters"
-                    className={`absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring ${activeFilterCount > 0 ? "text-primary" : "text-muted-foreground"}`}
-                  >
+                  <Button type="button" variant={activeFilterCount > 0 ? "default" : "outline"} className="shrink-0 gap-1.5">
                     <SlidersHorizontal className="h-4 w-4" />
-                  </button>
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <span className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-background px-1 text-[11px] font-bold text-foreground">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-80 space-y-4">
+                <PopoverContent align="end" className="max-h-[75dvh] w-[min(22rem,calc(100vw-2rem))] space-y-4 overflow-y-auto">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-medium text-muted-foreground">Filters</div>
                     {activeFilterCount > 0 && (
@@ -301,6 +309,40 @@ function RentalsPage() {
                         <X className="h-3 w-3 mr-1" /> Clear
                       </Button>
                     )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Status</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(["all", "active", "overdue", "partial", "returned"] as const).map((s) => (
+                        <Button
+                          key={s}
+                          type="button"
+                          variant={status === s ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => { setStatus(s); setPage(1); }}
+                          className="h-9 min-w-0 px-2 capitalize"
+                        >
+                          <span className="truncate">{s} ({counts[s]})</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Payment</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(["all", "paid", "unpaid"] as const).map((p) => (
+                        <Button
+                          key={p}
+                          type="button"
+                          variant={payment === p ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => { setPayment(p); setPage(1); }}
+                          className="h-9 min-w-0 px-2 capitalize"
+                        >
+                          <span className="truncate">{p} ({paymentCounts[p]})</span>
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground">Date Taken (Issue Date)</label>
@@ -336,34 +378,31 @@ function RentalsPage() {
                   </div>
                 </PopoverContent>
               </Popover>
-            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {(["all", "active", "overdue", "partial", "returned"] as const).map((s) => (
-              <Button
-                key={s}
-                variant={status === s ? "default" : "outline"}
-                size="sm"
-                onClick={() => { setStatus(s); setPage(1); }}
-                className="capitalize"
-              >
-                {s === "partial" ? "Partial" : s} ({counts[s]})
-              </Button>
-            ))}
-            <span className="mx-1 text-muted-foreground">·</span>
-            {(["all", "paid", "unpaid"] as const).map((p) => (
-              <Button
-                key={p}
-                variant={payment === p ? "default" : "outline"}
-                size="sm"
-                onClick={() => { setPayment(p); setPage(1); }}
-                className="capitalize"
-              >
-                {p} ({paymentCounts[p]})
-              </Button>
-            ))}
-          </div>
+          {(status !== "all" || payment !== "all") && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Showing:</span>
+              {status !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => { setStatus("all"); setPage(1); }}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-medium capitalize text-primary"
+                >
+                  {status} <X className="h-3 w-3" />
+                </button>
+              )}
+              {payment !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => { setPayment("all"); setPage(1); }}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-medium capitalize text-primary"
+                >
+                  {payment} <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {isLoading ? (
