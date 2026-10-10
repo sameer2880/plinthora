@@ -73,9 +73,6 @@ function RentalsPage() {
   const [status, setStatus] = useState<"all" | RentalGroup["status"]>("all");
   const [payment, setPayment] = useState<"all" | RentalGroup["payment_status"]>("all");
   const [takenDate, setTakenDate] = useState("");
-  const [phoneFilter, setPhoneFilter] = useState("");
-  const [nameFilter, setNameFilter] = useState("");
-  const [placeFilter, setPlaceFilter] = useState("");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<RentalGroup | null>(null);
@@ -99,7 +96,7 @@ function RentalsPage() {
   }, [openNewForm, navigate]);
 
   const activeFilterCount =
-    [takenDate, phoneFilter, nameFilter, placeFilter].filter(Boolean).length +
+    [takenDate].filter(Boolean).length +
     (status !== "all" ? 1 : 0) +
     (payment !== "all" ? 1 : 0);
 
@@ -107,9 +104,6 @@ function RentalsPage() {
     setStatus("all");
     setPayment("all");
     setTakenDate("");
-    setPhoneFilter("");
-    setNameFilter("");
-    setPlaceFilter("");
     setPage(1);
   };
 
@@ -118,16 +112,10 @@ function RentalsPage() {
 
   const filtered = useMemo(() => {
     const ql = q.toLowerCase();
-    const nameQl = nameFilter.toLowerCase();
-    const placeQl = placeFilter.toLowerCase();
-    const phoneQl = phoneFilter.replace(/\D/g, "");
     return groups.filter((g) => {
       if (status !== "all" && g.status !== status) return false;
       if (payment !== "all" && g.payment_status !== payment) return false;
       if (takenDate && g.issue_date !== takenDate) return false;
-      if (phoneQl && !g.customer_phone.includes(phoneQl)) return false;
-      if (nameFilter && !g.customer_name.toLowerCase().includes(nameQl)) return false;
-      if (placeFilter && !(g.customer_address ?? "").toLowerCase().includes(placeQl)) return false;
       if (!ql) return true;
       return (
         g.customer_name.toLowerCase().includes(ql) ||
@@ -135,7 +123,7 @@ function RentalsPage() {
         g.rows.some((r) => r.material_name.toLowerCase().includes(ql))
       );
     });
-  }, [groups, q, status, payment, takenDate, phoneFilter, nameFilter, placeFilter]);
+  }, [groups, q, status, payment, takenDate]);
 
   // Export / print covers every record matching the current search + filters
   // (not just the 10 on the visible page), narrowed by the chosen From / To date.
@@ -156,9 +144,6 @@ function RentalsPage() {
     payment !== "all" && `Payment: ${payment}`,
     q && `Search: "${q}"`,
     takenDate && `Issue date: ${takenDate}`,
-    nameFilter && `Name: ${nameFilter}`,
-    phoneFilter && `Phone: ${phoneFilter}`,
-    placeFilter && `Place: ${placeFilter}`,
     exportFrom && exportTo && `Date range: ${exportFrom} to ${exportTo}`,
     exportFrom && !exportTo && `From: ${exportFrom}`,
     !exportFrom && exportTo && `Up to: ${exportTo}`,
@@ -350,30 +335,6 @@ function RentalsPage() {
                       type="date"
                       value={takenDate}
                       onChange={(e) => { setTakenDate(e.target.value); setPage(1); }}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Phone Number</label>
-                    <Input
-                      placeholder="Search by phone"
-                      value={phoneFilter}
-                      onChange={(e) => { setPhoneFilter(e.target.value); setPage(1); }}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Customer Name</label>
-                    <Input
-                      placeholder="Search by name"
-                      value={nameFilter}
-                      onChange={(e) => { setNameFilter(e.target.value); setPage(1); }}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Place / Village</label>
-                    <Input
-                      placeholder="Search by place"
-                      value={placeFilter}
-                      onChange={(e) => { setPlaceFilter(e.target.value); setPage(1); }}
                     />
                   </div>
                 </PopoverContent>
