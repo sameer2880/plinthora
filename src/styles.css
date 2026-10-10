@@ -1008,10 +1008,15 @@
   .receipt-sheet {
     position: relative !important;
   }
+  /* When printing, the receipt is only as tall as its content, so "bottom of the
+     receipt" would land in the middle of the page and overlap the text. A fixed element
+     is placed against the printed page instead, so the watermark sits in the true
+     bottom-right corner of the sheet. */
   .receipt-watermark {
     display: block !important;
-    right: 5mm !important;
-    bottom: 5mm !important;
+    position: fixed !important;
+    right: 0 !important;
+    bottom: 0 !important;
     opacity: 1 !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
