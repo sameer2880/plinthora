@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/BrandLogo";
-import { BrandName } from "@/components/BrandName";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { supabase } from "@/integrations/supabase/client";
 import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
 import { loadSessionState } from "@/lib/auth/session";
@@ -88,7 +88,7 @@ function AuthLinkPage() {
       <div className="w-full max-w-[420px] rounded-[2rem] border border-border/60 bg-card p-7 shadow-lg sm:p-9">
         <div className="mb-7 flex items-center gap-2">
           <BrandLogo className="h-9 w-9" />
-          <BrandName className="text-lg font-bold tracking-tight" />
+          <BrandWordmark className="h-6" />
         </div>
 
         {valid ? (
