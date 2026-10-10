@@ -203,8 +203,12 @@ export function Gate({
 }) {
   const navigate = useNavigate();
 
+  // The page that is actually on screen. `location` already points at the NEXT page
+  // while a navigation is still loading, which let the old page (the normal dashboard)
+  // show for a moment after sign-in; `resolvedLocation` only moves once the new page is ready.
   const pathname = useRouterState({
-    select: (state) => state.location.pathname,
+    select: (state) =>
+      (state.resolvedLocation ?? state.location).pathname,
   });
 
   const [phase, setPhase] = useState<
