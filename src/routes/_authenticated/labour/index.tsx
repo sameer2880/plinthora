@@ -29,6 +29,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { LabourExportDialog } from "@/components/LabourExportDialog";
+import { WorkerEditDialog } from "@/components/WorkerEditDialog";
 import { toast } from "sonner";
 import { confirm } from "@/components/ui/confirm-dialog";
 import type { UserRole } from "@/lib/auth/roles";
@@ -708,6 +709,7 @@ function LabourList() {
   const [q, setQ] = useState("");
   const [markOpen, setMarkOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [editWorker, setEditWorker] = useState<Worker | null>(null);
 
   // Labour Charges only ever shows "worker" role users of the current business.
   const { data: workers = [], isLoading } = useQuery({
@@ -792,19 +794,15 @@ function LabourList() {
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </Link>
               <Button
-                asChild
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="mr-2 h-8 w-8 shrink-0 text-muted-foreground hover:text-primary"
                 title="Edit account details"
+                aria-label={`Edit ${w.name}`}
+                onClick={() => setEditWorker(w)}
               >
-                <Link
-                  to="/manage-worker"
-                  search={{ view: "workers", edit: w.id }}
-                  aria-label={`Edit ${w.name}`}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Link>
+                <Pencil className="h-4 w-4" />
               </Button>
               </div>
             ))}
@@ -813,6 +811,7 @@ function LabourList() {
       </Card>
 
       <MarkAttendanceDialog workers={workers} open={markOpen} onOpenChange={setMarkOpen} />
+      <WorkerEditDialog worker={editWorker} onClose={() => setEditWorker(null)} />
     </div>
     </AdminOnly>
   );
