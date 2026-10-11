@@ -9,6 +9,7 @@ import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
 import { loadSessionState } from "@/lib/auth/session";
 import { googleSignInFn } from "@/lib/api/auth.functions";
 import { friendlyNetworkMessage } from "@/lib/connection";
+import { isNativeApp } from "@/lib/native-oauth";
 import { PLATFORM_NAME } from "@/lib/brand";
 
 /**
@@ -23,12 +24,14 @@ export const Route = createFileRoute("/auth/google")({
   component: AuthGooglePage,
 });
 
-type Phase = "working" | "takeover" | "error";
+type Phase = "working" | "takeover" | "error" | "handoff";
 
 function AuthGooglePage() {
   const [phase, setPhase] = useState<Phase>("working");
   const [error, setError] = useState("");
   const started = useRef(false);
+  // Set when this page is the browser tab the app opened: the link that opens the app again.
+  const [appLink, setAppLink] = useState("");
 
   const run = async (takeover: boolean) => {
     setPhase("working");
@@ -79,6 +82,23 @@ function AuthGooglePage() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
+
+    // The app opened Google in the phone's browser (?app=1). Pass the result back to the app,
+    // which finishes the sign-in inside itself. The tokens are taken out of the address
+    // first, so this browser never keeps a Google session of its own.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("app") === "1" && !isNativeApp()) {
+      const hash = window.location.hash;
+      params.delete("app");
+      const query = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + "?app=1");
+      const link = `com.plinthora.app://auth/google${query ? `?${query}` : ""}${hash}`;
+      setAppLink(link);
+      setPhase("handoff");
+      window.location.href = link;
+      return;
+    }
+
     void run(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -101,6 +121,18 @@ function AuthGooglePage() {
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Signing you in with Google…</p>
           </div>
+        )}
+
+        {phase === "handoff" && (
+          <>
+            <h1 className="text-2xl font-bold tracking-tight">Opening Plinthora…</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Google sign-in is done. If the app doesn't open by itself, tap the button below.
+            </p>
+            <Button asChild className="mt-6 h-12 w-full rounded-full font-semibold">
+              <a href={appLink}>Open Plinthora app</a>
+            </Button>
+          </>
         )}
 
         {phase === "takeover" && (

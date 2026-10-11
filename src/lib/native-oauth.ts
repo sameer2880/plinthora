@@ -67,7 +67,9 @@ export async function startGoogleSignInInApp(): Promise<void> {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: APP_REDIRECT,
+      // The browser comes back to our own website first (an address Supabase already accepts);
+      // /auth/google?app=1 then hands the sign-in over to the app (see routes/auth.google.tsx).
+      redirectTo: `${window.location.origin}/auth/google?app=1`,
       skipBrowserRedirect: true,
       queryParams: { prompt: "select_account" },
     },
