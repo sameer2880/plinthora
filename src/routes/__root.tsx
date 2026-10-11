@@ -7,8 +7,7 @@ import { ConfirmDialogHost } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PLATFORM_NAME, PLATFORM_TAGLINE } from "@/lib/brand";
 import { syncNativeStatusBar } from "@/lib/native-status-bar";
-import { isNativeApp, listenForAppUrls } from "@/lib/native-oauth";
-import { listenForBackButton } from "@/lib/native-back-button";
+import { isNativeApp, listenForAppUrls, listenForBackButton } from "@/lib/native-oauth";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 
 import appCss from "../styles.css?url";

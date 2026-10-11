@@ -120,6 +120,9 @@ export async function unregisterNativePush(): Promise<void> {
   }
 
   try {
+    // Only a phone that actually registered (it has a saved token) has anything to remove.
+    // Skipping the native call otherwise matters: on an app build without Firebase set up
+    // (no google-services.json) the native "unregister" crashes the whole app.
     if (token) {
       await withTimeout(
         Promise.resolve(
@@ -127,9 +130,9 @@ export async function unregisterNativePush(): Promise<void> {
         ),
         3000,
       );
+      // Also drop Firebase's token so the next sign-in on this phone gets a fresh one.
+      await withTimeout(call(cap, "unregister").catch(() => undefined), 2000);
     }
-    // Also drop Firebase's token so the next sign-in on this phone gets a fresh one.
-    await withTimeout(call(cap, "unregister").catch(() => undefined), 2000);
   } catch {
     /* best effort */
   } finally {

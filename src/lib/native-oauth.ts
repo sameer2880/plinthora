@@ -11,6 +11,7 @@
  * (File also handles https App Links: see APP_LINK_PATHS below.) In a normal
  * browser, or an older APK, isGoogleSignInInAppAvailable() is false and nothing here runs.
  */
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const APP_REDIRECT = "com.plinthora.app://auth";
@@ -128,3 +129,64 @@ export function listenForAppUrls(): void {
 
 /** @deprecated kept for older imports; same as listenForAppUrls(). */
 export const listenForGoogleReturn = listenForAppUrls;
+
+/* ------------------------------------------------------------------ */
+/* Phone Back button / back-swipe (same App plugin, no new APK needed)  */
+/* ------------------------------------------------------------------ */
+/**
+ * Rules: close an open dialog/menu first; on a normal page go back; on the home screen press
+ * Back twice to exit; sign-in link pages go home instead of back into sign-in.
+ */
+/** Screens where Back should exit the app instead of going to an earlier page. */
+const HOME_PATHS = new Set(["/", "/dashboard", "/worker", "/platform/businesses"]);
+const EXIT_WINDOW_MS = 2000;
+
+/** Anything on screen that Back should close first. */
+const OPEN_OVERLAY =
+  '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], ' +
+  '[role="menu"][data-state="open"], [role="listbox"][data-state="open"], .more-panel';
+
+let backAttached = false;
+let lastBackAt = 0;
+
+export function listenForBackButton(): void {
+  const cap = bridge();
+  if (!cap || backAttached || !cap.isPluginAvailable?.("App")) return;
+  backAttached = true;
+
+  const onBack = (event: { canGoBack?: boolean }) => {
+    // 1. Close whatever is open on top of the page (the pages already close on Escape).
+    if (document.querySelector(OPEN_OVERLAY)) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      return;
+    }
+
+    const path = window.location.pathname.replace(/\/+$/, "") || "/";
+
+    // 4. Sign-in / reset link pages are one-way: go home instead of back into them.
+    if (path.startsWith("/auth/")) {
+      window.location.replace("/dashboard");
+      return;
+    }
+
+    // 3. Home screen: press twice to exit.
+    if (HOME_PATHS.has(path)) {
+      const now = Date.now();
+      if (now - lastBackAt < EXIT_WINDOW_MS) {
+        void cap.nativePromise?.("App", "exitApp", {})?.catch(() => undefined);
+        return;
+      }
+      lastBackAt = now;
+      toast("Press back again to exit", { duration: EXIT_WINDOW_MS });
+      return;
+    }
+
+    // 2. Any other page: go back; if there is nothing earlier (opened from a link), go home.
+    if (event?.canGoBack) window.history.back();
+    else window.location.replace("/dashboard");
+  };
+
+  const plugin = cap.Plugins?.App;
+  if (plugin?.addListener) plugin.addListener("backButton", onBack as unknown as Listener);
+  else cap.addListener?.("App", "backButton", onBack as unknown as Listener);
+}

@@ -175,14 +175,7 @@
      per-container (see `main`'s `overflow-x-hidden`) instead. */
   html,
   body {
-    overscroll-behavior: none;
-  }
-
-  /* Every scrollable panel (lists, sheets, side menus, dialogs) gets the same rule, so the
-     Android app's "stretch" effect never elongates the screen when you scroll past the end.
-     It only affects elements that actually scroll. */
-  * {
-    overscroll-behavior: none;
+    overscroll-behavior-y: none;
   }
 
   html { background-color: var(--color-background); }
@@ -1178,4 +1171,13 @@ html.native-app body {
 html.native-app * {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Loading screen: invisible for the first 150 ms, then a soft fade-in. */
+.loader-fade {
+  animation: loader-fade 0.2s ease 0.15s both;
+}
+@keyframes loader-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
