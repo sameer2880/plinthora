@@ -13,6 +13,14 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Master switch for phone notifications. Keep it `false` until the APK has been built with
+ * Firebase set up (google-services.json in android/app/). With the push plugin installed but
+ * no Firebase, asking the phone to register crashes the whole app the moment it opens.
+ * Set to `true` once the APK is built with google-services.json.
+ */
+const PUSH_ENABLED = false;
+
 const TOKEN_KEY = "mbs-push-token";
 const PLUGIN = "PushNotifications";
 
@@ -77,6 +85,7 @@ async function saveToken(token: string) {
 
 /** Ask for permission (Android 13+) and register this phone. Safe to call repeatedly. */
 export async function registerNativePush(): Promise<void> {
+  if (!PUSH_ENABLED) return;
   const cap = bridge();
   if (!cap) return;
 
@@ -109,6 +118,7 @@ export async function registerNativePush(): Promise<void> {
 
 /** Remove this phone from the database (call before signing out). Never throws, never hangs. */
 export async function unregisterNativePush(): Promise<void> {
+  if (!PUSH_ENABLED) return;
   const cap = bridge();
   if (!cap) return;
 
