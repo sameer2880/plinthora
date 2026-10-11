@@ -175,7 +175,14 @@
      per-container (see `main`'s `overflow-x-hidden`) instead. */
   html,
   body {
-    overscroll-behavior-y: none;
+    overscroll-behavior: none;
+  }
+
+  /* Every scrollable panel (lists, sheets, side menus, dialogs) gets the same rule, so the
+     Android app's "stretch" effect never elongates the screen when you scroll past the end.
+     It only affects elements that actually scroll. */
+  * {
+    overscroll-behavior: none;
   }
 
   html { background-color: var(--color-background); }
@@ -1121,4 +1128,54 @@
     animation: none !important;
     box-shadow: none !important;
   }
+}
+
+/* ============================================================
+   NATIVE APP PERFORMANCE MODE
+   Added to <html> only inside the Android app (see __root.tsx). The phone's WebView is far
+   weaker than Chrome at blurring and repainting, so everything GPU-heavy is switched off
+   there: frosted-glass blur, the continuously animated logo, slow slide animations and the
+   page gradient. Normal browsers and the installed web app are not affected.
+   ============================================================ */
+html.native-app [class*="backdrop-blur"],
+html.native-app .bg-popover,
+html.native-app [data-slot="dialog-content"],
+html.native-app [role="dialog"],
+html.native-app [role="alertdialog"],
+html.native-app [role="menu"],
+html.native-app [role="listbox"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.native-app [data-slot="dialog-content"],
+html.native-app [role="dialog"],
+html.native-app [role="alertdialog"],
+html.native-app [role="menu"],
+html.native-app [role="listbox"] {
+  box-shadow: 0 4px 16px rgb(15 23 42 / 18%) !important;
+}
+
+/* Faster, lighter open/close for sheets, dialogs and menus (the side menu took 0.5 s). */
+html.native-app [data-state="open"],
+html.native-app [data-state="closed"] {
+  animation-duration: 0.18s !important;
+  transition-duration: 0.18s !important;
+}
+
+/* The logo ring spins and pulses forever, forcing a repaint every frame. */
+html.native-app .brand-logo-animated,
+html.native-app .brand-logo-animated::before {
+  animation: none !important;
+}
+
+/* Plain background instead of four huge gradients repainted while scrolling. */
+html.native-app body {
+  background-image: none;
+}
+
+/* Taps register straight away (no double-tap-zoom wait) and no grey flash on tap. */
+html.native-app * {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
