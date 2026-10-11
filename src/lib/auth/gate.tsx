@@ -39,6 +39,11 @@ import { signInFn } from "@/lib/api/auth.functions";
 import { passwordProblem } from "@/lib/auth/password";
 import { PLATFORM_TAGLINE } from "@/lib/brand";
 import { registerNativePush, unregisterNativePush } from "@/lib/native-push";
+import {
+  isGoogleSignInInAppAvailable,
+  isNativeApp,
+  startGoogleSignInInApp,
+} from "@/lib/native-oauth";
 import { stopNativeLocation } from "@/lib/native-location";
 import {
   SessionContext,
@@ -194,12 +199,14 @@ export function Gate({
 
   // "Continue with Google" — sends the person to Google; /auth/google finishes the sign-in.
   const [googleBusy, setGoogleBusy] = useState(false);
-  // Google refuses sign-in inside an app's embedded browser and would open Chrome instead,
-  // signing the person in there and not in the app — so the button is hidden in the Android app.
+  // Inside the Android app Google opens in the phone's browser and returns to the app
+  // (see lib/native-oauth.ts). An older APK without that support doesn't get the button.
   const [inNativeApp, setInNativeApp] = useState(false);
+  const [googleInApp, setGoogleInApp] = useState(false);
   useEffect(() => {
-    const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-    setInNativeApp(Boolean(cap?.isNativePlatform?.()));
+    setInNativeApp(isNativeApp());
+    const ok = isGoogleSignInInAppAvailable();
+    setGoogleInApp(ok);
   }, []);
   const signInWithGoogle = async () => {
     setErr("");
@@ -209,6 +216,16 @@ export function Gate({
       return;
     }
     setGoogleBusy(true);
+    if (inNativeApp) {
+      try {
+        await startGoogleSignInInApp();
+      } catch {
+        setErr("Unable to start Google sign-in. Please try again.");
+      } finally {
+        setGoogleBusy(false);
+      }
+      return;
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -1123,7 +1140,7 @@ export function Gate({
 
             {/* Google sign-in (for accounts the admin saved an email on) */}
 
-            {!inNativeApp && (
+            {(!inNativeApp || googleInApp) && (
               <>
                 <div className="mt-5 flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="h-px flex-1 bg-border" />
