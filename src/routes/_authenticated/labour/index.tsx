@@ -26,6 +26,7 @@ import {
   Eraser,
   Upload,
   Wallet,
+  Pencil,
 } from "lucide-react";
 import { LabourExportDialog } from "@/components/LabourExportDialog";
 import { toast } from "sonner";
@@ -744,8 +745,8 @@ function LabourList() {
             <Download className="h-4 w-4 mr-1.5" /> Export
           </Button>
           <Button asChild>
-            <Link to="/manage-worker">
-              <UserCog className="h-4 w-4 mr-1.5" /> Manage Users
+            <Link to="/manage-worker" search={{ view: "workers" }}>
+              <UserCog className="h-4 w-4 mr-1.5" /> Manage Workers
             </Link>
           </Button>
         </div>
@@ -762,7 +763,7 @@ function LabourList() {
           {!isLoading && filtered.length === 0 && (
             <p className="text-center py-10 text-muted-foreground">
               No workers yet.{" "}
-              <Link to="/manage-worker" className="text-primary underline underline-offset-2">
+              <Link to="/manage-worker" search={{ view: "workers" }} className="text-primary underline underline-offset-2">
                 Add your first worker
               </Link>
               .
@@ -771,11 +772,14 @@ function LabourList() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             {filtered.map((w) => (
-              <Link
+              <div
                 key={w.id}
+                className="rounded-lg border border-border flex items-center hover:bg-muted/40 transition-colors"
+              >
+              <Link
                 to="/labour/$id"
                 params={{ id: w.id }}
-                className="rounded-lg border border-border p-3 flex items-center gap-3 hover:bg-muted/40 transition-colors"
+                className="flex flex-1 min-w-0 items-center gap-3 p-3"
               >
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold truncate">{w.name}</div>
@@ -787,6 +791,22 @@ function LabourList() {
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </Link>
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="mr-2 h-8 w-8 shrink-0 text-muted-foreground hover:text-primary"
+                title="Edit account details"
+              >
+                <Link
+                  to="/manage-worker"
+                  search={{ view: "workers", edit: w.id }}
+                  aria-label={`Edit ${w.name}`}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Link>
+              </Button>
+              </div>
             ))}
           </div>
         </CardContent>

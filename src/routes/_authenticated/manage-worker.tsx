@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,6 +66,12 @@ export const Route = createFileRoute("/_authenticated/manage-worker")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  // ?view=workers  -> "Manage Workers": only workers are listed / added / edited (used by Labour Charges)
+  // ?edit=<id>     -> open that person's edit dialog straight away (the pencil on the Labour page)
+  validateSearch: (s: Record<string, unknown>): { view?: "workers"; edit?: string } => ({
+    ...(s.view === "workers" ? { view: "workers" as const } : {}),
+    ...(typeof s.edit === "string" && s.edit ? { edit: s.edit } : {}),
+  }),
   component: ManageUsers,
 });
 
@@ -131,6 +137,10 @@ function ManageUsers() {
   // other Managers are hidden from them entirely. The full admin (master
   // login or an "admin"-role row) sees everyone.
   const managerView = isManager();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  // Workers-only screen: always for a manager, and for anyone who came from Labour Charges.
+  const workersOnly = managerView || search.view === "workers";
 
   // Manage Users is the single place that sees every row in the "workers"
   // table, whatever its role — Labour Charges only ever sees role="worker".
@@ -152,7 +162,7 @@ function ManageUsers() {
     mutationFn: async () => {
       // A manager can only ever create/edit Workers, no matter what the
       // form state says — the server enforces this too.
-      const role: UserRole = managerView ? "worker" : form.role;
+      const role: UserRole = workersOnly ? "worker" : form.role;
       const payload = {
         name: form.name.trim(),
         email: form.email.trim(),
@@ -292,21 +302,45 @@ function ManageUsers() {
     const ql = q.toLowerCase();
     return users
       // Managers only ever see Workers here, regardless of the filter UI.
-      .filter((u) => (managerView ? u.role === "worker" : roleFilter === "all" || u.role === roleFilter))
+      .filter((u) => (workersOnly ? u.role === "worker" : roleFilter === "all" || u.role === roleFilter))
       .filter((u) => !ql || u.name.toLowerCase().includes(ql) || (u.email ?? "").toLowerCase().includes(ql) || (u.phone ?? "").includes(ql));
-  }, [users, q, roleFilter, managerView]);
+  }, [users, q, roleFilter, workersOnly]);
+
+  // Opened from the pencil on the Labour page: jump straight into that worker's edit dialog.
+  useEffect(() => {
+    if (!search.edit || isLoading) return;
+    const u = users.find((x) => x.id === search.edit);
+    if (u && (!workersOnly || u.role === "worker")) {
+      setEditing(u);
+      setForm({
+        name: u.name,
+        email: u.email ?? "",
+        username: u.username ?? "",
+        phone: u.phone ?? "",
+        wage_full_ot: u.wage_full_ot ?? "",
+        wage_day: u.wage_day ?? "",
+        wage_half: u.wage_half ?? "",
+        wage_ot: u.wage_ot ?? "",
+        notes: u.notes ?? "",
+        role: u.role,
+      });
+      setOpen(true);
+    }
+    void navigate({ search: search.view ? { view: search.view } : {}, replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.edit, isLoading, users]);
 
   return (
-    <AdminOnly label="Manage Users">
+    <AdminOnly label={workersOnly ? "Manage Workers" : "Manage Users"}>
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            <UserCog className="h-6 w-6 text-primary" /> Manage Users
+            <UserCog className="h-6 w-6 text-primary" /> {workersOnly ? "Manage Workers" : "Manage Users"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {managerView
-              ? "Add workers and turn their login access on or off. Ask the admin to add or remove a manager or admin, or to delete any user."
+            {workersOnly
+              ? "Add workers, edit their details and wages, and turn their login access on or off."
               : "Create, edit or remove users, assign a Worker, Manager or Admin role, and turn login access on or off"}
           </p>
         </div>
@@ -317,7 +351,7 @@ function ManageUsers() {
             setOpen(true);
           }}
         >
-          <Plus className="h-4 w-4 mr-1.5" /> {managerView ? "Add Worker" : "Add User"}
+          <Plus className="h-4 w-4 mr-1.5" /> {workersOnly ? "Add Worker" : "Add User"}
         </Button>
       </div>
 
@@ -328,7 +362,7 @@ function ManageUsers() {
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder="Search by name or mobile" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
             </div>
-            {!managerView && (
+            {!workersOnly && (
               <div className="flex gap-1.5">
                 {ALL_ROLE_FILTERS.map((f) => (
                   <Button
@@ -477,13 +511,15 @@ function ManageUsers() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit user" : "Add user"}</DialogTitle>
+            <DialogTitle>{workersOnly ? (editing ? "Edit worker" : "Add worker") : editing ? "Edit user" : "Add user"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            {managerView ? (
-              <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-                Managers can only add or edit Workers. Ask the admin to create a Manager or Admin account.
-              </p>
+            {workersOnly ? (
+              managerView ? (
+                <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  Managers can only add or edit Workers. Ask the admin to create a Manager or Admin account.
+                </p>
+              ) : null
             ) : (
               <div>
                 <Label>Role</Label>
@@ -561,7 +597,7 @@ function ManageUsers() {
                   </p>
                 )}
               </div>
-              {(managerView || form.role === "worker") && (
+              {(workersOnly || form.role === "worker") && (
                 <div className="col-span-2 space-y-2">
                   <Label>Wage per attendance type (₹)</Label>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
