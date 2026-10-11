@@ -7,6 +7,7 @@ import { ConfirmDialogHost } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PLATFORM_NAME, PLATFORM_TAGLINE } from "@/lib/brand";
 import { syncNativeStatusBar } from "@/lib/native-status-bar";
+import { listenForAppUrls } from "@/lib/native-oauth";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 
 import appCss from "../styles.css?url";
@@ -215,6 +216,12 @@ function RootComponent() {
     const observer = new MutationObserver(sync);
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
+  }, []);
+
+  // In the native app, receive the address Android hands over when Google sign-in finishes
+  // (com.plinthora.app://auth/google#...) or when a WhatsApp link is tapped. Does nothing in a browser.
+  useEffect(() => {
+    listenForAppUrls();
   }, []);
 
   useEffect(() => {
