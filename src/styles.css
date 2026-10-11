@@ -1101,22 +1101,8 @@
     -webkit-print-color-adjust: exact;
   }
 
-  /* Plinthora watermark on printed receipts: keep it in the bottom-right corner. */
   .receipt-sheet {
     position: relative !important;
-  }
-  /* When printing, the receipt is only as tall as its content, so "bottom of the
-     receipt" would land in the middle of the page and overlap the text. A fixed element
-     is placed against the printed page instead, so the watermark sits in the true
-     bottom-right corner of the sheet. */
-  .receipt-watermark {
-    display: block !important;
-    position: fixed !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    opacity: 0.3 !important;
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
   }
 }
 

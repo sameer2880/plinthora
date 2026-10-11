@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { A4Sheet } from "@/components/A4Sheet";
-import { ReceiptWatermark } from "@/components/Watermark";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicReceiptFn } from "@/lib/api/receipts.functions";
 import type { Rental } from "@/lib/rentals";
@@ -185,7 +184,6 @@ function PublicReceiptPage() {
           Thank you for choosing {business?.name}
           {business?.location ? `, ${business.location}` : ""}.
         </div>
-        <ReceiptWatermark />
       </article>
       </A4Sheet>
     </div>

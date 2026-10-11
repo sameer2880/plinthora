@@ -13,7 +13,6 @@ import { useSession } from "@/lib/auth/session";
 import { PLATFORM_NAME } from "@/lib/brand";
 import { LoadingBlock } from "@/components/LoadingScreen";
 import { A4Sheet } from "@/components/A4Sheet";
-import { ReceiptWatermark } from "@/components/Watermark";
 
 export const Route = createFileRoute("/_authenticated/receipts/$id")({
   head: () => ({
@@ -385,7 +384,6 @@ function ReceiptPage() {
           Thank you for choosing {business?.name}
           {business?.location ? `, ${business.location}` : ""}.
         </div>
-        <ReceiptWatermark />
       </article>
       </A4Sheet>
     </div>
