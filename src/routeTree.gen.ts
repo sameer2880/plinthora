@@ -25,6 +25,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedWorkerRouteImport } from './routes/_authenticated/worker'
 import { Route as AuthenticatedWorkerLocationsRouteImport } from './routes/_authenticated/worker-locations'
 import { Route as AuthLinkRouteImport } from './routes/auth.link'
+import { Route as AuthGoogleRouteImport } from './routes/auth.google'
 import { Route as ReceiptIdRouteImport } from './routes/receipt/$id'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AuthenticatedLabourIndexRouteImport } from './routes/_authenticated/labour/index'
@@ -119,6 +120,11 @@ const AuthLinkRoute = AuthLinkRouteImport.update({
   path: '/auth/link',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthGoogleRoute = AuthGoogleRouteImport.update({
+  id: '/auth/google',
+  path: '/auth/google',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReceiptIdRoute = ReceiptIdRouteImport.update({
   id: '/receipt/$id',
   path: '/receipt/$id',
@@ -187,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/worker': typeof AuthenticatedWorkerRoute
   '/worker-locations': typeof AuthenticatedWorkerLocationsRoute
   '/auth/link': typeof AuthLinkRoute
+  '/auth/google': typeof AuthGoogleRoute
   '/receipt/$id': typeof ReceiptIdRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/labour/$id': typeof AuthenticatedLabourIdRoute
@@ -213,6 +220,7 @@ export interface FileRoutesByTo {
   '/worker': typeof AuthenticatedWorkerRoute
   '/worker-locations': typeof AuthenticatedWorkerLocationsRoute
   '/auth/link': typeof AuthLinkRoute
+  '/auth/google': typeof AuthGoogleRoute
   '/receipt/$id': typeof ReceiptIdRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/labour/$id': typeof AuthenticatedLabourIdRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/_authenticated/worker': typeof AuthenticatedWorkerRoute
   '/_authenticated/worker-locations': typeof AuthenticatedWorkerLocationsRoute
   '/auth/link': typeof AuthLinkRoute
+  '/auth/google': typeof AuthGoogleRoute
   '/receipt/$id': typeof ReceiptIdRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/labour/$id': typeof AuthenticatedLabourIdRoute
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/worker'
     | '/worker-locations'
     | '/auth/link'
+    | '/auth/google'
     | '/receipt/$id'
     | '/.mcp/invoke-tool/$tool'
     | '/labour/$id'
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/worker'
     | '/worker-locations'
     | '/auth/link'
+    | '/auth/google'
     | '/receipt/$id'
     | '/.mcp/invoke-tool/$tool'
     | '/labour/$id'
@@ -322,6 +333,7 @@ export interface FileRouteTypes {
     | '/_authenticated/worker'
     | '/_authenticated/worker-locations'
     | '/auth/link'
+    | '/auth/google'
     | '/receipt/$id'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/labour/$id'
@@ -340,6 +352,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   AuthLinkRoute: typeof AuthLinkRoute
+  AuthGoogleRoute: typeof AuthGoogleRoute
   ReceiptIdRoute: typeof ReceiptIdRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
 }
@@ -456,6 +469,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/link'
       fullPath: '/auth/link'
       preLoaderRoute: typeof AuthLinkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/google': {
+      id: '/auth/google'
+      path: '/auth/google'
+      fullPath: '/auth/google'
+      preLoaderRoute: typeof AuthGoogleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/receipt/$id': {
@@ -575,6 +595,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   AuthLinkRoute: AuthLinkRoute,
+  AuthGoogleRoute: AuthGoogleRoute,
   ReceiptIdRoute: ReceiptIdRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
 }

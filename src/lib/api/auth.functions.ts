@@ -87,3 +87,119 @@ export const claimDeviceFn = createServerFn({ method: "POST" })
     const deviceToken = await h.claimDevice(context.userId as string, token);
     return { deviceToken };
   });
+
+/**
+ * "Continue with Google" — for people whose admin saved their email on their account.
+ *
+ * Supabase creates a brand-new Auth user for a first Google login, but staff/worker
+ * accounts use made-up Auth addresses (see identity.ts), so Google can't link to them by itself.
+ * Here the server does the matching, using the Google-VERIFIED email:
+ *   1. the caller proves who they are with the temporary Google session (middleware);
+ *   2. we find the active staff/worker whose saved email matches (case-insensitive);
+ *   3. we start a real session for THAT account (one-time link, verified server-side),
+ *      apply the one-device rule, and delete the temporary Google user.
+ * No matching email -> nothing is created and the person is told to ask their admin.
+ * The platform admin signs in with a real email, so Supabase already links Google to
+ * that account; we simply keep the session they have.
+ */
+export type GoogleSignInResult =
+  | { status: "ok"; accessToken: string | null; refreshToken: string | null; deviceToken: string | null }
+  | { status: "needs_takeover" }
+  | { status: "error"; message: string };
+
+const NOT_REGISTERED =
+  "This Google account isn't registered. Ask your admin to add your email to your account, then try again.";
+
+export const googleSignInFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        deviceToken: z.string().max(100).nullish(),
+        takeover: z.boolean().default(false),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }): Promise<GoogleSignInResult> => {
+    const h = await import("./helpers.server");
+    const { workerAuthEmail } = await import("@/lib/auth/identity");
+
+    const ip = h.clientIp();
+    if (!(await h.withinRateLimit(`google:ip:${ip}`, 30, 600))) {
+      return { status: "error", message: "Too many sign-in attempts. Please wait a few minutes and try again." };
+    }
+
+    const admin = await h.adminClient();
+    const googleUserId = context.userId as string;
+
+    const { data: found } = await admin.auth.admin.getUserById(googleUserId);
+    const gUser = found?.user;
+    const identity = gUser?.identities?.find((i) => i.provider === "google");
+    const idData = (identity?.identity_data ?? {}) as { email?: string; email_verified?: boolean };
+    const email = (idData.email ?? gUser?.email ?? "").trim().toLowerCase();
+    if (!gUser || !identity || !email || idData.email_verified !== true) {
+      return { status: "error", message: "Google could not confirm your email. Please try again." };
+    }
+
+    // Platform admin: Google got linked to their real-email account — keep this session.
+    const { data: platformAdmin } = await admin
+      .from("platform_admins")
+      .select("user_id")
+      .eq("user_id", googleUserId)
+      .maybeSingle();
+    if (platformAdmin) return { status: "ok", accessToken: null, refreshToken: null, deviceToken: null };
+
+    // Staff / worker: match on the email the admin saved.
+    const { data: rows } = await admin
+      .from("workers")
+      .select("id, active, session_token")
+      .ilike("email", h.escapeLike(email))
+      .not("auth_user_id", "is", null)
+      .limit(2);
+
+    const discard = async () => {
+      // The temporary Google user belongs to nobody; remove it so no stray account is left behind.
+      await admin.auth.admin.deleteUser(googleUserId).catch(() => undefined);
+    };
+
+    if (!rows || rows.length !== 1) {
+      await discard();
+      return { status: "error", message: NOT_REGISTERED };
+    }
+    const worker = rows[0] as { id: string; active: boolean; session_token: string | null };
+    if (!worker.active) {
+      await discard();
+      return { status: "error", message: "This account is deactivated" };
+    }
+
+    // One signed-in device per account — same rule as the password sign-in.
+    const elsewhere = Boolean(worker.session_token) && worker.session_token !== (data.deviceToken ?? null);
+    if (elsewhere && !data.takeover) return { status: "needs_takeover" };
+
+    // Start a real session for the worker's own Auth account.
+    const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email: workerAuthEmail(worker.id),
+    });
+    const tokenHash = link?.properties?.hashed_token;
+    if (linkError || !tokenHash) return { status: "error", message: "Unable to sign in right now. Please try again." };
+
+    const anon = await h.anonClient();
+    const { data: verified, error: verifyError } = await anon.auth.verifyOtp({ token_hash: tokenHash, type: "magiclink" });
+    if (verifyError || !verified.session) {
+      return {
+        status: "error",
+        message: /banned|deactivated/i.test(verifyError?.message ?? "")
+          ? "This account is deactivated"
+          : "Unable to sign in right now. Please try again.",
+      };
+    }
+    const { access_token: accessToken, refresh_token: refreshToken } = verified.session;
+
+    // Signing in with a verified Google email replaces the "choose a password" step.
+    await admin.from("workers").update({ must_set_password: false }).eq("id", worker.id);
+
+    const deviceToken = await h.claimDevice(verified.session.user.id, accessToken);
+    await discard();
+    return { status: "ok", accessToken, refreshToken, deviceToken };
+  });
