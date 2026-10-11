@@ -35,7 +35,7 @@ export const getRouter = () => {
     // Pages that take a moment to open show the same loading animation as everywhere else,
     // but only after 400 ms (quick pages never flash it) and it never lingers once the
     // page is ready (min 0 ms - the default holds it on screen for another 500 ms).
-    defaultPendingComponent: () => <LoadingBlock className="min-h-[50vh]" title="Loading…" subtitle="Please wait a moment" />,
+    defaultPendingComponent: () => <LoadingBlock title="Loading…" subtitle="Please wait a moment" />,
     defaultPendingMs: 400,
     defaultPendingMinMs: 0,
   });

@@ -77,7 +77,11 @@ export function Spinner({ className, logo = false }: { className?: string; logo?
   );
 }
 
-/** In-page loading state for lists, tables and cards. */
+/**
+ * Loading state for lists, tables, cards and pages that are still opening.
+ * The spinner always sits in the exact centre of the screen (not the corner of the card it
+ * replaces), on a small frosted panel. The wrapper ignores taps, so the menu stays usable.
+ */
 export function LoadingBlock({
   title = "Loading…",
   subtitle = "Please wait",
@@ -91,12 +95,14 @@ export function LoadingBlock({
     <div
       role="status"
       aria-live="polite"
-      className={cn("flex flex-col items-center justify-center gap-3 px-4 py-10 text-center", className)}
+      className={cn("pointer-events-none fixed inset-0 z-40 flex items-center justify-center p-6", className)}
     >
-      <Spinner logo className="h-12 w-12" />
-      <div>
-        <p className="text-sm font-semibold text-foreground">{title}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-border/60 bg-background/90 px-8 py-6 text-center shadow-lg backdrop-blur-sm">
+        <Spinner logo className="h-12 w-12" />
+        <div>
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+        </div>
       </div>
     </div>
   );

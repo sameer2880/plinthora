@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandWordmark } from "@/components/BrandWordmark";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { supabase } from "@/integrations/supabase/client";
 import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
 import { loadSessionState } from "@/lib/auth/session";
@@ -108,6 +108,10 @@ function AuthGooglePage() {
     window.location.assign("/dashboard");
   };
 
+  if (phase === "working") {
+    return <LoadingScreen title="Signing you in…" subtitle="Please wait a moment" />;
+  }
+
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[#eef6e6] px-4 py-6">
       <div className="w-full max-w-[420px] rounded-[2rem] border border-border/60 bg-card p-7 shadow-lg sm:p-9">
@@ -115,13 +119,6 @@ function AuthGooglePage() {
           <BrandLogo className="h-9 w-9" />
           <BrandWordmark className="h-5" />
         </div>
-
-        {phase === "working" && (
-          <div className="flex flex-col items-center gap-3 py-6 text-center">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Signing you in with Google…</p>
-          </div>
-        )}
 
         {phase === "handoff" && (
           <>

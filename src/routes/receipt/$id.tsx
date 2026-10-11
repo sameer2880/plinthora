@@ -50,7 +50,7 @@ function PublicReceiptPage() {
   const receiptNumber = rows.length > 1 ? rows[0].group_id || rows[0].id : rows[0].id;
 
   return (
-    <div className="min-h-screen bg-gray-200 py-4 px-2 sm:py-10 sm:px-6 print:min-h-0 print:bg-white print:p-0">
+    <div className="min-h-dvh bg-gray-200 py-4 px-2 sm:py-10 sm:px-6 print:min-h-0 print:bg-white print:p-0">
       <style>{`@page { size: A4; margin: 0; }`}</style>
       <A4Sheet>
       <article

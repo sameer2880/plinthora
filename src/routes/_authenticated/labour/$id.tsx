@@ -515,7 +515,7 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
           ))}
         </div>
 
-        <Card className="overflow-y-auto lg:h-[calc(100vh-9rem)] lg:min-h-[420px] lg:max-h-[640px]">
+        <Card className="overflow-y-auto lg:h-[calc(100dvh-9rem)] lg:min-h-[420px] lg:max-h-[640px]">
           <CardContent className="space-y-4 p-4 lg:p-5">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
@@ -622,7 +622,7 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
           </CardContent>
         </Card>
 
-        <Card className="lg:h-[calc(100vh-9rem)] lg:min-h-[420px] lg:max-h-[640px] lg:overflow-y-auto">
+        <Card className="lg:h-[calc(100dvh-9rem)] lg:min-h-[420px] lg:max-h-[640px] lg:overflow-y-auto">
           <CardContent className="space-y-3 p-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold flex items-center gap-2">
