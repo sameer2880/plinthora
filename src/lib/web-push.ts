@@ -69,13 +69,29 @@ function inNativeApp(): boolean {
   }
 }
 
-function available(): boolean {
-  if (typeof window === "undefined" || inNativeApp()) return false;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-    return false;
+/** Why web notifications can't run here, or null when they can. */
+function unavailableReason(): string | null {
+  if (typeof window === "undefined") return "not in a browser";
+  if (inNativeApp()) return "inside the Android app (it uses native-push instead)";
+  if (!("serviceWorker" in navigator)) return "this browser has no service worker support";
+  if (!("PushManager" in window)) {
+    return "this browser has no push support (on iPhone, add Plinthora to the Home Screen first)";
   }
+  if (!("Notification" in window)) return "this browser has no Notification support";
   const s = settings();
-  return !!(s.firebase.apiKey && s.firebase.appId && s.vapidKey);
+  const missing = [
+    !s.firebase.apiKey && "VITE_FIREBASE_API_KEY",
+    !s.firebase.appId && "VITE_FIREBASE_APP_ID",
+    !s.vapidKey && "VITE_FIREBASE_VAPID_KEY",
+  ].filter(Boolean);
+  if (missing.length) {
+    return `missing ${missing.join(", ")} (add in Vercel, then redeploy)`;
+  }
+  return null;
+}
+
+function available(): boolean {
+  return unavailableReason() === null;
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | undefined> {
@@ -166,10 +182,18 @@ function askOnce() {
 /** Safe to call after every sign-in. Registers silently if allowed, otherwise asks politely. */
 export async function registerWebPush(): Promise<void> {
   try {
-    if (!available()) return;
-    if (Notification.permission === "denied") return;
+    const why = unavailableReason();
+    if (why) {
+      console.info("[web-push] off:", why);
+      return;
+    }
+    if (Notification.permission === "denied") {
+      console.info("[web-push] off: notifications are blocked for this site in the browser");
+      return;
+    }
     if (Notification.permission === "granted") {
       await fetchAndSaveToken();
+      console.info("[web-push] ready");
       return;
     }
     askOnce();
