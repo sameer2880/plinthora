@@ -873,6 +873,103 @@
     inset 0 1px 0 rgb(255 255 255 / 14%);
 }
 
+/* ---- "More" open / close animation ----------------------------------------
+   Only transform + opacity are animated (GPU-composited, no layout or paint
+   per frame), the overlay has no backdrop blur (the main cause of lag on
+   phones), and will-change is set only while the animation runs. */
+.more-overlay {
+  background-color: rgb(8 15 11 / 28%);
+}
+
+.more-overlay[data-state="open"] {
+  animation: more-fade-in 0.24s ease-out both;
+}
+
+.more-overlay[data-state="closed"] {
+  animation: more-fade-out 0.2s ease-in both;
+}
+
+.more-sheet,
+.more-flyout {
+  transform-origin: 50% 100%;
+  backface-visibility: hidden;
+}
+
+.more-sheet[data-state="open"] {
+  animation: more-sheet-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+.more-sheet[data-state="closed"] {
+  animation: more-sheet-out 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+  will-change: transform, opacity;
+}
+
+.more-flyout {
+  transform-origin: 0% 100%;
+}
+
+.more-flyout[data-state="open"] {
+  animation: more-flyout-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+.more-flyout[data-state="closed"] {
+  animation: more-flyout-out 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+  will-change: transform, opacity;
+}
+
+/* Tiles rise in one after another (starts as the panel is settling). */
+[data-state="open"] .more-tile,
+[data-state="open"].more-tile {
+  animation: more-item-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(80ms + var(--i, 0) * 30ms);
+}
+
+@keyframes more-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes more-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes more-sheet-in {
+  from { opacity: 0; transform: translate3d(0, 28px, 0) scale(0.96); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes more-sheet-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(0, 20px, 0) scale(0.97); }
+}
+
+@keyframes more-flyout-in {
+  from { opacity: 0; transform: translate3d(-10px, 14px, 0) scale(0.94); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes more-flyout-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(-6px, 10px, 0) scale(0.96); }
+}
+
+@keyframes more-item-in {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.92); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .more-overlay,
+  .more-sheet,
+  .more-flyout,
+  .more-tile {
+    animation: none !important;
+  }
+}
+
 /* Account card in the More panel (phone sheet + tablet flyout). */
 .more-account {
   display: flex;

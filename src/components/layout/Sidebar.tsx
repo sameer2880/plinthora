@@ -38,7 +38,7 @@ import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { WorkerLocationToggle } from "@/components/WorkerLocationToggle";
 import { BrandLogo } from "@/components/BrandLogo";
 import { AppCredit } from "@/components/AppCredit";
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useDeviceType } from "@/hooks/use-device";
 import { lock } from "@/lib/auth/lock";
@@ -493,9 +493,10 @@ function MoreMenuContent({
         {hasTiles && (
           <div className="more-inset grid grid-cols-3 gap-1">
             {isWorkerSidebar
-              ? exploreItems.map(({ href, label, icon: Icon }) => (
+              ? exploreItems.map(({ href, label, icon: Icon }, i) => (
                   <a
                     key={href}
+                    style={{ "--i": i } as CSSProperties}
                     href={href}
                     target={href.startsWith("http") ? "_blank" : undefined}
                     rel={href.startsWith("http") ? "noreferrer" : undefined}
@@ -510,12 +511,13 @@ function MoreMenuContent({
                     </span>
                   </a>
                 ))
-              : secondary.map(({ to, label, icon: Icon }) => {
+              : secondary.map(({ to, label, icon: Icon }, i) => {
                   const active = path === to || path.startsWith(to + "/");
 
                   return (
                     <Link
                       key={to}
+                      style={{ "--i": i } as CSSProperties}
                       to={to}
                       onClick={onClose}
                       className={cn("more-tile", active && "more-tile-active")}
@@ -681,6 +683,17 @@ function MoreFlyout({
   dark: boolean;
   onToggleTheme: () => void;
 }) {
+  // Stay mounted for the length of the closing animation so it can play out.
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      return;
+    }
+    const t = window.setTimeout(() => setMounted(false), 220);
+    return () => window.clearTimeout(t);
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -690,12 +703,15 @@ function MoreFlyout({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onOpenChange]);
 
-  if (!open) return null;
+  if (!mounted) return null;
+
+  const state = open ? "open" : "closed";
 
   return (
     <>
       <div
-        className="fixed inset-0 z-50 bg-slate-950/20"
+        data-state={state}
+        className="more-overlay fixed inset-0 z-50"
         onClick={() => onOpenChange(false)}
         aria-hidden
       />
@@ -703,7 +719,8 @@ function MoreFlyout({
       <div
         role="dialog"
         aria-label="More"
-        className="more-panel fixed bottom-4 left-[calc(var(--shell-rail-w)+0.75rem)] z-50 flex max-h-[min(34rem,calc(100dvh-2rem))] w-[21rem] flex-col overflow-hidden"
+        data-state={state}
+        className="more-panel more-flyout fixed bottom-4 left-[calc(var(--shell-rail-w)+0.75rem)] z-50 flex max-h-[min(34rem,calc(100dvh-2rem))] w-[21rem] flex-col overflow-hidden"
       >
         <MoreMenuContent
           onClose={() => {
@@ -1301,8 +1318,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
       {deviceType === "mobile" && (
         <Sheet open={mobileMoreOpen} onOpenChange={setMobileMoreOpen}>
           <SheetContent
+            bare
             side="bottom"
-            className="inset-x-auto bottom-[calc(0.7rem+env(safe-area-inset-bottom,0px))] left-2 right-2 mx-auto max-h-[85dvh] max-w-[27rem] rounded-[2rem] border-0 bg-transparent p-0 shadow-none [&>button]:hidden"
+            overlayClassName="more-overlay"
+            className="more-sheet bottom-[calc(0.7rem+env(safe-area-inset-bottom,0px))] left-2 right-2 mx-auto max-h-[85dvh] max-w-[27rem] rounded-[2rem] border-0 bg-transparent p-0 shadow-none outline-none"
           >
             <MobileMoreSheet
               onNav={() => setMobileMoreOpen(false)}

@@ -130,8 +130,12 @@ function ManageUsers() {
 
   // Manage Users is the single place that sees every row in the "workers"
   // table, whatever its role — Labour Charges only ever sees role="worker".
-  const { data: users = [], isLoading } = useQuery({
-    queryKey: ["workers"],
+  // Its own cache key ("workers", "all"): the Labour page also caches a ["workers"] list,
+  // but that one only holds role="worker" rows — sharing a key made this page flash a
+  // workers-only list until the full one arrived. (Invalidating ["workers"] still hits both.)
+  const { data: users = [], isPending: isLoading } = useQuery({
+    queryKey: ["workers", "all"],
+    refetchOnMount: "always",
     queryFn: async () => {
       const { data, error } = await supabase.from("workers").select("*").order("name");
       if (error) throw error;

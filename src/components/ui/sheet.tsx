@@ -51,15 +51,28 @@ const sheetVariants = cva(
 interface SheetContentProps
   extends
     React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {}
+    VariantProps<typeof sheetVariants> {
+  /** Skip the built-in slide/background styles so the caller supplies its own (CSS) animation. */
+  bare?: boolean;
+  /** Replaces the default blurred overlay classes. */
+  overlayClassName?: string;
+}
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, ...props }, ref) => (
+>(({ side = "right", className, children, bare, overlayClassName, ...props }, ref) => (
   <SheetPortal>
-    <SheetOverlay />
-    <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+    {bare ? (
+      <SheetPrimitive.Overlay className={cn("fixed inset-0 z-50", overlayClassName)} />
+    ) : (
+      <SheetOverlay />
+    )}
+    <SheetPrimitive.Content
+      ref={ref}
+      className={bare ? cn("fixed z-50", className) : cn(sheetVariants({ side }), className)}
+      {...props}
+    >
       {children}
     </SheetPrimitive.Content>
   </SheetPortal>

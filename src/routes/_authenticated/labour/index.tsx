@@ -565,7 +565,7 @@ function LabourList() {
 
   // Labour Charges only ever shows "worker" role users of the current business.
   const { data: workers = [], isLoading } = useQuery({
-    queryKey: ["workers"],
+    queryKey: ["workers", "labour"],
     queryFn: async () => {
       const { data, error } = await supabase.from("workers").select("*").eq("role", "worker").order("name");
       if (error) throw error;
