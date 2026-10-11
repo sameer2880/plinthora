@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DEVICE_TOKEN_KEY } from "@/lib/auth/identity";
 import { setSessionSnapshot } from "@/lib/auth/session";
 import { unregisterNativePush } from "@/lib/native-push";
+import { unregisterWebPush } from "@/lib/web-push";
 import { stopNativeLocation } from "@/lib/native-location";
 
 /**
@@ -16,7 +17,7 @@ export function lock() {
   setSessionSnapshot({ me: null, business: null });
   // Stop phone notifications for this account first (needs the session, so before sign-out).
   // Same for background location: stop the phone's tracking service and revoke its token.
-  void Promise.allSettled([unregisterNativePush(), stopNativeLocation()])
+  void Promise.allSettled([unregisterNativePush(), unregisterWebPush(), stopNativeLocation()])
     .then(() => supabase.auth.signOut())
     .finally(() => window.location.reload());
 }

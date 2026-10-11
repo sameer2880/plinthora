@@ -39,6 +39,7 @@ import { signInFn } from "@/lib/api/auth.functions";
 import { passwordProblem } from "@/lib/auth/password";
 import { PLATFORM_TAGLINE } from "@/lib/brand";
 import { registerNativePush, unregisterNativePush } from "@/lib/native-push";
+import { registerWebPush, unregisterWebPush } from "@/lib/web-push";
 import {
   isGoogleSignInInAppAvailable,
   isNativeApp,
@@ -294,7 +295,7 @@ export function Gate({
       setErr(message);
       setPhase("signed-out");
 
-      await Promise.allSettled([unregisterNativePush(), stopNativeLocation()]);
+      await Promise.allSettled([unregisterNativePush(), unregisterWebPush(), stopNativeLocation()]);
       await supabase.auth.signOut();
     },
     [applyState],
@@ -310,6 +311,7 @@ export function Gate({
     if (phase !== "ready" || !pushUserId) return;
     if (pushRole !== "admin" && pushRole !== "manager" && pushRole !== "worker") return;
     void registerNativePush();
+    void registerWebPush();
   }, [phase, pushUserId, pushRole]);
 
   /* ---------- "last seen" heartbeat ---------- */
@@ -735,7 +737,7 @@ export function Gate({
 
       localStorage.removeItem(DEVICE_TOKEN_KEY);
       applyState(EMPTY);
-      await Promise.allSettled([unregisterNativePush(), stopNativeLocation()]);
+      await Promise.allSettled([unregisterNativePush(), unregisterWebPush(), stopNativeLocation()]);
       await supabase.auth.signOut();
 
       setErr("");
