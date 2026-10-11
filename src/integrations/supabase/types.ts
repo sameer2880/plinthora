@@ -261,6 +261,7 @@ export type Database = {
           present: boolean;
           status: string;
           updated_at: string;
+          wage: number | null;
           work_date: string;
           worker_id: string;
         };
@@ -273,6 +274,7 @@ export type Database = {
           present?: boolean;
           status?: string;
           updated_at?: string;
+          wage?: number | null;
           work_date: string;
           worker_id: string;
         };
@@ -285,6 +287,7 @@ export type Database = {
           present?: boolean;
           status?: string;
           updated_at?: string;
+          wage?: number | null;
           work_date?: string;
           worker_id?: string;
         };
@@ -302,6 +305,7 @@ export type Database = {
         Row: {
           business_id: string;
           amount: number;
+          auto_work_date: string | null;
           created_at: string;
           id: string;
           note: string | null;
@@ -312,6 +316,7 @@ export type Database = {
         Insert: {
           business_id?: string;
           amount?: number;
+          auto_work_date?: string | null;
           created_at?: string;
           id?: string;
           note?: string | null;
@@ -322,6 +327,7 @@ export type Database = {
         Update: {
           business_id?: string;
           amount?: number;
+          auto_work_date?: string | null;
           created_at?: string;
           id?: string;
           note?: string | null;
@@ -428,6 +434,10 @@ export type Database = {
           active: boolean;
           created_at: string;
           daily_wage: number;
+          wage_day: number;
+          wage_half: number;
+          wage_full_ot: number;
+          wage_ot: number;
           email: string | null;
           id: string;
           last_seen_at: string | null;
@@ -447,6 +457,10 @@ export type Database = {
           active?: boolean;
           created_at?: string;
           daily_wage?: number;
+          wage_day?: number;
+          wage_half?: number;
+          wage_full_ot?: number;
+          wage_ot?: number;
           email?: string | null;
           id?: string;
           last_seen_at?: string | null;
@@ -466,6 +480,10 @@ export type Database = {
           active?: boolean;
           created_at?: string;
           daily_wage?: number;
+          wage_day?: number;
+          wage_half?: number;
+          wage_full_ot?: number;
+          wage_ot?: number;
           email?: string | null;
           id?: string;
           last_seen_at?: string | null;

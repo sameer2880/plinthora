@@ -17,15 +17,20 @@ export type LabourWorker = {
   name: string;
   phone: string | null;
   daily_wage: number;
+  wage_day?: number;
+  wage_half?: number;
+  wage_full_ot?: number;
+  wage_ot?: number;
 };
 
 type AttStatus = "present" | "absent" | "holiday";
-type DayType = "full" | "half" | "ot";
+import { DAY_TYPE_LABEL, earnedFor, wageSummary, type DayType } from "@/lib/wages";
 
 export type AttendanceRecord = {
   work_date: string; // YYYY-MM-DD
   status: AttStatus;
   day_type: DayType | null;
+  wage?: number | null;
   note: string | null;
 };
 
@@ -75,13 +80,8 @@ const STATUS_LABEL: Record<AttStatus, string> = {
   absent: "Absent",
   holiday: "Holiday",
 };
-const DAY_TYPE_LABEL: Record<DayType, string> = {
-  full: "Full day",
-  half: "Half day",
-  ot: "Overtime (OT)",
-};
-// Same factors as the worker page (labour/$id.tsx)
-const DAY_TYPE_FACTOR: Record<DayType, number> = { full: 1, half: 0.5, ot: 0.25 };
+// How OLD marks (no stored wage) were calculated — same factors as the worker page (labour/$id.tsx)
+const DAY_TYPE_FACTOR: Record<DayType, number> = { full: 1, half: 0.5, ot: 0.25, ot_only: 0 };
 
 const stamp = () => new Date().toISOString().slice(0, 10);
 
@@ -134,7 +134,6 @@ function uniqueSheetNames(names: string[]): string[] {
 /* ------------------------------------------------------------------ */
 
 export function buildLedger({ worker, attendance, payments }: LabourData): Ledger {
-  const wage = Number(worker.daily_wage || 0);
   const attByDate = new Map<string, AttendanceRecord>();
   attendance.forEach((a) => attByDate.set(a.work_date, a));
 
@@ -171,7 +170,7 @@ export function buildLedger({ worker, attendance, payments }: LabourData): Ledge
       if (att.status === "present") {
         const dt = (att.day_type ?? "full") as DayType;
         const factor = DAY_TYPE_FACTOR[dt] ?? 1;
-        earned = factor * wage;
+        earned = earnedFor({ day_type: dt, wage: att.wage }, worker, DAY_TYPE_FACTOR);
         dayType = DAY_TYPE_LABEL[dt] ?? "";
         summary.present += 1;
         summary.workUnits += factor;
@@ -239,7 +238,7 @@ export async function fetchLabourData(workers: LabourWorker[], range?: DateRange
   if (workers.length === 0) return [];
   const ids = workers.map((w) => w.id);
   const [att, pay] = await Promise.all([
-    fetchAll<AttendanceRecord>("worker_attendance", "work_date, status, day_type, note", ids, range),
+    fetchAll<AttendanceRecord>("worker_attendance", "work_date, status, day_type, wage, note", ids, range),
     fetchAll<PaymentRecord>("worker_payments", "amount, note, paid_at", ids, range),
   ]);
   return workers.map((worker) => ({
@@ -285,14 +284,14 @@ export async function buildLabourXlsx(data: LabourData[], range?: DateRange): Pr
     { key: "name", width: 26 },
     { key: "sheet", width: 26 },
     { key: "phone", width: 16 },
-    { key: "wage", width: 14 },
+    { key: "wage", width: 46 },
     { key: "present", width: 14 },
     { key: "earned", width: 16 },
     { key: "paid", width: 16 },
     { key: "balance", width: 16 },
   ];
   const sHead = sum.getRow(3);
-  sHead.values = ["Labour", "Sheet", "Mobile", "Daily wage (₹)", "Days present", "Earned (₹)", "Paid (₹)", "Balance (₹)"];
+  sHead.values = ["Labour", "Sheet", "Mobile", "Wages", "Days present", "Earned (₹)", "Paid (₹)", "Balance (₹)"];
   headStyle(sHead);
 
   data.forEach((d, i) => {
@@ -301,7 +300,7 @@ export async function buildLabourXlsx(data: LabourData[], range?: DateRange): Pr
       d.worker.name,
       names[i],
       d.worker.phone ?? "",
-      Number(d.worker.daily_wage || 0),
+      wageSummary(d.worker),
       s.workUnits,
       s.earned,
       s.paid,
@@ -348,7 +347,7 @@ export async function buildLabourXlsx(data: LabourData[], range?: DateRange): Pr
 
     ws.mergeCells("A2:H2");
     ws.getCell("A2").value =
-      `${d.worker.phone ? `Mobile: ${d.worker.phone}   |   ` : ""}Daily wage: ₹${Number(d.worker.daily_wage || 0).toLocaleString("en-IN")}`;
+      `${d.worker.phone ? `Mobile: ${d.worker.phone}   |   ` : ""}Wages: ${wageSummary(d.worker)}`;
     ws.getCell("A2").font = { color: { argb: "FF444444" } };
 
     ws.mergeCells("A3:H3");
@@ -476,7 +475,7 @@ export async function buildLabourPdf(data: LabourData[], range?: DateRange) {
     doc.setFontSize(9);
     doc.setTextColor(90);
     doc.text(
-      `${d.worker.phone ? `Mobile: ${d.worker.phone}  |  ` : ""}Daily wage: ${rs(d.worker.daily_wage)}`,
+      `${d.worker.phone ? `Mobile: ${d.worker.phone}  |  ` : ""}Wages: ${wageSummary(d.worker)}`,
       M,
       y + 10.5,
     );

@@ -41,6 +41,10 @@ interface UserRow {
   role: UserRole;
   active: boolean;
   daily_wage: number | string | null;
+  wage_day?: number | string | null;
+  wage_half?: number | string | null;
+  wage_full_ot?: number | string | null;
+  wage_ot?: number | string | null;
   notes: string | null;
   last_seen_at: string | null;
 }
@@ -59,7 +63,10 @@ const emptyForm = (businessId = "") => ({
   email: "",
   username: "",
   role: "admin" as UserRole,
-  daily_wage: "" as string | number,
+  wage_full_ot: "" as string | number,
+  wage_day: "" as string | number,
+  wage_half: "" as string | number,
+  wage_ot: "" as string | number,
   notes: "",
 });
 
@@ -97,7 +104,7 @@ function PlatformUsers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("workers")
-        .select("id, business_id, name, phone, email, username, role, active, daily_wage, notes, last_seen_at")
+        .select("id, business_id, name, phone, email, username, role, active, daily_wage, wage_day, wage_half, wage_full_ot, wage_ot, notes, last_seen_at")
         .order("name");
       if (error) throw error;
       return data as UserRow[];
@@ -143,6 +150,10 @@ function PlatformUsers() {
     username: u.username ?? "",
     role: u.role,
     daily_wage: Number(u.daily_wage) || 0,
+    wage_day: Number(u.wage_day) || 0,
+    wage_half: Number(u.wage_half) || 0,
+    wage_full_ot: Number(u.wage_full_ot) || 0,
+    wage_ot: Number(u.wage_ot) || 0,
     notes: u.notes,
     active,
   });
@@ -155,7 +166,11 @@ function PlatformUsers() {
         email: form.email.trim(),
         username: form.username.trim(),
         role: form.role,
-        daily_wage: form.role === "worker" ? Number(form.daily_wage) || 0 : 0,
+        daily_wage: form.role === "worker" ? Number(form.wage_day) || 0 : 0,
+        wage_day: form.role === "worker" ? Number(form.wage_day) || 0 : 0,
+        wage_half: form.role === "worker" ? Number(form.wage_half) || 0 : 0,
+        wage_full_ot: form.role === "worker" ? Number(form.wage_full_ot) || 0 : 0,
+        wage_ot: form.role === "worker" ? Number(form.wage_ot) || 0 : 0,
         notes: form.notes.trim() || null,
       };
       if (!payload.name) throw new Error("Name is required");
@@ -228,7 +243,10 @@ function PlatformUsers() {
       email: u.email ?? "",
       username: u.username ?? "",
       role: u.role,
-      daily_wage: u.daily_wage ?? "",
+      wage_full_ot: u.wage_full_ot ?? "",
+      wage_day: u.wage_day ?? "",
+      wage_half: u.wage_half ?? "",
+      wage_ot: u.wage_ot ?? "",
       notes: u.notes ?? "",
     });
     setOpen(true);
@@ -441,9 +459,26 @@ function PlatformUsers() {
               </div>
             </div>
             {form.role === "worker" && (
-              <div>
-                <Label>Daily wage</Label>
-                <Input type="number" min={0} value={form.daily_wage} onChange={(e) => setForm({ ...form, daily_wage: e.target.value })} />
+              <div className="space-y-1">
+                <Label>Wage per attendance type (₹)</Label>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Full day + OT</Label>
+                    <Input type="number" min={0} value={form.wage_full_ot} onChange={(e) => setForm({ ...form, wage_full_ot: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Day</Label>
+                    <Input type="number" min={0} value={form.wage_day} onChange={(e) => setForm({ ...form, wage_day: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Half day</Label>
+                    <Input type="number" min={0} value={form.wage_half} onChange={(e) => setForm({ ...form, wage_half: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">OT</Label>
+                    <Input type="number" min={0} value={form.wage_ot} onChange={(e) => setForm({ ...form, wage_ot: e.target.value })} />
+                  </div>
+                </div>
               </div>
             )}
             <div>

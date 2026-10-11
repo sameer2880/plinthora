@@ -85,7 +85,15 @@ export const updateUserFn = createServerFn({ method: "POST" })
         email: h.cleanEmail(data.email),
         username: h.cleanUsername(data.username),
         role,
-        daily_wage: role === "worker" ? data.daily_wage : 0,
+        ...(role === "worker"
+          ? {
+              // The three rates are the source of truth; daily_wage mirrors "Day" for older screens.
+              ...(data.wage_day !== undefined ? { wage_day: data.wage_day, daily_wage: data.wage_day } : { daily_wage: data.daily_wage }),
+              ...(data.wage_half !== undefined ? { wage_half: data.wage_half } : {}),
+              ...(data.wage_full_ot !== undefined ? { wage_full_ot: data.wage_full_ot } : {}),
+              ...(data.wage_ot !== undefined ? { wage_ot: data.wage_ot } : {}),
+            }
+          : { daily_wage: 0, wage_day: 0, wage_half: 0, wage_full_ot: 0, wage_ot: 0 }),
         notes: data.notes?.trim() || null,
         active,
         auth_user_id: authUserId,

@@ -36,6 +36,10 @@ export const userSchema = z.object({
   username: usernameSchema,
   role: z.enum(["worker", "manager", "admin"]),
   daily_wage: z.number().min(0).max(1_000_000).default(0),
+  wage_day: z.number().min(0).max(1_000_000).optional(),
+  wage_half: z.number().min(0).max(1_000_000).optional(),
+  wage_full_ot: z.number().min(0).max(1_000_000).optional(),
+  wage_ot: z.number().min(0).max(1_000_000).optional(),
   notes: z.string().max(2000).nullish(),
 });
 
@@ -69,4 +73,3 @@ export interface WorkerRow {
   active: boolean;
   auth_user_id: string | null;
 }
-

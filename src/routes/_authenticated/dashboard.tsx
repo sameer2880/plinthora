@@ -5,6 +5,7 @@ import { listRentals, type Rental } from "@/lib/rentals";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth/session";
 import { isFeatureEnabled } from "@/lib/features";
+import { earnedFor, hasNewRates, type DayType } from "@/lib/wages";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -705,25 +706,30 @@ type WorkerRow = {
   name: string;
   phone: string | null;
   daily_wage: number;
+  wage_day?: number;
+  wage_half?: number;
+  wage_full_ot?: number;
+  wage_ot?: number;
   active: boolean;
 };
 
 type AttendanceStatus = "present" | "absent" | "holiday";
-type AttendanceDayType = "full" | "half" | "ot";
+type AttendanceDayType = DayType;
 type AttendanceRow = {
   worker_id: string;
   work_date: string;
   status: AttendanceStatus;
   day_type: AttendanceDayType;
+  wage?: number | null;
 };
 
-/** A present day pays this multiple of the worker's daily wage. */
-const DAY_MULTIPLIER: Record<AttendanceDayType, number> = { full: 1, half: 0.5, ot: 1.5 };
+/** OLD marks (no stored wage) pay this multiple of the worker's daily wage. */
+const DAY_MULTIPLIER: Record<AttendanceDayType, number> = { full: 1, half: 0.5, ot: 1.5, ot_only: 0 };
 
 async function listWorkers(): Promise<WorkerRow[]> {
   const { data, error } = await supabase
     .from("workers")
-    .select("id, name, phone, daily_wage, active")
+    .select("id, name, phone, daily_wage, wage_day, wage_half, wage_full_ot, wage_ot, active")
     .eq("role", "worker")
     .order("name");
   if (error) throw error;
@@ -737,7 +743,7 @@ async function fetchAttendanceRange(start: string, end: string): Promise<Attenda
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("worker_attendance")
-      .select("worker_id, work_date, status, day_type")
+      .select("worker_id, work_date, status, day_type, wage")
       .gte("work_date", start)
       .lte("work_date", end)
       .range(from, from + PAGE - 1);
@@ -799,7 +805,7 @@ function WorkerDashboard() {
   const [hovered, setHovered] = useState<number | null>(null);
 
   const workerIds = new Set(workers.map((w) => w.id));
-  const wageByWorker = new Map(workers.map((w) => [w.id, Number(w.daily_wage || 0)]));
+  const workerById = new Map(workers.map((w) => [w.id, w]));
   const activeWorkers = workers.filter((w) => w.active);
 
   const todayRows = attendance.filter((r) => r.work_date === today && workerIds.has(r.worker_id));
@@ -823,7 +829,7 @@ function WorkerDashboard() {
     });
     const presentRows = rows.filter((r) => r.status === "present");
     const payroll = presentRows.reduce(
-      (s, r) => s + (wageByWorker.get(r.worker_id) ?? 0) * DAY_MULTIPLIER[r.day_type],
+      (s, r) => s + earnedFor(r, workerById.get(r.worker_id), DAY_MULTIPLIER),
       0,
     );
     return { label: d.toLocaleString("en", { month: "short" }), present: presentRows.length, payroll };
@@ -1127,7 +1133,7 @@ function WorkerDashboard() {
                     </div>
                     <div className="mt-2 flex items-center justify-between text-fluid-sm">
                       <span className="text-muted-foreground">
-                        ₹{Number(w.daily_wage).toLocaleString("en-IN")}/day
+                        ₹{Number(hasNewRates(w) ? w.wage_day : w.daily_wage).toLocaleString("en-IN")}/day
                       </span>
                       <span className={w.active ? "text-success" : "text-muted-foreground"}>
                         {w.active ? "Active" : "Inactive"}
@@ -1144,7 +1150,7 @@ function WorkerDashboard() {
                       <TableHead className="text-xs font-normal text-muted-foreground">Name</TableHead>
                       <TableHead className="text-xs font-normal text-muted-foreground">Phone</TableHead>
                       <TableHead className="text-xs font-normal text-muted-foreground">Status</TableHead>
-                      <TableHead className="text-right text-xs font-normal text-muted-foreground">Daily Wage</TableHead>
+                      <TableHead className="text-right text-xs font-normal text-muted-foreground">Day Wage</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1184,7 +1190,7 @@ function WorkerDashboard() {
                         </TableCell>
                         <TableCell className="text-right">
                           <p className="whitespace-nowrap text-sm font-semibold">
-                            ₹{Number(w.daily_wage).toLocaleString("en-IN")}
+                            ₹{Number(hasNewRates(w) ? w.wage_day : w.daily_wage).toLocaleString("en-IN")}
                           </p>
                         </TableCell>
                       </TableRow>

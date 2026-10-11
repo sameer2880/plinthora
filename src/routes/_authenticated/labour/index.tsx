@@ -25,6 +25,7 @@ import {
   X,
   Eraser,
   Upload,
+  Wallet,
 } from "lucide-react";
 import { LabourExportDialog } from "@/components/LabourExportDialog";
 import { toast } from "sonner";
@@ -35,6 +36,7 @@ import { AdminOnly } from "@/components/AdminOnly";
 import { isMasterAdmin } from "@/lib/auth/access";
 import { cn } from "@/lib/utils";
 import { LoadingBlock } from "@/components/LoadingScreen";
+import { DAY_TYPE_LABEL, DAY_TYPE_ORDER, rateFor, wageSummary, wageToStore, type DayType } from "@/lib/wages";
 
 export const Route = createFileRoute("/_authenticated/labour/")({
   head: () => ({
@@ -59,6 +61,10 @@ export type Worker = {
   username: string | null;
   must_set_password: boolean;
   daily_wage: number;
+  wage_day: number;
+  wage_half: number;
+  wage_full_ot: number;
+  wage_ot: number;
   active: boolean;
   notes: string | null;
   created_at: string;
@@ -69,13 +75,13 @@ export type Worker = {
 /* ------------------------------------------------------------------ */
 
 type AttStatus = "present" | "absent" | "holiday";
-type DayType = "full" | "half" | "ot";
 type AttRow = {
   id: string;
   worker_id: string;
   work_date: string;
   status: AttStatus;
   day_type: DayType;
+  wage: number | null;
 };
 
 /** A staged (not yet uploaded) mark for one worker on one date. `null` means "clear this mark". */
@@ -104,7 +110,7 @@ async function fetchMonthAttendance(start: string, end: string): Promise<AttRow[
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("worker_attendance")
-      .select("id, worker_id, work_date, status, day_type")
+      .select("id, worker_id, work_date, status, day_type, wage")
       .gte("work_date", start)
       .lte("work_date", end)
       .order("work_date")
@@ -147,6 +153,27 @@ function MarkAttendanceDialog({
     queryFn: () => fetchMonthAttendance(monthStart, monthEnd),
     enabled: open,
   });
+
+  // Payments made with the "Mark payment" button this month: `${workerId}|${date}` -> payment
+  const { data: autoPayments = [] } = useQuery({
+    queryKey: ["auto_payments", monthStart],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("worker_payments")
+        .select("id, worker_id, amount, auto_work_date")
+        .not("auto_work_date", "is", null)
+        .gte("auto_work_date", monthStart)
+        .lte("auto_work_date", monthEnd);
+      if (error) throw error;
+      return (data ?? []) as unknown as { id: string; worker_id: string; amount: number; auto_work_date: string }[];
+    },
+    enabled: open,
+  });
+  const autoPayMap = useMemo(() => {
+    const m = new Map<string, { id: string; amount: number }>();
+    autoPayments.forEach((p) => m.set(`${p.worker_id}|${p.auto_work_date}`, { id: p.id, amount: Number(p.amount) }));
+    return m;
+  }, [autoPayments]);
 
   // date -> (workerId -> attendance row), only for the workers in this list
   const byDate = useMemo(() => {
@@ -225,17 +252,29 @@ function MarkAttendanceDialog({
         status: AttStatus;
         present: boolean;
         day_type: DayType;
+        wage: number | null;
       }[] = [];
       const deletes: Record<string, string[]> = {};
       Object.entries(draft).forEach(([date, day]) => {
         Object.entries(day).forEach(([workerId, entry]) => {
           if (entry) {
+            const day_type: DayType = entry.status === "present" ? entry.day_type : "full";
             upserts.push({
               worker_id: workerId,
               work_date: date,
               status: entry.status,
               present: entry.status === "present",
-              day_type: entry.status === "present" ? entry.day_type : "full",
+              day_type,
+              // The rate that applies today is stored with the mark, so a later rate change
+              // never rewrites this day. Old marks (wage null) keep the old calculation.
+              wage:
+                entry.status === "present"
+                  ? wageToStore(
+                      workers.find((w) => w.id === workerId),
+                      day_type,
+                      byDate.get(date)?.get(workerId) ?? null,
+                    )
+                  : null,
             });
           } else {
             (deletes[date] ??= []).push(workerId);
@@ -266,8 +305,83 @@ function MarkAttendanceDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * "Mark payment": saves this worker's attendance for the date (if it has not been uploaded yet)
+   * and records that day's wage as a payment — no manual amount. Pressing it again for the same
+   * day updates that same payment instead of adding a second one.
+   */
+  const markPayment = useMutation({
+    mutationFn: async (workerId: string) => {
+      const date = selectedDate;
+      const worker = workers.find((w) => w.id === workerId);
+      const entry = effective(date, workerId);
+      if (!worker || !entry || entry.status !== "present") throw new Error("Mark the worker present first");
+
+      const saved = byDate.get(date)?.get(workerId) ?? null;
+      const wage = wageToStore(worker, entry.day_type, saved);
+      const amount = wage ?? rateFor(worker, entry.day_type);
+      if (!amount || amount <= 0) {
+        throw new Error(`No ${DAY_TYPE_LABEL[entry.day_type]} wage set for ${worker.name}. Set it in Manage Users.`);
+      }
+
+      // 1. Make sure the attendance itself is saved with this rate.
+      const staged = !!draft[date] && workerId in draft[date];
+      if (staged || !saved) {
+        const { error } = await supabase.from("worker_attendance").upsert(
+          {
+            worker_id: workerId,
+            work_date: date,
+            status: "present",
+            present: true,
+            day_type: entry.day_type,
+            wage: amount,
+          },
+          { onConflict: "worker_id,work_date" },
+        );
+        if (error) throw error;
+      }
+
+      // 2. Create (or refresh) the payment for that day.
+      const label = `${DAY_TYPE_LABEL[entry.day_type]} wage`;
+      const existing = autoPayMap.get(`${workerId}|${date}`);
+      if (existing) {
+        const { error } = await supabase
+          .from("worker_payments")
+          .update({ amount, note: label })
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const paidAt = new Date(dayStart(date).setHours(10, 0, 0, 0)).toISOString();
+        const { error } = await supabase.from("worker_payments").insert({
+          worker_id: workerId,
+          amount,
+          note: label,
+          paid_at: paidAt,
+          auto_work_date: date,
+        });
+        if (error) throw error;
+      }
+      return { name: worker.name, amount, updated: !!existing };
+    },
+    onSuccess: ({ name, amount, updated }, workerId) => {
+      setDraft((prev) => {
+        const day = { ...(prev[selectedDate] ?? {}) };
+        delete day[workerId];
+        const next = { ...prev };
+        if (Object.keys(day).length > 0) next[selectedDate] = day;
+        else delete next[selectedDate];
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ["auto_payments"] });
+      qc.invalidateQueries({ queryKey: ["worker_payments"] });
+      refresh();
+      toast.success(`${updated ? "Payment updated" : "Payment added"}: ${name} ₹${amount.toLocaleString("en-IN")}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const holidayAll = isHolidayForAll(selectedDate);
-  const busy = upload.isPending;
+  const busy = upload.isPending || markPayment.isPending;
   const hasSavedForDate = workers.some((w) => savedOf(selectedDate, w.id));
   const uploadLabel = hasSavedForDate ? "Update" : "Upload";
 
@@ -485,13 +599,44 @@ function MarkAttendanceDialog({
                           {st === "holiday"
                             ? "Holiday"
                             : st === "present"
-                              ? `Present · ${dt === "full" ? "Full day" : dt === "half" ? "Half day" : "Overtime (OT)"}`
+                              ? `Present · ${DAY_TYPE_LABEL[dt]}`
                               : st === "absent"
                                 ? "Absent"
                                 : "Not marked"}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {st === "present" && (() => {
+                          const paid = autoPayMap.get(`${w.id}|${selectedDate}`);
+                          const amount = rateFor(w, dt);
+                          const changed = !!paid && paid.amount !== amount && amount > 0;
+                          return (
+                            <Button
+                              size="sm"
+                              variant={paid && !changed ? "secondary" : "outline"}
+                              className={cn(
+                                "border-primary/40 text-primary",
+                                paid && !changed && "bg-success/15 text-success border-success/30",
+                              )}
+                              disabled={busy}
+                              onClick={() => markPayment.mutate(w.id)}
+                              title={
+                                paid
+                                  ? changed
+                                    ? `Paid ₹${paid.amount.toLocaleString("en-IN")} — tap to update to ₹${amount.toLocaleString("en-IN")}`
+                                    : "Payment already added for this day"
+                                  : `Add ₹${amount.toLocaleString("en-IN")} (${DAY_TYPE_LABEL[dt]}) as a payment`
+                              }
+                            >
+                              {paid && !changed ? (
+                                <Check className="h-4 w-4 mr-1" strokeWidth={3} />
+                              ) : (
+                                <Wallet className="h-4 w-4 mr-1" />
+                              )}
+                              {paid ? (changed ? "Update payment" : `Paid ₹${paid.amount.toLocaleString("en-IN")}`) : "Mark payment"}
+                            </Button>
+                          );
+                        })()}
                         <Button
                           size="sm"
                           variant={st === "present" ? "default" : "outline"}
@@ -529,8 +674,8 @@ function MarkAttendanceDialog({
                     </div>
 
                     {st === "present" && (
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {(["full", "half", "ot"] as DayType[]).map((d) => (
+                      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                        {DAY_TYPE_ORDER.map((d) => (
                           <Button
                             key={d}
                             size="sm"
@@ -538,7 +683,7 @@ function MarkAttendanceDialog({
                             disabled={busy}
                             onClick={() => stage([{ worker_id: w.id, entry: { status: "present", day_type: d } }])}
                           >
-                            {d === "full" ? "Full day" : d === "half" ? "Half day" : "OT"}
+                            {DAY_TYPE_LABEL[d]}
                           </Button>
                         ))}
                       </div>
@@ -635,7 +780,7 @@ function LabourList() {
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold truncate">{w.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {w.phone ? `${w.phone} · ` : ""}₹{Number(w.daily_wage).toLocaleString("en-IN")}/day
+                    {w.phone ? `${w.phone} · ` : ""}{wageSummary(w)}
                     {!w.active && " · Login disabled"}
                   </div>
                   {w.notes && <div className="text-xs text-muted-foreground truncate mt-0.5">{w.notes}</div>}

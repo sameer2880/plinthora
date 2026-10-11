@@ -33,6 +33,7 @@ import { LabourExportDialog } from "@/components/LabourExportDialog";
 import { AdminOnly } from "@/components/AdminOnly";
 import type { Worker } from "./index";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { DAY_TYPE_LABEL, DAY_TYPE_ORDER, earnedFor, wageSummary, wageToStore, type DayType } from "@/lib/wages";
 
 export const Route = createFileRoute("/_authenticated/labour/$id")({
   head: () => ({
@@ -71,13 +72,13 @@ function LabourWorkerRoute() {
 }
 
 type AttStatus = "present" | "absent" | "holiday";
-type DayType = "full" | "half" | "ot";
 type Attendance = {
   id: string;
   work_date: string;
   present: boolean;
   status: AttStatus;
   day_type: DayType;
+  wage: number | null;
   note: string | null;
 };
 type Payment = { id: string; amount: number; note: string | null; paid_at: string };
@@ -108,13 +109,9 @@ const STATUS_LABEL: Record<AttStatus, string> = {
   absent: "Absent",
   holiday: "Holiday",
 };
-const DAY_TYPE_LABEL: Record<DayType, string> = {
-  full: "Full day",
-  half: "Half day",
-  ot: "Overtime (OT)",
-};
-const DAY_TYPE_SHORT: Record<DayType, string> = { full: "", half: "½", ot: "OT" };
-const DAY_TYPE_FACTOR: Record<DayType, number> = { full: 1, half: 0.5, ot: 0.25 };
+const DAY_TYPE_SHORT: Record<DayType, string> = { full: "", half: "½", ot: "+OT", ot_only: "OT" };
+/** How OLD marks (saved before per-type rates, no stored wage) were calculated: daily wage x factor. */
+const DAY_TYPE_FACTOR: Record<DayType, number> = { full: 1, half: 0.5, ot: 0.25, ot_only: 0 };
 
 export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?: boolean }) {
   const qc = useQueryClient();
@@ -274,11 +271,6 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
   const otDays = monthKeys.filter(
     (k) => statusOf(k) === "present" && attMap.get(k)?.day_type === "ot",
   ).length;
-  const workUnits = monthKeys.reduce(
-    (s, k) =>
-      statusOf(k) === "present" ? s + DAY_TYPE_FACTOR[attMap.get(k)?.day_type ?? "full"] : s,
-    0,
-  );
 
   const monthPayments = payments.filter((p) => {
     const d = new Date(p.paid_at);
@@ -286,7 +278,11 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
   });
   const monthPaid = monthPayments.reduce((s, p) => s + Number(p.amount), 0);
   const totalPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
-  const earned = workUnits * Number(worker?.daily_wage ?? 0);
+  // New marks use the rate stored with them; old marks keep the old daily-wage calculation.
+  const earned = monthKeys.reduce((s, k) => {
+    const a = attMap.get(k);
+    return a && a.status === "present" ? s + earnedFor(a, worker, DAY_TYPE_FACTOR) : s;
+  }, 0);
 
   const dayPayments = payments.filter((p) => ymd(new Date(p.paid_at)) === selectedDate);
   const dayAtt = attMap.get(selectedDate);
@@ -339,6 +335,10 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
             status: effStatus,
             present: effStatus === "present",
             day_type: effStatus === "present" ? effDayType : "full",
+            wage:
+              effStatus === "present"
+                ? wageToStore(worker, effDayType, existing ? { day_type: existing.day_type, wage: existing.wage } : null)
+                : null,
             note: effNote,
           };
           if (existing) {
@@ -475,8 +475,8 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-xl font-bold sm:text-2xl">{worker?.name ?? "Worker"}</h2>
           <p className="text-sm text-muted-foreground">
-            {worker?.phone ? `${worker.phone} · ` : ""}₹
-            {Number(worker?.daily_wage ?? 0).toLocaleString("en-IN")}/day
+            {worker?.phone ? `${worker.phone} · ` : ""}
+            {worker ? wageSummary(worker) : ""}
           </p>
         </div>
         {!readOnly && (
@@ -729,8 +729,8 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                   {effStatus === "present" && (
                     <div className="space-y-2 pt-1">
                       <Label className="text-xs text-muted-foreground">How long did he work?</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(["full", "half", "ot"] as DayType[]).map((d) => (
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {DAY_TYPE_ORDER.map((d) => (
                           <Button
                             key={d}
                             size="sm"
@@ -738,7 +738,7 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
                             onClick={() => setDraftAtt({ status: "present", dayType: d })}
                             disabled={uploadDay.isPending}
                           >
-                            {d === "ot" ? "OT" : d === "half" ? "Half day" : "Full day"}
+                            {DAY_TYPE_LABEL[d]}
                           </Button>
                         ))}
                       </div>

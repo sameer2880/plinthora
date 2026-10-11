@@ -118,6 +118,10 @@ export async function provisionUser(input: {
   username?: string | null;
   role: Role;
   daily_wage: number;
+  wage_day?: number;
+  wage_half?: number;
+  wage_full_ot?: number;
+  wage_ot?: number;
   notes?: string | null;
 }) {
   const admin = await adminClient();
@@ -142,7 +146,11 @@ export async function provisionUser(input: {
       email: cleanEmail(input.email),
       username: cleanUsername(input.username),
       role: input.role,
-      daily_wage: input.role === "worker" ? input.daily_wage : 0,
+      daily_wage: input.role === "worker" ? (input.wage_day ?? input.daily_wage) : 0,
+      wage_day: input.role === "worker" ? (input.wage_day ?? input.daily_wage) : 0,
+      wage_half: input.role === "worker" ? (input.wage_half ?? 0) : 0,
+      wage_full_ot: input.role === "worker" ? (input.wage_full_ot ?? 0) : 0,
+      wage_ot: input.role === "worker" ? (input.wage_ot ?? 0) : 0,
       notes: input.notes?.trim() || null,
       active: true,
       auth_user_id: created.user.id,

@@ -39,6 +39,7 @@ import type { UserRole } from "@/lib/auth/roles";
 import { isMasterAdmin, isManager } from "@/lib/auth/access";
 import { MOBILE_REGEX } from "@/lib/auth/identity";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { wageSummary } from "@/lib/wages";
 import { LoginLinkDialog } from "@/components/LoginLinkDialog";
 import {
   createUserFn,
@@ -77,7 +78,10 @@ const emptyForm = () => ({
   email: "",
   username: "",
   phone: "",
-  daily_wage: "" as string | number,
+  wage_full_ot: "" as string | number,
+  wage_day: "" as string | number,
+  wage_half: "" as string | number,
+  wage_ot: "" as string | number,
   notes: "",
   role: "worker" as UserRole,
 });
@@ -154,7 +158,11 @@ function ManageUsers() {
         email: form.email.trim(),
         username: form.username.trim(),
         phone: form.phone.trim(),
-        daily_wage: role === "worker" ? Number(form.daily_wage) || 0 : 0,
+        daily_wage: role === "worker" ? Number(form.wage_day) || 0 : 0,
+        wage_day: role === "worker" ? Number(form.wage_day) || 0 : 0,
+        wage_half: role === "worker" ? Number(form.wage_half) || 0 : 0,
+        wage_full_ot: role === "worker" ? Number(form.wage_full_ot) || 0 : 0,
+        wage_ot: role === "worker" ? Number(form.wage_ot) || 0 : 0,
         notes: form.notes.trim() || null,
         role,
       };
@@ -215,6 +223,10 @@ function ManageUsers() {
     email: user.email ?? "",
     role: user.role,
     daily_wage: Number(user.daily_wage) || 0,
+    wage_day: Number(user.wage_day) || 0,
+    wage_half: Number(user.wage_half) || 0,
+    wage_full_ot: Number(user.wage_full_ot) || 0,
+    wage_ot: Number(user.wage_ot) || 0,
     notes: user.notes,
     active,
   });
@@ -368,7 +380,7 @@ function ManageUsers() {
                           <div className="text-xs text-muted-foreground">
                             {u.email ? `${u.email} · ` : ""}
                             {u.phone ? `${u.phone} · ` : ""}
-                      {u.role === "worker" ? `₹${Number(u.daily_wage).toLocaleString("en-IN")}/day` : "Management access"}
+                      {u.role === "worker" ? wageSummary(u) : "Management access"}
                     </div>
                     {u.notes && <div className="text-xs text-muted-foreground truncate">{u.notes}</div>}
                   </div>
@@ -390,7 +402,10 @@ function ManageUsers() {
                             email: u.email ?? "",
                             username: u.username ?? "",
                             phone: u.phone ?? "",
-                            daily_wage: u.daily_wage,
+                            wage_full_ot: u.wage_full_ot ?? "",
+                            wage_day: u.wage_day ?? "",
+                            wage_half: u.wage_half ?? "",
+                            wage_ot: u.wage_ot ?? "",
                             notes: u.notes ?? "",
                             role: u.role,
                           });
@@ -547,14 +562,54 @@ function ManageUsers() {
                 )}
               </div>
               {(managerView || form.role === "worker") && (
-                <div>
-                  <Label>Daily wage (₹)</Label>
-                  <Input
-                    type="number"
-                    value={form.daily_wage}
-                    onChange={(e) => setForm({ ...form, daily_wage: e.target.value })}
-                    placeholder="0"
-                  />
+                <div className="col-span-2 space-y-2">
+                  <Label>Wage per attendance type (₹)</Label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Full day + OT</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={form.wage_full_ot}
+                        onChange={(e) => setForm({ ...form, wage_full_ot: e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Day</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={form.wage_day}
+                        onChange={(e) => setForm({ ...form, wage_day: e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Half day</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={form.wage_half}
+                        onChange={(e) => setForm({ ...form, wage_half: e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">OT</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={form.wage_ot}
+                        onChange={(e) => setForm({ ...form, wage_ot: e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Used by “Mark payment” in Mark Attendance. Changing a rate only affects attendance
+                    marked from now on.
+                  </p>
                 </div>
               )}
             </div>
