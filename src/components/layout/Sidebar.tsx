@@ -38,7 +38,8 @@ import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { WorkerLocationToggle } from "@/components/WorkerLocationToggle";
 import { BrandLogo } from "@/components/BrandLogo";
 import { AppCredit } from "@/components/AppCredit";
-import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useSwipeNav } from "@/hooks/use-swipe-nav";
 import { cn } from "@/lib/utils";
 import { useDeviceType } from "@/hooks/use-device";
 import { lock } from "@/lib/auth/lock";
@@ -1204,6 +1205,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
   // sidebar already lists everything, so there is no "More" surface.
   const deviceType = useDeviceType();
 
+  // Phone: swipe right-to-left / left-to-right to move to the next / previous page.
+  const mainRef = useRef<HTMLElement | null>(null);
+  const { links: swipeLinks, worker: isWorkerUser } = useNavLinks();
+  useSwipeNav({
+    enabled: deviceType === "mobile" && !isWorkerUser && !mobileMoreOpen,
+    pages: swipeLinks.map((l) => l.to as string),
+    currentPath: routePath,
+    targetRef: mainRef,
+  });
+
   // Desktop sidebar: expanded (labelled) vs collapsed (icon-only). Remembered
   // across visits. `sidebarAnimate` stays false for the first frame so a saved
   // "collapsed" state is applied instantly instead of animating on page load.
@@ -1389,6 +1400,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
            ======================================== */}
 
         <main
+          ref={mainRef}
           className="page-pad shell-content-offset flex-1 overflow-x-hidden"
         >
           {/* Keyed by path: each page fades in softly instead of snapping. */}
