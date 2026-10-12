@@ -8,8 +8,7 @@ const A4_WIDTH_PX = 794;
  *
  * The page is laid out at full A4 width (so it looks exactly like the printed receipt on
  * every device) and then scaled down to the width available, keeping the A4 proportions.
- * On a phone the person sees the whole receipt at once, like a PDF page, and can pinch to
- * zoom in. On larger screens it stays at its natural size. Printing ignores the scaling.
+ * On a phone the person sees the whole receipt at once, like a PDF page. On larger screens it stays at its natural size. Printing ignores the scaling.
  */
 export function A4Sheet({ children }: { children: ReactNode }) {
   const outerRef = useRef<HTMLDivElement>(null);
@@ -62,11 +61,6 @@ export function A4Sheet({ children }: { children: ReactNode }) {
           {children}
         </div>
       </div>
-      {scale < 0.85 && (
-        <p className="mt-3 text-center text-xs text-muted-foreground print:hidden">
-          Pinch to zoom in on the receipt
-        </p>
-      )}
     </div>
   );
 }
