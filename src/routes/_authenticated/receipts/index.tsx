@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listRentals, groupRentals, buildGroupReceiptMessage } from "@/lib/rentals";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Printer, Layers, MessageCircle } from "lucide-react";
+import { Printer, Layers, Share2 } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { WhatsAppPreviewDialog, type WhatsAppPreview } from "@/components/WhatsAppPreviewDialog";
 
@@ -74,8 +74,8 @@ function ReceiptsList() {
                     }
                     className="bg-[#25D366] text-white hover:bg-[#1ebe5b]"
                   >
-                    <MessageCircle className="h-3.5 w-3.5 mr-1" />
-                    Send on WhatsApp
+                    <Share2 className="h-3.5 w-3.5 mr-1" />
+                    Share
                   </Button>
                 </div>
               </div>
