@@ -1208,9 +1208,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
   // Phone: swipe right-to-left / left-to-right to move to the next / previous page.
   const mainRef = useRef<HTMLElement | null>(null);
   const { links: swipeLinks, worker: isWorkerUser } = useNavLinks();
+  // Same order as the phone bottom bar: its tabs left to right, then the pages
+  // under "More" in the order they are listed there.
+  const swipeTabs = swipeLinks.filter((l) => l.primary).slice(0, 4);
+  const swipeOrder = [
+    ...swipeTabs,
+    ...swipeLinks.filter((l) => !swipeTabs.includes(l)),
+  ];
   useSwipeNav({
     enabled: deviceType === "mobile" && !isWorkerUser && !mobileMoreOpen,
-    pages: swipeLinks.map((l) => l.to as string),
+    pages: swipeOrder.map((l) => l.to as string),
     currentPath: routePath,
     targetRef: mainRef,
   });
