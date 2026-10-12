@@ -39,7 +39,6 @@ import type { UserRole } from "@/lib/auth/roles";
 import { isMasterAdmin, isManager } from "@/lib/auth/access";
 import { MOBILE_REGEX } from "@/lib/auth/identity";
 import { PLATFORM_NAME } from "@/lib/brand";
-import { wageSummary } from "@/lib/wages";
 import { LoginLinkDialog } from "@/components/LoginLinkDialog";
 import {
   createUserFn,
@@ -412,9 +411,7 @@ function ManageUsers() {
                       )}
                     </div>
                           <div className="text-xs text-muted-foreground">
-                            {u.email ? `${u.email} · ` : ""}
-                            {u.phone ? `${u.phone} · ` : ""}
-                      {u.role === "worker" ? wageSummary(u) : "Management access"}
+                    {[u.email, u.phone].filter(Boolean).join(" · ") || "No mobile number"}
                     </div>
                     {u.notes && <div className="text-xs text-muted-foreground truncate">{u.notes}</div>}
                   </div>
