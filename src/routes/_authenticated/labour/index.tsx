@@ -38,7 +38,7 @@ import { AdminOnly } from "@/components/AdminOnly";
 import { isMasterAdmin } from "@/lib/auth/access";
 import { cn } from "@/lib/utils";
 import { LoadingBlock } from "@/components/LoadingScreen";
-import { DAY_TYPE_LABEL, DAY_TYPE_ORDER, rateFor, wageToStore, type DayType } from "@/lib/wages";
+import { DAY_TYPE_LABEL, DAY_TYPE_ORDER, rateFor, wageSummary, wageToStore, type DayType } from "@/lib/wages";
 
 export const Route = createFileRoute("/_authenticated/labour/")({
   head: () => ({
@@ -786,7 +786,7 @@ function LabourList() {
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold truncate">{w.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {w.phone || "No mobile number"}
+                    {w.phone ? `${w.phone} · ` : ""}{wageSummary(w)}
                     {!w.active && " · Login disabled"}
                   </div>
                   {w.notes && <div className="text-xs text-muted-foreground truncate mt-0.5">{w.notes}</div>}
