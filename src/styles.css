@@ -1523,3 +1523,92 @@ html.native-app * {
       inset 0 1.5px 0 rgb(255 255 255 / 18%);
   }
 }
+
+/* ============================================================
+   PHONE DIALOGS, FORMS AND LOADING SCREEN
+   Phones only (<768px). Every popup (Manage my account, forms, rental form,
+   mark attendance, sign out, "already signed in elsewhere", side sheet...)
+   is a Radix dialog, so one rule covers them all: the same green wave
+   background and glass / bubble look as the cards and the nav.
+   The "More" sheet is skipped (it draws its own panel).
+   ============================================================ */
+@media (max-width: 767px) {
+  [role="dialog"]:not(.more-sheet),
+  [role="alertdialog"] {
+    background-color: #eef6e6;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    background-image:
+      radial-gradient(circle 90px at 30px 30px, rgb(255 255 255 / 70%) 0 99%, transparent 100%),
+      radial-gradient(circle 100px at 30px 30px, rgb(122 181 88 / 12%) 0 99%, transparent 100%),
+      radial-gradient(circle 110px at calc(100% - 50px) calc(100% - 40px), rgb(122 181 88 / 20%) 0 99%, transparent 100%),
+      radial-gradient(circle 260px at 0 0, rgb(122 181 88 / 18%), transparent 70%),
+      var(--phone-wave);
+    border-color: rgb(255 255 255 / 85%);
+    box-shadow:
+      0 24px 50px -16px rgb(22 38 28 / 40%),
+      inset 0 1.5px 0 rgb(255 255 255 / 95%),
+      inset 0 0 0 1px rgb(255 255 255 / 35%);
+  }
+
+  .dark [role="dialog"]:not(.more-sheet),
+  .dark [role="alertdialog"] {
+    background-color: #0a130d;
+    background-image:
+      radial-gradient(circle 90px at 30px 30px, rgb(255 255 255 / 7%) 0 99%, transparent 100%),
+      radial-gradient(circle 100px at 30px 30px, rgb(122 181 88 / 8%) 0 99%, transparent 100%),
+      radial-gradient(circle 110px at calc(100% - 50px) calc(100% - 40px), rgb(122 181 88 / 14%) 0 99%, transparent 100%),
+      radial-gradient(circle 260px at 0 0, rgb(122 181 88 / 14%), transparent 70%),
+      var(--phone-wave-dark);
+    border-color: rgb(255 255 255 / 14%);
+    box-shadow:
+      0 24px 50px -16px rgb(0 0 0 / 75%),
+      inset 0 1.5px 0 rgb(255 255 255 / 14%);
+  }
+
+  /* Form fields and buttons inside popups = glass bubbles */
+  [role="dialog"]:not(.more-sheet) :is(input:not([type="checkbox"]):not([type="radio"]), textarea, button[role="combobox"]),
+  [role="alertdialog"] :is(input:not([type="checkbox"]):not([type="radio"]), textarea, button[role="combobox"]),
+  [role="dialog"]:not(.more-sheet) button.bg-background,
+  [role="alertdialog"] button.bg-background {
+    background-color: rgb(255 255 255 / 55%);
+    border-color: rgb(255 255 255 / 85%);
+    box-shadow:
+      0 6px 16px -10px rgb(45 85 35 / 30%),
+      inset 0 1.5px 0 rgb(255 255 255 / 95%);
+  }
+
+  .dark [role="dialog"]:not(.more-sheet) :is(input:not([type="checkbox"]):not([type="radio"]), textarea, button[role="combobox"]),
+  .dark [role="alertdialog"] :is(input:not([type="checkbox"]):not([type="radio"]), textarea, button[role="combobox"]),
+  .dark [role="dialog"]:not(.more-sheet) button.bg-background,
+  .dark [role="alertdialog"] button.bg-background {
+    background-color: rgb(32 52 38 / 55%);
+    border-color: rgb(255 255 255 / 14%);
+    box-shadow: inset 0 1.5px 0 rgb(255 255 255 / 12%);
+  }
+
+  /* Loading screens: the same green wave background instead of a flat colour */
+  [role="status"].bg-background {
+    background-color: #eef6e6;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    background-image:
+      radial-gradient(circle 112px at 48px 48px, rgb(255 255 255 / 70%) 0 99%, transparent 100%),
+      radial-gradient(circle 124px at 48px 48px, rgb(122 181 88 / 12%) 0 99%, transparent 100%),
+      radial-gradient(circle 128px at calc(100% - 64px) calc(100% - 48px), rgb(122 181 88 / 22%) 0 99%, transparent 100%),
+      radial-gradient(circle 300px at 0 0, rgb(122 181 88 / 20%), transparent 70%),
+      radial-gradient(circle 320px at 100% 100%, rgb(122 181 88 / 15%), transparent 70%),
+      var(--phone-wave);
+  }
+
+  .dark [role="status"].bg-background {
+    background-color: #0a130d;
+    background-image:
+      radial-gradient(circle 112px at 48px 48px, rgb(255 255 255 / 7%) 0 99%, transparent 100%),
+      radial-gradient(circle 124px at 48px 48px, rgb(122 181 88 / 8%) 0 99%, transparent 100%),
+      radial-gradient(circle 128px at calc(100% - 64px) calc(100% - 48px), rgb(122 181 88 / 14%) 0 99%, transparent 100%),
+      radial-gradient(circle 300px at 0 0, rgb(122 181 88 / 16%), transparent 70%),
+      radial-gradient(circle 320px at 100% 100%, rgb(122 181 88 / 12%), transparent 70%),
+      var(--phone-wave-dark);
+  }
+}
