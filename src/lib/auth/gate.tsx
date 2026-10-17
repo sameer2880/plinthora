@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { WaveLines } from "@/components/WaveLines";
 import { ConnectionLostScreen } from "@/components/ConnectionLostScreen";
@@ -63,6 +63,11 @@ const EMPTY: SessionState = {
 
 const inputClass =
   "h-12 rounded-full border-border bg-background px-5 text-sm shadow-none dark:border-white/15 dark:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary/40";
+
+// Sign-in fields: round pill on tablet/desktop, soft raised field on phones.
+const loginInputClass =
+  inputClass +
+  " pl-11 max-md:h-14 max-md:rounded-2xl max-md:border-white/80 max-md:bg-white/80 max-md:text-[0.95rem] max-md:shadow-[0_6px_18px_-8px_rgb(79_122_61/35%),inset_0_1px_0_rgb(255_255_255/90%)] dark:max-md:border-white/10 dark:max-md:bg-white/[0.06]";
 
 /* ------------------------------------------------------------------ */
 /* Small page animations                                              */
@@ -887,7 +892,7 @@ export function Gate({
   /* ---------------------------------------------------------------- */
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#eef6e6] px-4 py-6 sm:px-6 md:py-10 dark:bg-[#0a130d]">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#eef6e6] px-4 py-6 max-md:items-stretch max-md:p-0 sm:px-6 md:py-10 dark:bg-[#0a130d]">
       <style>{PAGE_CSS}</style>
 
       {busy && !takeoverOpen && (
@@ -929,11 +934,25 @@ export function Gate({
         className="pointer-events-none absolute -bottom-40 -right-40 z-0 h-[30rem] w-[30rem] rounded-full bg-[#7ab558]/15 blur-[110px]"
       />
 
+      {/* Phone-only soft corner circles */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-16 -top-16 z-0 h-56 w-56 rounded-full bg-gradient-to-br from-white/80 to-[#cfe4bd]/60 shadow-[0_0_0_10px_rgb(122_181_88/10%)] dark:from-white/10 dark:to-[#7ab558]/10 md:hidden"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-14 top-[38%] z-0 h-28 w-28 rounded-full bg-gradient-to-br from-white/80 to-[#cfe4bd]/70 dark:from-white/10 dark:to-[#7ab558]/10 md:hidden"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-20 -right-16 z-0 h-64 w-64 rounded-full bg-gradient-to-tl from-[#7ab558]/30 to-white/40 dark:from-[#7ab558]/20 dark:to-transparent md:hidden"
+      />
+
       {/* ============================================================ */}
       {/* MAIN LOGIN CARD                                              */}
       {/* ============================================================ */}
 
-      <div className="relative z-10 flex w-full max-w-[420px] flex-col overflow-hidden rounded-[2rem] bg-card shadow-[0_24px_70px_-12px_rgb(16_48_92/18%)] ring-1 ring-black/5 dark:bg-[#141f16] dark:shadow-[0_24px_70px_-12px_rgb(0_0_0/65%)] dark:ring-1 dark:ring-white/10 md:max-w-[460px] split:max-w-[1000px] split:flex-row">
+      <div className="relative z-10 flex w-full max-w-[420px] flex-col overflow-hidden rounded-[2rem] bg-card shadow-[0_24px_70px_-12px_rgb(16_48_92/18%)] ring-1 ring-black/5 max-md:max-w-none max-md:rounded-none max-md:bg-transparent max-md:shadow-none max-md:ring-0 dark:bg-[#141f16] dark:shadow-[0_24px_70px_-12px_rgb(0_0_0/65%)] dark:ring-1 dark:ring-white/10 dark:max-md:bg-transparent dark:max-md:shadow-none dark:max-md:ring-0 md:max-w-[460px] split:max-w-[1000px] split:flex-row">
 
         {/* ======================================================== */}
         {/* ILLUSTRATION PANEL                                        */}
@@ -998,7 +1017,7 @@ export function Gate({
         {/* FORM PANEL                                                 */}
         {/* ======================================================== */}
 
-        <div className="relative flex w-full flex-1 items-center justify-center overflow-hidden px-6 py-10 sm:px-10 md:px-12 split:px-12 split:py-10">
+        <div className="relative flex w-full flex-1 items-center justify-center overflow-hidden px-7 py-10 max-md:pb-8 max-md:pt-[max(2.5rem,env(safe-area-inset-top))] sm:px-10 md:px-12 split:px-12 split:py-10">
 
           {/* Very subtle lines behind the form */}
 
@@ -1019,7 +1038,7 @@ export function Gate({
 
             {/* Logo */}
 
-            <div className="mb-8 flex items-center gap-2.5">
+            <div className="mb-8 flex items-center gap-2.5 max-md:hidden">
               <BrandLogo className="h-10 w-10" />
 
               <BrandWordmark className="h-5" />
@@ -1027,17 +1046,17 @@ export function Gate({
 
             {/* Mobile illustration */}
 
-            <div className="mx-auto mb-6 flex h-32 w-32 items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-[#eaf3e2] to-[#dbe9cd] dark:from-[#1c2c20] dark:to-[#12201a] dark:ring-1 dark:ring-white/10 split:hidden">
-              <LoginIllustration className="h-24 w-24" />
+            <div className="mx-auto mb-6 flex h-36 w-36 items-center justify-center rounded-[2.4rem] bg-gradient-to-br from-white to-[#e3efd6] shadow-[0_18px_40px_-14px_rgb(79_122_61/45%),inset_0_1px_0_rgb(255_255_255/90%)] ring-1 ring-white/80 dark:from-[#1c2c20] dark:to-[#12201a] dark:ring-white/10 split:hidden">
+              <LoginIllustration className="h-28 w-28" />
             </div>
 
             {/* Heading */}
 
-            <h1 className="text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
+            <h1 className="text-3xl font-bold leading-tight tracking-tight text-foreground max-md:text-center sm:text-4xl">
               Welcome back
             </h1>
 
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-muted-foreground max-md:text-center max-md:tracking-[0.2em]">
               Sign in to manage your records
             </p>
 
@@ -1047,20 +1066,30 @@ export function Gate({
               onSubmit={submit}
               className="mt-8 space-y-3.5"
             >
-              <Input
-                id="gate-username"
-                value={u}
-                onChange={(e) =>
-                  setU(e.target.value)
-                }
-                autoFocus
-                autoComplete="username"
-                inputMode="text"
-                placeholder="Mobile number, email or username"
-                className={inputClass}
-              />
+              <div className="relative">
+                <User
+                  aria-hidden
+                  className="pointer-events-none absolute left-4 top-1/2 z-10 h-[1.15rem] w-[1.15rem] -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  id="gate-username"
+                  value={u}
+                  onChange={(e) =>
+                    setU(e.target.value)
+                  }
+                  autoFocus
+                  autoComplete="username"
+                  inputMode="text"
+                  placeholder="Mobile number, email or username"
+                  className={loginInputClass}
+                />
+              </div>
 
               <div className="relative">
+                <Lock
+                  aria-hidden
+                  className="pointer-events-none absolute left-4 top-1/2 z-10 h-[1.15rem] w-[1.15rem] -translate-y-1/2 text-muted-foreground"
+                />
                 <Input
                   id="gate-password"
                   type={
@@ -1074,7 +1103,7 @@ export function Gate({
                   }
                   autoComplete="current-password"
                   placeholder="Password"
-                  className={`${inputClass} pr-12`}
+                  className={`${loginInputClass} pr-12`}
                 />
 
                 <button
@@ -1127,7 +1156,7 @@ export function Gate({
               <Button
                 type="submit"
                 disabled={busy}
-                className="h-12 w-full rounded-full text-sm font-semibold shadow-md shadow-primary/20 transition-transform active:scale-[0.99]"
+                className="relative h-12 w-full rounded-full text-sm font-semibold shadow-md shadow-primary/20 transition-transform active:scale-[0.99] max-md:h-14 max-md:rounded-2xl max-md:bg-gradient-to-r max-md:from-[#5d8f45] max-md:to-[#3f6a30] max-md:text-base max-md:text-white max-md:shadow-[0_14px_28px_-10px_rgb(63_106_48/75%)] dark:max-md:from-[#a8d977] dark:max-md:to-[#7ab558] dark:max-md:text-[#16281a]"
               >
                 {busy ? (
                   <span className="flex items-center justify-center gap-2">
@@ -1135,7 +1164,12 @@ export function Gate({
                     Please wait…
                   </span>
                 ) : (
-                  "Sign in"
+                  <>
+                    Sign in
+                    <span className="absolute right-3 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/25 max-md:flex">
+                      <ArrowRight className="h-4 w-4" />
+                    </span>
+                  </>
                 )}
               </Button>
             </form>
@@ -1155,13 +1189,13 @@ export function Gate({
                   variant="outline"
                   disabled={busy || googleBusy}
                   onClick={signInWithGoogle}
-                  className="mt-5 h-12 w-full rounded-full text-sm font-semibold"
+                  className="mt-5 h-12 w-full rounded-full text-sm font-semibold max-md:h-14 max-md:rounded-2xl max-md:border-white/80 max-md:bg-white/80 max-md:text-[0.95rem] max-md:shadow-[0_6px_18px_-8px_rgb(79_122_61/35%)] dark:max-md:border-white/10 dark:max-md:bg-white/[0.06]"
                 >
                   {googleBusy ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <>
-                      <svg viewBox="0 0 48 48" className="mr-2 h-4 w-4" aria-hidden>
+                      <svg viewBox="0 0 48 48" className="mr-2 h-4 w-4 max-md:mr-3 max-md:h-5 max-md:w-5" aria-hidden>
                         <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z" />
                         <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z" />
                         <path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z" />
