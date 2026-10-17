@@ -1017,7 +1017,7 @@ export function Gate({
         {/* FORM PANEL                                                 */}
         {/* ======================================================== */}
 
-        <div className="relative flex w-full flex-1 items-center justify-center overflow-hidden px-7 py-10 max-md:pb-8 max-md:pt-[max(2.5rem,env(safe-area-inset-top))] sm:px-10 md:px-12 split:px-12 split:py-10">
+        <div className="relative flex w-full flex-1 items-center justify-center overflow-hidden px-7 py-10 max-md:pb-8 max-md:pt-[calc(5rem+env(safe-area-inset-top))] sm:px-10 md:px-12 split:px-12 split:py-10">
 
           {/* Very subtle lines behind the form */}
 
@@ -1033,6 +1033,14 @@ export function Gate({
               opacity-[0.035]
             "
           />
+
+          {/* Phone: logo + Plinthora wordmark pinned to the top-left corner */}
+
+          <div className="absolute left-5 top-[max(1.25rem,env(safe-area-inset-top))] z-10 flex items-center gap-2.5 md:hidden">
+            <BrandLogo className="h-10 w-10" />
+
+            <BrandWordmark className="h-6" />
+          </div>
 
           <div className="relative z-10 w-full max-w-[360px]">
 
@@ -1262,7 +1270,7 @@ export function Gate({
           !open && resolveTakeover(false)
         }
       >
-        <DialogContent className="max-w-[400px] rounded-[1.5rem] sm:p-7">
+        <DialogContent className="takeover-dialog max-w-[400px] rounded-[1.5rem] sm:p-7">
           <DialogHeader>
             <DialogTitle>
               Already signed in elsewhere

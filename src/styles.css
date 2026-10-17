@@ -1612,3 +1612,45 @@ html.native-app * {
       var(--phone-wave-dark);
   }
 }
+
+/* ============================================================
+   TAKEOVER DIALOG ("Already signed in elsewhere" -> Log out & continue)
+   Explicit class (added in gate.tsx) so this popup always gets the phone
+   glass look; !important makes sure nothing else can override it.
+   ============================================================ */
+@media (max-width: 767px) {
+  [role="dialog"].takeover-dialog {
+    background-color: #eef6e6 !important;
+    background-repeat: no-repeat !important;
+    background-size: 100% 100% !important;
+    background-image:
+      radial-gradient(circle 90px at 30px 30px, rgb(255 255 255 / 70%) 0 99%, transparent 100%),
+      radial-gradient(circle 100px at 30px 30px, rgb(122 181 88 / 12%) 0 99%, transparent 100%),
+      radial-gradient(circle 110px at calc(100% - 50px) calc(100% - 40px), rgb(122 181 88 / 20%) 0 99%, transparent 100%),
+      radial-gradient(circle 260px at 0 0, rgb(122 181 88 / 18%), transparent 70%),
+      var(--phone-wave) !important;
+    border: 1px solid rgb(255 255 255 / 85%) !important;
+    box-shadow:
+      0 24px 50px -16px rgb(22 38 28 / 40%),
+      inset 0 1.5px 0 rgb(255 255 255 / 95%),
+      inset 0 0 0 1px rgb(255 255 255 / 35%) !important;
+  }
+
+  .dark [role="dialog"].takeover-dialog {
+    background-color: #0a130d !important;
+    background-image:
+      radial-gradient(circle 90px at 30px 30px, rgb(255 255 255 / 7%) 0 99%, transparent 100%),
+      radial-gradient(circle 100px at 30px 30px, rgb(122 181 88 / 8%) 0 99%, transparent 100%),
+      radial-gradient(circle 110px at calc(100% - 50px) calc(100% - 40px), rgb(122 181 88 / 14%) 0 99%, transparent 100%),
+      radial-gradient(circle 260px at 0 0, rgb(122 181 88 / 14%), transparent 70%),
+      var(--phone-wave-dark) !important;
+    border: 1px solid rgb(255 255 255 / 14%) !important;
+  }
+
+  /* its Cancel button = glass bubble */
+  [role="dialog"].takeover-dialog button[class*="border"]:not([class*="bg-primary"]) {
+    background-color: rgb(255 255 255 / 60%);
+    border-color: rgb(255 255 255 / 85%);
+    box-shadow: inset 0 1.5px 0 rgb(255 255 255 / 95%);
+  }
+}
