@@ -7,7 +7,8 @@ import { z } from "zod";
  *   1. requestResetOtpFn  — the person types their username / email / mobile. If that account has an
  *      email saved, a 6-digit code is emailed to it. The answer is ALWAYS the same, so nobody can
  *      find out which usernames or emails exist.
- *   2. confirmResetOtpFn  — the person enters the code and a new password.
+ *   2. verifyResetOtpFn   — the person enters the code; only a correct code moves on.
+ *   3. confirmResetOtpFn  — the person chooses a new password (the code is checked again here).
  *
  * Security notes
  *  - Public on purpose (nobody is signed in yet), so everything is checked here.
@@ -108,6 +109,51 @@ function passwordMessage(message: string) {
   return "Unable to set that password. Try a different one";
 }
 
+/**
+ * Checks the code for an account WITHOUT spending it. A wrong code counts as a try (5 max);
+ * every failure gives the same message. Used by both the "check code" and the "set password" steps,
+ * so the password step can never be reached with a wrong code.
+ */
+async function checkCode(identifier: string, code: string) {
+  const h = await import("./helpers.server");
+
+  const ip = h.clientIp();
+  if (!(await h.withinRateLimit(`otp-confirm:ip:${ip}`, 30, 900))) {
+    throw new Error("Too many attempts. Please wait a few minutes and try again.");
+  }
+
+  const account = await findAccount(identifier);
+  if (!account) throw new Error(GENERIC_BAD_CODE);
+
+  const admin = await h.adminClient();
+  const db = admin as unknown as Db;
+
+  const { data: row } = await db
+    .from("password_reset_otps")
+    .select("id, code_hash, attempts, expires_at")
+    .eq("auth_user_id", account.authUserId)
+    .is("consumed_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!row || new Date(row.expires_at as string).getTime() < Date.now() || (row.attempts as number) >= MAX_WRONG_TRIES) {
+    throw new Error(GENERIC_BAD_CODE);
+  }
+
+  const given = await h.hmacHex(`otp:${account.authUserId}:${code}`);
+  if (!safeEqual(given, row.code_hash as string)) {
+    const attempts = (row.attempts as number) + 1;
+    await db
+      .from("password_reset_otps")
+      .update({ attempts, ...(attempts >= MAX_WRONG_TRIES ? { consumed_at: new Date().toISOString() } : {}) })
+      .eq("id", row.id);
+    throw new Error(GENERIC_BAD_CODE);
+  }
+
+  return { account, rowId: row.id as string, admin, db, h };
+}
+
 /* ------------------------------------------------------------------ */
 /* Step 1 — send the code                                              */
 /* ------------------------------------------------------------------ */
@@ -177,55 +223,33 @@ export const requestResetOtpFn = createServerFn({ method: "POST" })
   });
 
 /* ------------------------------------------------------------------ */
-/* Step 2 — check the code and set the new password                    */
+/* Step 2 — check the code (nothing is changed yet)                    */
+/* ------------------------------------------------------------------ */
+const codeSchema = z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code");
+
+export const verifyResetOtpFn = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ identifier: identifierSchema, code: codeSchema }).parse(input))
+  .handler(async ({ data }) => {
+    await checkCode(data.identifier, data.code);
+    return { ok: true as const };
+  });
+
+/* ------------------------------------------------------------------ */
+/* Step 3 — set the new password (the code is checked again here)      */
 /* ------------------------------------------------------------------ */
 export const confirmResetOtpFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z
       .object({
         identifier: identifierSchema,
-        code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code"),
+        code: codeSchema,
         newPassword: z.string().min(1, "Enter a new password").max(72, "Password is too long"),
       })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const h = await import("./helpers.server");
     const { passwordProblem } = await import("@/lib/auth/password");
-
-    const ip = h.clientIp();
-    if (!(await h.withinRateLimit(`otp-confirm:ip:${ip}`, 30, 900))) {
-      throw new Error("Too many attempts. Please wait a few minutes and try again.");
-    }
-
-    const account = await findAccount(data.identifier);
-    if (!account) throw new Error(GENERIC_BAD_CODE);
-
-    const admin = await h.adminClient();
-    const db = admin as unknown as Db;
-
-    const { data: row } = await db
-      .from("password_reset_otps")
-      .select("id, code_hash, attempts, expires_at")
-      .eq("auth_user_id", account.authUserId)
-      .is("consumed_at", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!row || new Date(row.expires_at as string).getTime() < Date.now() || (row.attempts as number) >= MAX_WRONG_TRIES) {
-      throw new Error(GENERIC_BAD_CODE);
-    }
-
-    const given = await h.hmacHex(`otp:${account.authUserId}:${data.code}`);
-    if (!safeEqual(given, row.code_hash as string)) {
-      const attempts = (row.attempts as number) + 1;
-      await db
-        .from("password_reset_otps")
-        .update({ attempts, ...(attempts >= MAX_WRONG_TRIES ? { consumed_at: new Date().toISOString() } : {}) })
-        .eq("id", row.id);
-      throw new Error(GENERIC_BAD_CODE);
-    }
+    const { account, rowId, admin, db, h } = await checkCode(data.identifier, data.code);
 
     // The code is right. Check the new password before spending the code, so a weak password can be fixed and retried.
     const problem = passwordProblem(data.newPassword, { phone: account.phone });
@@ -235,7 +259,7 @@ export const confirmResetOtpFn = createServerFn({ method: "POST" })
     const { data: spent } = await db
       .from("password_reset_otps")
       .update({ consumed_at: new Date().toISOString() })
-      .eq("id", row.id)
+      .eq("id", rowId)
       .is("consumed_at", null)
       .select("id");
     if (!Array.isArray(spent) || spent.length !== 1) throw new Error(GENERIC_BAD_CODE);

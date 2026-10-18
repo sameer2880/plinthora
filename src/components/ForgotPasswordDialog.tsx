@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, KeyRound, Loader2, MailCheck } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Loader2, LockKeyhole, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { confirmResetOtpFn, requestResetOtpFn } from "@/lib/api/forgot-password.functions";
+import { confirmResetOtpFn, requestResetOtpFn, verifyResetOtpFn } from "@/lib/api/forgot-password.functions";
 import { passwordProblem } from "@/lib/auth/password";
 
 /**
  * "Forgot password?" on the sign-in page.
  *
  *   Step 1  type username / email / mobile  ->  a 6-digit code is emailed (if the account has an email saved)
- *   Step 2  type the code + a new password  ->  password changed, sign in as usual
+ *   Step 2  type the code                   ->  checked by the server; only a correct code moves on
+ *   Step 3  choose a new password           ->  password changed, sign in as usual
  *
  * The answer after step 1 is always the same, so it never reveals whether an account exists.
  * People with no email saved can still ask the admin for a reset link.
@@ -28,7 +29,7 @@ export function ForgotPasswordDialog({
   /** Opens the "Need access?" request form, pre-set to a password-help request. */
   onAskAdmin?: () => void;
 }) {
-  const [step, setStep] = useState<"identify" | "verify">("identify");
+  const [step, setStep] = useState<"identify" | "code" | "password">("identify");
   const [identifier, setIdentifier] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
@@ -69,11 +70,30 @@ export function ForgotPasswordDialog({
     setError("");
     try {
       await requestResetOtpFn({ data: { identifier: identifier.trim() } });
-      setStep("verify");
+      setStep("code");
       setCode("");
       setCooldown(60);
     } catch (e) {
       setError(messageOf(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyCode = async (value: string = code) => {
+    if (busy) return;
+    if (value.length !== 6) {
+      setError("Enter the 6-digit code from your email");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await verifyResetOtpFn({ data: { identifier: identifier.trim(), code: value } });
+      setStep("password");
+    } catch (e) {
+      setError(messageOf(e));
+      setCode("");
     } finally {
       setBusy(false);
     }
@@ -96,10 +116,6 @@ export function ForgotPasswordDialog({
   };
 
   const reset = async () => {
-    if (code.length !== 6) {
-      setError("Enter the 6-digit code from your email");
-      return;
-    }
     const problem = passwordProblem(password);
     if (problem) {
       setError(problem);
@@ -116,7 +132,15 @@ export function ForgotPasswordDialog({
       toast.success("Password changed. Sign in with your new password.");
       onOpenChange(false);
     } catch (e) {
-      setError(messageOf(e));
+      const message = messageOf(e);
+      if (/code is incorrect or has expired/i.test(message)) {
+        // The code ran out (or was used up) while they were typing: ask for it again.
+        setStep("code");
+        setCode("");
+        setPassword("");
+        setConfirm("");
+      }
+      setError(message);
     } finally {
       setBusy(false);
     }
@@ -127,13 +151,21 @@ export function ForgotPasswordDialog({
       <DialogContent className="max-w-[420px] rounded-[1.5rem] sm:p-7">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {step === "identify" ? <KeyRound className="h-5 w-5 text-primary" /> : <MailCheck className="h-5 w-5 text-primary" />}
-            {step === "identify" ? "Forgot your password?" : "Enter your code"}
+            {step === "identify" ? (
+              <KeyRound className="h-5 w-5 text-primary" />
+            ) : step === "code" ? (
+              <MailCheck className="h-5 w-5 text-primary" />
+            ) : (
+              <LockKeyhole className="h-5 w-5 text-primary" />
+            )}
+            {step === "identify" ? "Forgot your password?" : step === "code" ? "Enter your code" : "Choose a new password"}
           </DialogTitle>
           <DialogDescription>
             {step === "identify"
               ? "Enter your username, email or mobile number. If your account has an email saved, we'll send a 6-digit code to it."
-              : "If that account has an email saved, a 6-digit code was sent to it. It works for 10 minutes."}
+              : step === "code"
+                ? "If that account has an email saved, a 6-digit code was sent to it. It works for 10 minutes."
+                : "Code accepted. Now choose a new password for your account."}
           </DialogDescription>
         </DialogHeader>
 
@@ -170,17 +202,25 @@ export function ForgotPasswordDialog({
               </Button>
             </DialogFooter>
           </form>
-        ) : (
+        ) : step === "code" ? (
           <form
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              void reset();
+              void verifyCode();
             }}
           >
             <div className="space-y-2">
               <Label>6-digit code</Label>
-              <InputOTP maxLength={6} value={code} onChange={(v) => setCode(v.replace(/\D/g, ""))} inputMode="numeric" autoComplete="one-time-code" disabled={busy}>
+              <InputOTP
+                maxLength={6}
+                value={code}
+                onChange={(v) => setCode(v.replace(/\D/g, ""))}
+                onComplete={(v) => void verifyCode(v)}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                disabled={busy}
+              >
                 <InputOTPGroup>
                   {[0, 1, 2, 3, 4, 5].map((i) => (
                     <InputOTPSlot key={i} index={i} />
@@ -189,6 +229,36 @@ export function ForgotPasswordDialog({
               </InputOTP>
             </div>
 
+            {error && <p className="text-xs font-medium text-destructive">{error}</p>}
+
+            <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+              <Button type="button" variant="ghost" className="h-11 rounded-full font-semibold" onClick={resend} disabled={busy || cooldown > 0}>
+                {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
+              </Button>
+              <Button type="submit" className="h-11 rounded-full font-semibold" disabled={busy || code.length !== 6}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code"}
+              </Button>
+            </DialogFooter>
+            <button
+              type="button"
+              onClick={() => {
+                setStep("identify");
+                setError("");
+              }}
+              className="block w-full text-center text-xs font-semibold text-primary hover:underline"
+              disabled={busy}
+            >
+              Use a different account
+            </button>
+          </form>
+        ) : (
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void reset();
+            }}
+          >
             <div className="space-y-2">
               <Label htmlFor="fp-password">New password</Label>
               <div className="relative">
@@ -227,25 +297,11 @@ export function ForgotPasswordDialog({
 
             {error && <p className="text-xs font-medium text-destructive">{error}</p>}
 
-            <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-              <Button type="button" variant="ghost" className="h-11 rounded-full font-semibold" onClick={resend} disabled={busy || cooldown > 0}>
-                {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
-              </Button>
-              <Button type="submit" className="h-11 rounded-full font-semibold" disabled={busy}>
+            <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button type="submit" className="h-11 w-full rounded-full font-semibold sm:w-auto" disabled={busy}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Change password"}
               </Button>
             </DialogFooter>
-            <button
-              type="button"
-              onClick={() => {
-                setStep("identify");
-                setError("");
-              }}
-              className="block w-full text-center text-xs font-semibold text-primary hover:underline"
-              disabled={busy}
-            >
-              Use a different account
-            </button>
           </form>
         )}
       </DialogContent>
