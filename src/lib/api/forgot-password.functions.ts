@@ -2,39 +2,99 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 /**
- * "Forgot password" from the sign-in page.
+ * "Forgot password" with a one-time code (OTP), from the sign-in page.
  *
- * The person proves who they are with their username OR email plus the last 4
- * digits of the mobile number saved on their account, then picks a new password.
+ *   1. requestResetOtpFn  — the person types their username / email / mobile. If that account has an
+ *      email saved, a 6-digit code is emailed to it. The answer is ALWAYS the same, so nobody can
+ *      find out which usernames or emails exist.
+ *   2. confirmResetOtpFn  — the person enters the code and a new password.
  *
  * Security notes
  *  - Public on purpose (nobody is signed in yet), so everything is checked here.
- *  - Every failure returns the SAME message, whether the account doesn't exist,
- *    has no mobile number, or the digits are wrong — usernames/emails can't be probed.
- *  - Wrong attempts are counted per identifier and locked (5 tries / 30 minutes)
- *    because 4 digits are easy to brute-force. See the password_reset_attempts migration.
- *  - Typing a mobile number as the identifier is rejected: the last-4 check would prove nothing.
+ *  - Only a keyed hash of the code is stored; codes last 10 minutes, work once, and die after 5 wrong tries.
+ *  - Requests are throttled per IP address and per account, and a new code can't be requested within 60 seconds.
+ *  - A successful reset locks the account's signed-in devices out, like an admin reset does.
  */
 
-const MAX_FAILURES = 5;
-const LOCK_MINUTES = 30;
-const GENERIC_FAILURE =
-  "We couldn't verify these details. Check them and try again, or ask your admin to reset your password.";
+const CODE_MINUTES = 10;
+const RESEND_COOLDOWN_SECONDS = 60;
+const MAX_WRONG_TRIES = 5;
+const GENERIC_BAD_CODE = "That code is incorrect or has expired. Request a new code and try again.";
 
-const inputSchema = z.object({
-  identifier: z.string().trim().min(1, "Enter your username or email").max(200),
-  last4: z.string().trim().regex(/^\d{4}$/, "Enter the last 4 digits of your mobile number"),
-  newPassword: z.string().min(6, "Password must be at least 6 characters").max(72, "Password is too long"),
-});
+type Db = { from: (table: string) => any };
 
-type Db = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any };
+type Account = { authUserId: string; email: string | null; phone: string | null; workerId: string | null };
 
-async function hashKey(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+const identifierSchema = z.string().trim().min(1, "Enter your username, email or mobile number").max(200);
+
+async function findAccount(identifier: string): Promise<Account | null> {
+  const h = await import("./helpers.server");
+  const admin = await h.adminClient();
+  const db = admin as unknown as Db;
+
+  const digits = identifier.replace(/[\s+-]/g, "");
+  let column: "phone" | "email" | "username";
+  let value: string;
+  if (/^\d{10,12}$/.test(digits)) {
+    column = "phone";
+    value = digits.slice(-10);
+  } else if (identifier.includes("@")) {
+    column = "email";
+    value = identifier.toLowerCase();
+  } else {
+    column = "username";
+    value = identifier.toLowerCase();
+  }
+
+  // Business users (worker / manager / admin)
+  let staff = db
+    .from("workers")
+    .select("id, email, phone, auth_user_id")
+    .not("auth_user_id", "is", null)
+    .eq("active", true);
+  staff = column === "phone" ? staff.eq("phone", value) : staff.ilike(column, h.escapeLike(value));
+  const { data: staffRows } = await staff.limit(2);
+  if (Array.isArray(staffRows) && staffRows.length > 1) return null; // ambiguous
+  if (Array.isArray(staffRows) && staffRows.length === 1) {
+    const r = staffRows[0];
+    return {
+      authUserId: r.auth_user_id as string,
+      email: ((r.email as string | null) ?? null)?.trim() || null,
+      phone: (r.phone as string | null) ?? null,
+      workerId: r.id as string,
+    };
+  }
+
+  // The platform admin
+  let platform = db.from("platform_admins").select("user_id, email, phone");
+  platform = column === "phone" ? platform.eq("phone", value) : platform.ilike(column, h.escapeLike(value));
+  const { data: platformRows } = await platform.limit(2);
+  if (Array.isArray(platformRows) && platformRows.length === 1) {
+    const r = platformRows[0];
+    return {
+      authUserId: r.user_id as string,
+      email: ((r.email as string | null) ?? null)?.trim() || null,
+      phone: (r.phone as string | null) ?? null,
+      workerId: null,
+    };
+  }
+  return null;
+}
+
+/** Same-length comparison that doesn't leak how many characters matched. */
+function safeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function newCode() {
+  const buf = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / 1_000_000) * 1_000_000;
+  do crypto.getRandomValues(buf);
+  while (buf[0] >= limit);
+  return String(buf[0] % 1_000_000).padStart(6, "0");
 }
 
 /** Turns Supabase's password-policy errors into something a worker can act on. */
@@ -48,94 +108,152 @@ function passwordMessage(message: string) {
   return "Unable to set that password. Try a different one";
 }
 
-export const forgotPasswordResetFn = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => inputSchema.parse(input))
+/* ------------------------------------------------------------------ */
+/* Step 1 — send the code                                              */
+/* ------------------------------------------------------------------ */
+export const requestResetOtpFn = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ identifier: identifierSchema }).parse(input))
   .handler(async ({ data }) => {
     const h = await import("./helpers.server");
+    const mail = await import("./email.server");
+
+    if (!mail.emailConfigured()) {
+      throw new Error("Code by email isn't available yet. Please ask your admin for a password reset link.");
+    }
+
+    const ip = h.clientIp();
+    const idKey = (await h.hmacHex(data.identifier.toLowerCase())).slice(0, 24);
+    const okIp = await h.withinRateLimit(`otp-request:ip:${ip}`, 10, 900);
+    const okId = await h.withinRateLimit(`otp-request:id:${idKey}`, 5, 3600);
+    if (!okIp || !okId) throw new Error("Too many requests. Please wait a few minutes and try again.");
+
+    // Whatever happens below, the caller gets this same answer.
+    const reply = { ok: true as const, minutes: CODE_MINUTES };
+
+    const account = await findAccount(data.identifier);
+    if (!account || !account.email) return reply;
+
     const admin = await h.adminClient();
     const db = admin as unknown as Db;
 
-    const raw = data.identifier;
-    const key = await hashKey(raw.toLowerCase());
-
-    /* ---- 1. locked out? (same answer for real and made-up identifiers) ---- */
-    const { data: attempt } = await db
-      .from("password_reset_attempts")
-      .select("locked_until")
-      .eq("key", key)
+    // Don't send a second code within the cooldown.
+    const { data: latest } = await db
+      .from("password_reset_otps")
+      .select("created_at")
+      .eq("auth_user_id", account.authUserId)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
-    const lockedUntil = attempt?.locked_until ? new Date(attempt.locked_until as string).getTime() : 0;
-    if (lockedUntil > Date.now()) {
-      const minutes = Math.max(1, Math.ceil((lockedUntil - Date.now()) / 60_000));
-      throw new Error(`Too many attempts. Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`);
+    if (latest?.created_at && Date.now() - new Date(latest.created_at as string).getTime() < RESEND_COOLDOWN_SECONDS * 1000) {
+      return reply;
     }
 
-    const fail = async (): Promise<never> => {
-      await db.rpc("register_password_reset_failure", {
-        p_key: key,
-        p_max: MAX_FAILURES,
-        p_lock_minutes: LOCK_MINUTES,
-      });
-      throw new Error(GENERIC_FAILURE);
-    };
+    // Only the newest code is valid.
+    await db
+      .from("password_reset_otps")
+      .update({ consumed_at: new Date().toISOString() })
+      .eq("auth_user_id", account.authUserId)
+      .is("consumed_at", null);
 
-    /* ---- 2. find the account: email or username only ---- */
-    if (/^[\d\s+-]+$/.test(raw)) return fail(); // a mobile number is not accepted here
-    const column: "email" | "username" = raw.includes("@") ? "email" : "username";
-    const value = raw.toLowerCase();
+    const code = newCode();
+    const codeHash = await h.hmacHex(`otp:${account.authUserId}:${code}`);
+    const { error: insertError } = await db.from("password_reset_otps").insert({
+      auth_user_id: account.authUserId,
+      code_hash: codeHash,
+      expires_at: new Date(Date.now() + CODE_MINUTES * 60_000).toISOString(),
+    });
+    if (insertError) {
+      console.error("[forgot-password] could not store code — run the password_reset_otp migration:", insertError.message);
+      return reply;
+    }
 
-    let authUserId: string | null = null;
-    let phone: string | null = null;
-    let workerId: string | null = null;
+    try {
+      await mail.sendResetCodeEmail(account.email, code, CODE_MINUTES);
+    } catch (e) {
+      // Logged for you; the caller isn't told, so a failure can't be used to probe accounts.
+      console.error("[forgot-password] email failed:", e instanceof Error ? e.message : e);
+    }
+    return reply;
+  });
 
-    // Business users (worker / manager / admin)
-    const { data: staff } = await db
-      .from("workers")
-      .select("id, phone, auth_user_id")
-      .not("auth_user_id", "is", null)
-      .eq("active", true)
-      .ilike(column, h.escapeLike(value))
-      .limit(2);
-    if (Array.isArray(staff) && staff.length > 1) return fail(); // ambiguous
-    if (Array.isArray(staff) && staff.length === 1) {
-      authUserId = staff[0].auth_user_id as string;
-      phone = (staff[0].phone as string | null) ?? null;
-      workerId = staff[0].id as string;
-    } else {
-      // The platform admin
-      const { data: platform } = await db
-        .from("platform_admins")
-        .select("user_id, phone")
-        .ilike(column, h.escapeLike(value))
-        .limit(2);
-      if (Array.isArray(platform) && platform.length === 1) {
-        authUserId = platform[0].user_id as string;
-        phone = (platform[0].phone as string | null) ?? null;
+/* ------------------------------------------------------------------ */
+/* Step 2 — check the code and set the new password                    */
+/* ------------------------------------------------------------------ */
+export const confirmResetOtpFn = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        identifier: identifierSchema,
+        code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code"),
+        newPassword: z.string().min(1, "Enter a new password").max(72, "Password is too long"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const h = await import("./helpers.server");
+    const { passwordProblem } = await import("@/lib/auth/password");
+
+    const ip = h.clientIp();
+    if (!(await h.withinRateLimit(`otp-confirm:ip:${ip}`, 30, 900))) {
+      throw new Error("Too many attempts. Please wait a few minutes and try again.");
+    }
+
+    const account = await findAccount(data.identifier);
+    if (!account) throw new Error(GENERIC_BAD_CODE);
+
+    const admin = await h.adminClient();
+    const db = admin as unknown as Db;
+
+    const { data: row } = await db
+      .from("password_reset_otps")
+      .select("id, code_hash, attempts, expires_at")
+      .eq("auth_user_id", account.authUserId)
+      .is("consumed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!row || new Date(row.expires_at as string).getTime() < Date.now() || (row.attempts as number) >= MAX_WRONG_TRIES) {
+      throw new Error(GENERIC_BAD_CODE);
+    }
+
+    const given = await h.hmacHex(`otp:${account.authUserId}:${data.code}`);
+    if (!safeEqual(given, row.code_hash as string)) {
+      const attempts = (row.attempts as number) + 1;
+      await db
+        .from("password_reset_otps")
+        .update({ attempts, ...(attempts >= MAX_WRONG_TRIES ? { consumed_at: new Date().toISOString() } : {}) })
+        .eq("id", row.id);
+      throw new Error(GENERIC_BAD_CODE);
+    }
+
+    // The code is right. Check the new password before spending the code, so a weak password can be fixed and retried.
+    const problem = passwordProblem(data.newPassword, { phone: account.phone });
+    if (problem) throw new Error(problem);
+
+    // Spend the code first (and only once), so it can never be replayed.
+    const { data: spent } = await db
+      .from("password_reset_otps")
+      .update({ consumed_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .is("consumed_at", null)
+      .select("id");
+    if (!Array.isArray(spent) || spent.length !== 1) throw new Error(GENERIC_BAD_CODE);
+
+    const { error } = await admin.auth.admin.updateUserById(account.authUserId, { password: data.newPassword });
+    if (error) throw new Error(passwordMessage(error.message));
+
+    // They chose their own password: no first-sign-in prompt, and every signed-in device is locked out.
+    if (account.workerId) {
+      await db.from("workers").update({ must_set_password: false }).eq("id", account.workerId);
+      try {
+        await h.revokeDeviceSession(admin, account.workerId);
+      } catch (e) {
+        // The password is already changed, so never report a failure now. Fall back to clearing the device token.
+        console.error("[forgot-password] could not revoke device session:", e instanceof Error ? e.message : e);
+        await db.from("workers").update({ session_token: null }).eq("id", account.workerId);
       }
     }
 
-    /* ---- 3. check the last 4 digits ---- */
-    const digits = (phone ?? "").replace(/\D/g, "");
-    if (!authUserId || digits.length < 10 || digits.slice(-4) !== data.last4) return fail();
-
-    // Their mobile number is the temporary password — don't allow it as the new one.
-    if (data.newPassword.includes(digits.slice(-10))) {
-      throw new Error("Choose a password that isn't your mobile number");
-    }
-
-    /* ---- 4. set the new password ---- */
-    const { error } = await admin.auth.admin.updateUserById(authUserId, { password: data.newPassword });
-    if (error) throw new Error(passwordMessage(error.message));
-
-    // They chose their own password, so no first-sign-in prompt; also drop any device session
-    // so the account isn't left signed in elsewhere under the old password.
-    if (workerId) {
-      await admin
-        .from("workers")
-        .update({ must_set_password: false, session_token: null })
-        .eq("id", workerId);
-    }
-
-    await db.from("password_reset_attempts").delete().eq("key", key);
     return { ok: true as const };
   });
