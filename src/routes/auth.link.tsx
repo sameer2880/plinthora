@@ -84,8 +84,8 @@ function AuthLinkPage() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[#eef6e6] px-4 py-6 dark:bg-[#0a130d]">
-      <div className="w-full max-w-[420px] rounded-[2rem] border border-border/60 bg-card p-7 shadow-lg sm:p-9">
+    <div className="auth-page flex min-h-dvh items-center justify-center px-4 py-6">
+      <div className="auth-card w-full max-w-[420px] rounded-[2rem] border border-border/60 bg-card p-7 shadow-lg sm:p-9">
         <div className="mb-7 flex items-center gap-2">
           <BrandLogo className="h-9 w-9" />
           <BrandWordmark className="h-5" />

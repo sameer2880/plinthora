@@ -18,7 +18,7 @@ export function AuthPageLayout({
   backTo = "/dashboard",
   backLabel = "Back to sign in",
   onBack,
-  appBackground = false,
+  appBackground = true,
 }: {
   children: ReactNode;
   /** Where the top "Back" link goes (the sign-in page lives at /dashboard when signed out). */
@@ -26,7 +26,7 @@ export function AuthPageLayout({
   backLabel?: string;
   /** Overrides the top link (e.g. to step back inside a multi-step page). */
   onBack?: () => void;
-  /** Use the same background as the signed-in app (the `.auth-page` wave layer in styles.css). */
+  /** Same background as the signed-in app (the `.auth-page` wave layer in styles.css). Default on; pass false for the old flat look. */
   appBackground?: boolean;
 }) {
   const backClass =
