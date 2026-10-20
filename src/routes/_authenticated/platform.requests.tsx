@@ -51,7 +51,7 @@ import {
 } from "@/lib/access-requests";
 import { isSuperAdmin } from "@/lib/auth/access";
 import { PLATFORM_NAME } from "@/lib/brand";
-import { LoadingBlock } from "@/components/LoadingScreen";
+import { Spinner } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/platform/requests")({
   head: () => ({
@@ -364,7 +364,7 @@ function PlatformRequests() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 max-w-full space-y-5">
       <div>
         <h2 className="flex items-center gap-2 text-2xl font-bold">
           <Inbox className="h-6 w-6 text-primary" /> Requests
@@ -400,7 +400,12 @@ function PlatformRequests() {
         </div>
       </div>
 
-      {isLoading && <LoadingBlock title="Loading requests…" />}
+      {isLoading && (
+        <div role="status" aria-live="polite" className="flex min-h-[50dvh] flex-col items-center justify-center gap-4">
+          <Spinner className="h-12 w-12" />
+          <p className="text-sm font-medium text-muted-foreground">Loading requests…</p>
+        </div>
+      )}
       {!isLoading && visible.length === 0 && <p className="py-10 text-center text-muted-foreground">No requests here.</p>}
 
       <div className="grid gap-3">

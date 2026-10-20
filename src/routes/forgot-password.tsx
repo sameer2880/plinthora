@@ -142,6 +142,7 @@ function ForgotPasswordPage() {
 
   return (
     <AuthPageLayout
+      appBackground
       onBack={
         step === "identify"
           ? undefined

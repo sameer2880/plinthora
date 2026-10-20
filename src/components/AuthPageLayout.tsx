@@ -18,6 +18,7 @@ export function AuthPageLayout({
   backTo = "/dashboard",
   backLabel = "Back to sign in",
   onBack,
+  appBackground = false,
 }: {
   children: ReactNode;
   /** Where the top "Back" link goes (the sign-in page lives at /dashboard when signed out). */
@@ -25,15 +26,27 @@ export function AuthPageLayout({
   backLabel?: string;
   /** Overrides the top link (e.g. to step back inside a multi-step page). */
   onBack?: () => void;
+  /** Use the same background as the signed-in app (the `.auth-page` wave layer in styles.css). */
+  appBackground?: boolean;
 }) {
   const backClass =
     "inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline";
 
   return (
-    <div className="relative flex min-h-dvh w-full bg-[#eef6e6] dark:bg-[#0a130d]">
-      <WaveLines className="pointer-events-none absolute inset-0 z-0 h-full w-full text-[#5d8749] opacity-45 dark:text-[#d9f5c0] dark:opacity-30" />
-      <div aria-hidden className="pointer-events-none absolute -left-40 -top-40 z-0 h-[28rem] w-[28rem] rounded-full bg-[#7ab558]/20 blur-[110px]" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-40 z-0 h-[30rem] w-[30rem] rounded-full bg-[#7ab558]/15 blur-[110px]" />
+    <div
+      className={
+        appBackground
+          ? "auth-page relative flex min-h-dvh w-full"
+          : "relative flex min-h-dvh w-full bg-[#eef6e6] dark:bg-[#0a130d]"
+      }
+    >
+      {!appBackground && (
+        <>
+          <WaveLines className="pointer-events-none absolute inset-0 z-0 h-full w-full text-[#5d8749] opacity-45 dark:text-[#d9f5c0] dark:opacity-30" />
+          <div aria-hidden className="pointer-events-none absolute -left-40 -top-40 z-0 h-[28rem] w-[28rem] rounded-full bg-[#7ab558]/20 blur-[110px]" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-40 z-0 h-[30rem] w-[30rem] rounded-full bg-[#7ab558]/15 blur-[110px]" />
+        </>
+      )}
 
       {/* Illustration panel — same look as the sign-in page, wide screens only */}
       <aside className="relative z-10 hidden overflow-hidden bg-gradient-to-br from-[#7ab558] via-primary to-[#22331c] split:flex split:w-[42%] split:items-center split:justify-center">
