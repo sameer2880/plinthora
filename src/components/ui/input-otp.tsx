@@ -43,6 +43,7 @@ const InputOTPSlot = React.forwardRef<
         isActive && "z-10 ring-1 ring-ring",
         className,
       )}
+      data-active={isActive}
       {...props}
     >
       {char}

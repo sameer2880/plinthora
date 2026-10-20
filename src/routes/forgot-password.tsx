@@ -137,8 +137,10 @@ function ForgotPasswordPage() {
     }
   };
 
-  const inputClass = "h-12 rounded-full border-border bg-background px-5 text-sm shadow-none dark:border-white/15 dark:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary/40";
-  const primaryBtn = "h-12 w-full rounded-full text-sm font-semibold shadow-md shadow-primary/20";
+  const inputClass = "h-14 rounded-2xl border-border bg-background px-5 text-base shadow-none sm:h-12 sm:rounded-full sm:text-sm dark:border-white/15 dark:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary/40";
+  const primaryBtn = "h-14 w-full rounded-2xl text-base font-semibold shadow-md shadow-primary/20 sm:h-12 sm:rounded-full sm:text-sm";
+  const secondaryBtn = "h-14 w-full rounded-2xl text-base font-semibold sm:h-12 sm:rounded-full sm:text-sm";
+  const stepIndex = step === "identify" ? 0 : step === "code" ? 1 : 2;
 
   return (
     <AuthPageLayout
@@ -153,6 +155,11 @@ function ForgotPasswordPage() {
       }
       backLabel={step === "identify" ? "Back to sign in" : "Back"}
     >
+      <div className="mb-5 flex items-center gap-2" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={stepIndex + 1} aria-label={`Step ${stepIndex + 1} of 3`}>
+        {[0, 1, 2].map((i) => (
+          <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= stepIndex ? "bg-primary" : "bg-primary/15"}`} />
+        ))}
+      </div>
       <AuthPageHeading
         icon={
           step === "identify" ? (
@@ -199,7 +206,7 @@ function ForgotPasswordPage() {
           <Button type="submit" className={primaryBtn} disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send code"}
           </Button>
-          <Button type="button" variant="outline" className="h-12 w-full rounded-full text-sm font-semibold" onClick={goToAdminRequest} disabled={busy}>
+          <Button type="button" variant="outline" className={secondaryBtn} onClick={goToAdminRequest} disabled={busy}>
             No email? Ask admin
           </Button>
         </form>
@@ -212,29 +219,38 @@ function ForgotPasswordPage() {
           }}
         >
           <div className="space-y-2">
-            <Label>6-digit code</Label>
+            <Label className="sr-only">6-digit code</Label>
             <InputOTP
               maxLength={6}
               value={code}
               onChange={(v) => setCode(v.replace(/\D/g, ""))}
               onComplete={(v) => void verifyCode(v)}
               inputMode="numeric"
+              pattern="[0-9]*"
               autoComplete="one-time-code"
               autoFocus
               disabled={busy}
+              containerClassName="w-full justify-between gap-2 sm:gap-3"
             >
-              <InputOTPGroup>
+              <InputOTPGroup className="w-full justify-between gap-2 sm:gap-3">
                 {[0, 1, 2, 3, 4, 5].map((i) => (
-                  <InputOTPSlot key={i} index={i} />
+                  <InputOTPSlot
+                    key={i}
+                    index={i}
+                    className="aspect-[4/5] h-auto min-w-0 flex-1 rounded-xl border border-input bg-background text-2xl font-semibold shadow-none first:rounded-xl first:border-l last:rounded-xl dark:border-white/15 dark:bg-white/[0.04] data-[active=true]:border-primary sm:max-w-14"
+                  />
                 ))}
               </InputOTPGroup>
             </InputOTP>
           </div>
-          {error && <p className="text-xs font-medium text-destructive">{error}</p>}
+          <p className="text-center text-xs text-muted-foreground">
+            Code requested for <span className="font-semibold text-foreground">{identifier.trim()}</span>. Check your spam folder too.
+          </p>
+          {error && <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-center text-xs font-medium text-destructive">{error}</p>}
           <Button type="submit" className={primaryBtn} disabled={busy || code.length !== 6}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code"}
           </Button>
-          <Button type="button" variant="ghost" className="h-11 w-full rounded-full font-semibold" onClick={resend} disabled={busy || cooldown > 0}>
+          <Button type="button" variant="ghost" className={`${secondaryBtn} h-12 sm:h-11`} onClick={resend} disabled={busy || cooldown > 0}>
             {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
           </Button>
           <button
