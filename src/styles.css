@@ -1852,3 +1852,110 @@ html.native-app * {
     box-shadow: 0 6px 14px -6px rgb(0 0 0 / 70%);
   }
 }
+
+/* ============================================================
+   "MORE" PANEL — HIGH-CONTRAST OVERRIDE
+   Same problem as the bottom dock: the icon chips, tray and labels were
+   pale green on a pale green wave background, so everything blended in.
+   Solid panel, solid tray, filled icon chips with dark icons, darker
+   bolder labels. All sizes (phone sheet + tablet flyout). Kept last so it
+   wins the cascade; the doubled class beats the generic dialog glass rule
+   that also matches the tablet flyout (role="dialog").
+   ============================================================ */
+div.more-panel.more-panel {
+  background-image: none;
+  background-color: #ffffff;
+  border: 1px solid rgb(79 122 61 / 35%);
+  color: #14261a;
+  box-shadow:
+    0 24px 50px -14px rgb(22 38 28 / 50%),
+    0 0 0 1px rgb(255 255 255 / 70%);
+}
+.dark div.more-panel.more-panel {
+  background-image: none;
+  background-color: #16261c;
+  border: 1px solid rgb(168 217 119 / 35%);
+  color: #f4f8ef;
+  box-shadow:
+    0 24px 50px -14px rgb(0 0 0 / 85%),
+    0 0 0 1px rgb(0 0 0 / 40%);
+}
+
+/* Trays / cards / buttons: flat tinted fill + visible edge */
+.more-inset,
+.more-account,
+.more-close,
+.more-panel .more-btn {
+  background-color: #eaf2e3;
+  border: 1px solid rgb(79 122 61 / 25%);
+  box-shadow: none;
+}
+.dark .more-inset,
+.dark .more-account,
+.dark .more-close,
+.dark .more-panel .more-btn {
+  background-color: #0e1911;
+  border: 1px solid rgb(255 255 255 / 14%);
+  box-shadow: none;
+}
+.more-account-btn:hover {
+  background-color: #dfeed3;
+  border-color: rgb(79 122 61 / 50%);
+}
+.dark .more-account-btn:hover {
+  background-color: #1b3022;
+  border-color: rgb(168 217 119 / 50%);
+}
+
+/* Tiles: dark bold labels; icon sits in a solid white chip with a green edge */
+.more-tile {
+  color: #14261a;
+}
+.dark .more-tile {
+  color: #f4f8ef;
+}
+.more-tile .text-\[11px\] {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.more-chip {
+  background-color: #ffffff;
+  color: #2f5a1f;
+  border: 1px solid rgb(79 122 61 / 40%);
+  box-shadow: 0 4px 10px -6px rgb(45 85 35 / 45%);
+}
+.more-chip svg {
+  stroke-width: 2.1;
+}
+.dark .more-chip {
+  background-color: #223a2a;
+  color: #cfeaa8;
+  border: 1px solid rgb(168 217 119 / 40%);
+  box-shadow: none;
+}
+.more-tile:hover {
+  background-color: rgb(79 122 61 / 12%);
+}
+.dark .more-tile:hover {
+  background-color: rgb(255 255 255 / 8%);
+}
+
+/* Current page: filled brand-green chip, same language as the active dock tab */
+.more-tile-active,
+.more-tile-active:hover {
+  background-color: rgb(79 122 61 / 14%);
+}
+.more-tile-active .more-chip {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+.dark .more-tile-active,
+.dark .more-tile-active:hover {
+  background-color: rgb(168 217 119 / 14%);
+}
+.dark .more-tile-active .more-chip {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
