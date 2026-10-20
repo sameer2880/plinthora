@@ -1763,199 +1763,178 @@ html.native-app * {
     box-shadow: none;
   }
 }
+
 /* ============================================================
-   PHONE NAV — HIGH-CONTRAST OVERRIDE
-   The glass dock blended into the pale-green cards behind it: wave
-   pattern, low-contrast text, tiny labels, barely-visible active tab.
-   This block (kept last so it wins the cascade) makes the dock read as
-   its own solid surface: opaque body, clear edge + shadow, darker
-   labels, and a filled brand-green active tab. Phones only (<768px).
+   NAV VISIBILITY TUNE-UP (phone dock + "More" panel)
+   Keeps the soft glass look, but separates the dock / panel from the
+   pale-green cards behind them and makes icons + labels readable:
+   near-opaque surface, defined shadow, quieter tray (no hard outlines),
+   darker labels, filled brand-green active state.
+   Kept last so it wins the cascade.
    ============================================================ */
+
+/* ---------- Phone bottom dock (<768px) ---------- */
 @media (max-width: 767px) {
-  /* Solid dock — no wave pattern showing through, strong edge + lift */
   .shell-dock {
     background-image: none;
-    background-color: #ffffff;
-    border: 1px solid rgb(79 122 61 / 35%);
+    background-color: rgb(248 252 244 / 96%);
+    border: 1px solid rgb(255 255 255 / 95%);
     box-shadow:
-      0 -6px 24px -8px rgb(22 38 28 / 22%),
-      0 16px 36px -10px rgb(22 38 28 / 45%),
-      0 0 0 1px rgb(255 255 255 / 70%);
-    padding: 0.55rem 0.45rem 0.45rem;
+      0 16px 36px -10px rgb(22 38 28 / 50%),
+      0 0 0 1px rgb(79 122 61 / 14%),
+      inset 0 1.5px 0 rgb(255 255 255 / 100%);
   }
-
   .dark .shell-dock {
     background-image: none;
-    background-color: #16261c;
-    border: 1px solid rgb(168 217 119 / 35%);
-    box-shadow:
-      0 -6px 24px -8px rgb(0 0 0 / 55%),
-      0 16px 36px -10px rgb(0 0 0 / 85%),
-      0 0 0 1px rgb(0 0 0 / 40%);
-  }
-
-  /* Tab tray + quick-action chips: flat tinted fills with a visible edge */
-  .shell-navbar {
-    background-color: #eaf2e3;
-    border: 1px solid rgb(79 122 61 / 22%);
-    box-shadow: none;
-  }
-  .shell-addpill {
-    background-color: #eaf2e3;
-    border: 1px solid rgb(79 122 61 / 40%);
-    color: #14261a;
-    font-weight: 700;
-    box-shadow: none;
-  }
-
-  .dark .shell-navbar {
-    background-color: #0e1911;
+    background-color: rgb(22 36 27 / 97%);
     border: 1px solid rgb(255 255 255 / 14%);
+    box-shadow:
+      0 16px 36px -10px rgb(0 0 0 / 85%),
+      0 0 0 1px rgb(168 217 119 / 16%),
+      inset 0 1.5px 0 rgb(255 255 255 / 10%);
+  }
+
+  /* tray = soft green tint, no outline */
+  .shell-navbar {
+    background-color: rgb(79 122 61 / 9%);
+    border: 1px solid transparent;
+    box-shadow: inset 0 1px 2px rgb(45 85 35 / 8%);
+  }
+  .dark .shell-navbar {
+    background-color: rgb(255 255 255 / 6%);
+    border: 1px solid transparent;
     box-shadow: none;
+  }
+
+  /* quick-action chips: white, thin green edge, dark text */
+  .shell-addpill {
+    background-color: #ffffff;
+    border: 1px solid rgb(79 122 61 / 28%);
+    color: #14261a;
+    box-shadow: 0 4px 10px -6px rgb(45 85 35 / 35%);
   }
   .dark .shell-addpill {
-    background-color: #223a2a;
-    border: 1px solid rgb(168 217 119 / 45%);
+    background-color: rgb(255 255 255 / 10%);
+    border: 1px solid rgb(255 255 255 / 20%);
     color: #f4f8ef;
     box-shadow: none;
   }
 
-  /* Inactive tabs: dark text, bigger and bolder labels */
+  /* tabs: darker colour, slightly firmer weight — but small enough that
+     "Dashboard" still fits without an ellipsis */
   .shell-navtab {
-    color: #1f3a25;
+    color: #22402a;
   }
   .dark .shell-navtab {
     color: #e3eedd;
   }
-  .shell-navtab-icon {
-    height: 1.4rem;
-    width: 1.4rem;
-    stroke-width: 2.1;
-  }
   .shell-navtab-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.005em;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-overflow: clip;
   }
 
-  /* Active tab: solid brand green, white icon + label — unmistakable */
+  /* active tab: filled brand green */
   .shell-navtab-active,
   .shell-navtab-active:hover {
     background-color: var(--primary);
     color: var(--primary-foreground);
-    box-shadow: 0 6px 14px -6px rgb(45 85 35 / 65%);
+    box-shadow: 0 6px 14px -6px rgb(45 85 35 / 55%);
   }
   .dark .shell-navtab-active,
   .dark .shell-navtab-active:hover {
     background-color: var(--primary);
     color: var(--primary-foreground);
-    box-shadow: 0 6px 14px -6px rgb(0 0 0 / 70%);
+    box-shadow: 0 6px 14px -6px rgb(0 0 0 / 60%);
   }
 }
 
-/* ============================================================
-   "MORE" PANEL — HIGH-CONTRAST OVERRIDE
-   Same problem as the bottom dock: the icon chips, tray and labels were
-   pale green on a pale green wave background, so everything blended in.
-   Solid panel, solid tray, filled icon chips with dark icons, darker
-   bolder labels. All sizes (phone sheet + tablet flyout). Kept last so it
-   wins the cascade; the doubled class beats the generic dialog glass rule
-   that also matches the tablet flyout (role="dialog").
-   ============================================================ */
+/* ---------- "More" panel (phone sheet + tablet flyout) ---------- */
+/* doubled class beats the generic dialog glass rule that also matches the flyout */
 div.more-panel.more-panel {
   background-image: none;
-  background-color: #ffffff;
-  border: 1px solid rgb(79 122 61 / 35%);
+  background-color: rgb(248 252 244 / 97%);
+  border: 1px solid rgb(255 255 255 / 95%);
   color: #14261a;
   box-shadow:
     0 24px 50px -14px rgb(22 38 28 / 50%),
-    0 0 0 1px rgb(255 255 255 / 70%);
+    0 0 0 1px rgb(79 122 61 / 14%),
+    inset 0 1.5px 0 rgb(255 255 255 / 100%);
 }
 .dark div.more-panel.more-panel {
   background-image: none;
-  background-color: #16261c;
-  border: 1px solid rgb(168 217 119 / 35%);
+  background-color: rgb(22 36 27 / 98%);
+  border: 1px solid rgb(255 255 255 / 14%);
   color: #f4f8ef;
   box-shadow:
     0 24px 50px -14px rgb(0 0 0 / 85%),
-    0 0 0 1px rgb(0 0 0 / 40%);
+    0 0 0 1px rgb(168 217 119 / 16%),
+    inset 0 1.5px 0 rgb(255 255 255 / 10%);
 }
 
-/* Trays / cards / buttons: flat tinted fill + visible edge */
 .more-inset,
 .more-account,
 .more-close,
 .more-panel .more-btn {
-  background-color: #eaf2e3;
-  border: 1px solid rgb(79 122 61 / 25%);
+  background-color: rgb(79 122 61 / 9%);
+  border: 1px solid transparent;
   box-shadow: none;
 }
 .dark .more-inset,
 .dark .more-account,
 .dark .more-close,
 .dark .more-panel .more-btn {
-  background-color: #0e1911;
-  border: 1px solid rgb(255 255 255 / 14%);
+  background-color: rgb(255 255 255 / 6%);
+  border: 1px solid transparent;
   box-shadow: none;
 }
 .more-account-btn:hover {
-  background-color: #dfeed3;
-  border-color: rgb(79 122 61 / 50%);
+  background-color: rgb(79 122 61 / 16%);
+  border-color: transparent;
 }
 .dark .more-account-btn:hover {
-  background-color: #1b3022;
-  border-color: rgb(168 217 119 / 50%);
+  background-color: rgb(255 255 255 / 11%);
 }
 
-/* Tiles: dark bold labels; icon sits in a solid white chip with a green edge */
+/* tiles: dark labels, white icon chips with a soft shadow (no hard outline) */
 .more-tile {
-  color: #14261a;
+  color: #1f3a25;
 }
 .dark .more-tile {
   color: #f4f8ef;
 }
-.more-tile .text-\[11px\] {
-  font-size: 0.72rem;
-  font-weight: 700;
-}
 .more-chip {
   background-color: #ffffff;
   color: #2f5a1f;
-  border: 1px solid rgb(79 122 61 / 40%);
-  box-shadow: 0 4px 10px -6px rgb(45 85 35 / 45%);
-}
-.more-chip svg {
-  stroke-width: 2.1;
+  border: 1px solid rgb(79 122 61 / 18%);
+  box-shadow: 0 5px 12px -6px rgb(45 85 35 / 40%);
 }
 .dark .more-chip {
-  background-color: #223a2a;
+  background-color: rgb(255 255 255 / 10%);
   color: #cfeaa8;
-  border: 1px solid rgb(168 217 119 / 40%);
+  border: 1px solid rgb(255 255 255 / 14%);
   box-shadow: none;
 }
 .more-tile:hover {
-  background-color: rgb(79 122 61 / 12%);
+  background-color: rgb(79 122 61 / 10%);
 }
 .dark .more-tile:hover {
   background-color: rgb(255 255 255 / 8%);
 }
 
-/* Current page: filled brand-green chip, same language as the active dock tab */
+/* current page = filled green chip (matches the active dock tab) */
 .more-tile-active,
 .more-tile-active:hover {
-  background-color: rgb(79 122 61 / 14%);
+  background-color: rgb(79 122 61 / 12%);
 }
-.more-tile-active .more-chip {
+.more-tile-active .more-chip,
+.dark .more-tile-active .more-chip {
   background-color: var(--primary);
   color: var(--primary-foreground);
   border-color: var(--primary);
 }
 .dark .more-tile-active,
 .dark .more-tile-active:hover {
-  background-color: rgb(168 217 119 / 14%);
-}
-.dark .more-tile-active .more-chip {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
-  border-color: var(--primary);
+  background-color: rgb(168 217 119 / 12%);
 }
