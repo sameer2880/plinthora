@@ -1763,3 +1763,92 @@ html.native-app * {
     box-shadow: none;
   }
 }
+/* ============================================================
+   PHONE NAV — HIGH-CONTRAST OVERRIDE
+   The glass dock blended into the pale-green cards behind it: wave
+   pattern, low-contrast text, tiny labels, barely-visible active tab.
+   This block (kept last so it wins the cascade) makes the dock read as
+   its own solid surface: opaque body, clear edge + shadow, darker
+   labels, and a filled brand-green active tab. Phones only (<768px).
+   ============================================================ */
+@media (max-width: 767px) {
+  /* Solid dock — no wave pattern showing through, strong edge + lift */
+  .shell-dock {
+    background-image: none;
+    background-color: #ffffff;
+    border: 1px solid rgb(79 122 61 / 35%);
+    box-shadow:
+      0 -6px 24px -8px rgb(22 38 28 / 22%),
+      0 16px 36px -10px rgb(22 38 28 / 45%),
+      0 0 0 1px rgb(255 255 255 / 70%);
+    padding: 0.55rem 0.45rem 0.45rem;
+  }
+
+  .dark .shell-dock {
+    background-image: none;
+    background-color: #16261c;
+    border: 1px solid rgb(168 217 119 / 35%);
+    box-shadow:
+      0 -6px 24px -8px rgb(0 0 0 / 55%),
+      0 16px 36px -10px rgb(0 0 0 / 85%),
+      0 0 0 1px rgb(0 0 0 / 40%);
+  }
+
+  /* Tab tray + quick-action chips: flat tinted fills with a visible edge */
+  .shell-navbar {
+    background-color: #eaf2e3;
+    border: 1px solid rgb(79 122 61 / 22%);
+    box-shadow: none;
+  }
+  .shell-addpill {
+    background-color: #eaf2e3;
+    border: 1px solid rgb(79 122 61 / 40%);
+    color: #14261a;
+    font-weight: 700;
+    box-shadow: none;
+  }
+
+  .dark .shell-navbar {
+    background-color: #0e1911;
+    border: 1px solid rgb(255 255 255 / 14%);
+    box-shadow: none;
+  }
+  .dark .shell-addpill {
+    background-color: #223a2a;
+    border: 1px solid rgb(168 217 119 / 45%);
+    color: #f4f8ef;
+    box-shadow: none;
+  }
+
+  /* Inactive tabs: dark text, bigger and bolder labels */
+  .shell-navtab {
+    color: #1f3a25;
+  }
+  .dark .shell-navtab {
+    color: #e3eedd;
+  }
+  .shell-navtab-icon {
+    height: 1.4rem;
+    width: 1.4rem;
+    stroke-width: 2.1;
+  }
+  .shell-navtab-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.005em;
+  }
+
+  /* Active tab: solid brand green, white icon + label — unmistakable */
+  .shell-navtab-active,
+  .shell-navtab-active:hover {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 6px 14px -6px rgb(45 85 35 / 65%);
+  }
+  .dark .shell-navtab-active,
+  .dark .shell-navtab-active:hover {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 6px 14px -6px rgb(0 0 0 / 70%);
+  }
+}
