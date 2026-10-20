@@ -27,8 +27,6 @@ import {
   reportNetworkError,
   reportSuccess,
 } from "@/lib/connection";
-import { AccessRequestDialog } from "@/components/AccessRequestDialog";
-import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { LoginIllustration } from "@/components/LoginIllustration";
@@ -54,7 +52,6 @@ import {
   type SessionState,
 } from "@/lib/auth/session";
 import { featureForPath, isFeatureEnabled } from "@/lib/features";
-import type { RequestType } from "@/lib/access-requests";
 
 const EMPTY: SessionState = {
   me: null,
@@ -244,14 +241,6 @@ export function Gate({
       setErr("Unable to start Google sign-in. Please try again.");
     }
   };
-
-  // "Forgot password?" — explains how to get a reset link from the admin.
-  const [forgotOpen, setForgotOpen] = useState(false);
-
-  // "Need access? Contact your admin" — the request form.
-  const [accessOpen, setAccessOpen] = useState(false);
-  const [accessType, setAccessType] =
-    useState<RequestType>("app_access");
 
   // "Already signed in on another device?" confirmation (replaces window.confirm).
   const [takeoverOpen, setTakeoverOpen] = useState(false);
@@ -1145,7 +1134,9 @@ export function Gate({
                 <button
                   type="button"
                   onClick={() =>
-                    setForgotOpen(true)
+                    void navigate({
+                      to: "/forgot-password" as never,
+                    })
                   }
                   className="text-sm font-semibold text-primary transition-opacity hover:opacity-80 hover:underline focus-visible:outline-none focus-visible:underline"
                 >
@@ -1214,10 +1205,12 @@ export function Gate({
               Need access?{" "}
               <button
                 type="button"
-                onClick={() => {
-                  setAccessType("app_access");
-                  setAccessOpen(true);
-                }}
+                onClick={() =>
+                  void navigate({
+                    to: "/request-access" as never,
+                    search: { type: "app_access" } as never,
+                  })
+                }
                 className="font-semibold text-primary transition-opacity hover:opacity-80 hover:underline focus-visible:outline-none focus-visible:underline"
               >
                 Contact your admin
@@ -1227,30 +1220,6 @@ export function Gate({
           </div>
         </div>
       </div>
-
-      {/* ============================================================ */}
-      {/* FORGOT PASSWORD                                               */}
-      {/* ============================================================ */}
-
-      <ForgotPasswordDialog
-        open={forgotOpen}
-        onOpenChange={setForgotOpen}
-        onAskAdmin={() => {
-          setForgotOpen(false);
-          setAccessType("forgot_credentials");
-          setAccessOpen(true);
-        }}
-      />
-
-      {/* ============================================================ */}
-      {/* NEED ACCESS — request form                                    */}
-      {/* ============================================================ */}
-
-      <AccessRequestDialog
-        open={accessOpen}
-        onOpenChange={setAccessOpen}
-        defaultType={accessType}
-      />
 
       {/* ============================================================ */}
       {/* ALREADY SIGNED IN ON ANOTHER DEVICE                           */}

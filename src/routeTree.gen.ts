@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as RequestAccessRouteImport } from './routes/request-access'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedBusinessSettingsRouteImport } from './routes/_authenticated/business-settings'
@@ -48,6 +50,16 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestAccessRoute = RequestAccessRouteImport.update({
+  id: '/request-access',
+  path: '/request-access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Char91DotmcpChar93ListToolsRoute =
@@ -180,6 +192,8 @@ const AuthenticatedReceiptsIdRoute = AuthenticatedReceiptsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/mcp': typeof McpRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/request-access': typeof RequestAccessRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/business-settings': typeof AuthenticatedBusinessSettingsRoute
@@ -207,6 +221,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/mcp': typeof McpRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/request-access': typeof RequestAccessRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/business-settings': typeof AuthenticatedBusinessSettingsRoute
@@ -236,6 +252,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/mcp': typeof McpRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/request-access': typeof RequestAccessRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/business-settings': typeof AuthenticatedBusinessSettingsRoute
@@ -265,6 +283,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/mcp'
+    | '/forgot-password'
+    | '/request-access'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/business-settings'
@@ -292,6 +312,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/mcp'
+    | '/forgot-password'
+    | '/request-access'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/business-settings'
@@ -320,6 +342,8 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/mcp'
+    | '/forgot-password'
+    | '/request-access'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/business-settings'
@@ -349,6 +373,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   McpRoute: typeof McpRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  RequestAccessRoute: typeof RequestAccessRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   AuthGoogleRoute: typeof AuthGoogleRoute
@@ -378,6 +404,20 @@ declare module '@tanstack/react-router' {
       path: '/mcp'
       fullPath: '/mcp'
       preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request-access': {
+      id: '/request-access'
+      path: '/request-access'
+      fullPath: '/request-access'
+      preLoaderRoute: typeof RequestAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.mcp/list-tools': {
@@ -591,6 +631,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   McpRoute: McpRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  RequestAccessRoute: RequestAccessRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
