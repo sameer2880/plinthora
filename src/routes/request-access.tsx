@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Building2,
@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { AuthPageHeading, AuthPageLayout } from "@/components/AuthPageLayout";
 import { submitAccessRequestFn } from "@/lib/api/access-requests.functions";
 import { MOBILE_REGEX } from "@/lib/auth/identity";
@@ -43,10 +44,10 @@ export const Route = createFileRoute("/request-access")({
 });
 
 const inputClass =
-  "h-12 rounded-full border-border bg-background px-5 text-sm shadow-none dark:border-white/15 dark:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary/40";
+  "h-14 rounded-2xl border-border bg-background px-5 text-base shadow-none sm:h-12 sm:rounded-full sm:text-sm dark:border-white/15 dark:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary/40";
 
 const textareaClass =
-  "min-h-[72px] rounded-2xl border-border bg-background px-5 py-3 text-sm shadow-none dark:border-white/15 dark:bg-white/[0.04]";
+  "min-h-[96px] rounded-2xl border-border bg-background px-5 py-3.5 text-base shadow-none sm:min-h-[72px] sm:text-sm dark:border-white/15 dark:bg-white/[0.04]";
 
 const TYPE_ICON = {
   new_business: Building2,
@@ -61,7 +62,7 @@ const BUSINESS_LABEL: Record<RequestType, string> = {
 };
 
 const optionRowClass =
-  "flex w-full items-center gap-3.5 rounded-2xl border border-border bg-background px-4 py-4 text-left transition-colors hover:border-primary/50 hover:bg-primary/10 dark:border-white/15 dark:bg-white/[0.04]";
+  "flex w-full items-center gap-3.5 rounded-2xl border border-border bg-background px-4 py-4 text-left active:scale-[0.99] transition-colors hover:border-primary/50 hover:bg-primary/10 dark:border-white/15 dark:bg-white/[0.04]";
 
 type ContactOption = {
   key: string;
@@ -76,12 +77,12 @@ function OptionRow({ option }: { option: ContactOption }) {
   const Icon = option.icon;
   const inner = (
     <>
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary sm:h-10 sm:w-10 sm:rounded-full">
         <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold">{option.label}</span>
-        <span className="block text-xs text-muted-foreground">{option.hint}</span>
+        <span className="block text-base font-semibold sm:text-sm">{option.label}</span>
+        <span className="block text-xs leading-snug text-muted-foreground">{option.hint}</span>
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
     </>
@@ -109,7 +110,7 @@ function OptionRow({ option }: { option: ContactOption }) {
 /** The three request-type tiles, shared by the in-app form and the email form. */
 function TypePicker({ type, onChange }: { type: RequestType; onChange: (t: RequestType) => void }) {
   return (
-    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="What do you need?">
+    <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="What do you need?">
       {REQUEST_TYPES.map((t) => {
         const Icon = TYPE_ICON[t];
         const active = type === t;
@@ -120,18 +121,40 @@ function TypePicker({ type, onChange }: { type: RequestType; onChange: (t: Reque
             role="radio"
             aria-checked={active}
             onClick={() => onChange(t)}
-            className={`flex min-w-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center transition-colors ${
-              active ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50 dark:border-white/15"
+            className={`flex min-w-0 items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors sm:flex-col sm:gap-1.5 sm:px-2 sm:py-3 sm:text-center ${
+              active ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border hover:bg-muted/50 dark:border-white/15"
             }`}
           >
-            <Icon className={`h-5 w-5 shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
-            <span className="text-xs font-semibold leading-tight">{REQUEST_TYPE_LABEL[t]}</span>
+            <Icon className={`h-6 w-6 shrink-0 sm:h-5 sm:w-5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+            <span className="min-w-0 flex-1 sm:flex-none">
+              <span className="block text-sm font-semibold leading-tight">{REQUEST_TYPE_LABEL[t]}</span>
+              <span className="mt-0.5 block text-xs leading-snug text-muted-foreground sm:hidden">{REQUEST_TYPE_HINT[t]}</span>
+            </span>
+            <span
+              aria-hidden
+              className={`h-5 w-5 shrink-0 rounded-full border-2 sm:hidden ${active ? "border-primary bg-primary shadow-[inset_0_0_0_3px_var(--background)]" : "border-border"}`}
+            />
           </button>
         );
       })}
     </div>
   );
 }
+
+/** A visible label above a field (placeholders alone vanish while typing, which is hard on a phone). */
+function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={htmlFor} className="px-1 text-sm font-semibold">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+const actionBarClass =
+  "sticky bottom-0 z-20 -mx-6 flex gap-2 border-t border-border/60 bg-background/95 px-6 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none";
 
 type EmailDetails = {
   name: string;
@@ -296,52 +319,64 @@ function RequestAccessPage() {
   const sharedFields = (
     <>
       <TypePicker type={type} onChange={setType} />
-      <p className="-mt-1 px-1 text-center text-xs text-muted-foreground">{REQUEST_TYPE_HINT[type]}</p>
+      <p className="hidden px-1 text-center text-xs text-muted-foreground sm:block">{REQUEST_TYPE_HINT[type]}</p>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input
-          autoComplete="name"
-          placeholder="Your name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={120}
-          className={inputClass}
-        />
-        <Input
-          type="tel"
-          inputMode="numeric"
-          autoComplete="tel-national"
-          placeholder="Mobile number (10 digits)"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-          maxLength={10}
-          className={inputClass}
-        />
+      <div className="grid gap-4 sm:grid-cols-2 sm:gap-3">
+        <Field label="Your name" htmlFor="ra-name">
+          <Input
+            id="ra-name"
+            autoComplete="name"
+            placeholder="Full name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={120}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Mobile number" htmlFor="ra-phone">
+          <Input
+            id="ra-phone"
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel-national"
+            placeholder="10 digits"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+            maxLength={10}
+            className={inputClass}
+          />
+        </Field>
       </div>
 
-      <p className="-mt-1 px-2 text-xs text-muted-foreground">
+      <p className="-mt-2 px-1 text-xs text-muted-foreground">
         Mobile is required — we'll send your login details to it on WhatsApp.
       </p>
 
-      <Input
-        placeholder={BUSINESS_LABEL[type]}
-        value={businessName}
-        onChange={(e) => setBusinessName(e.target.value)}
-        maxLength={120}
-        className={inputClass}
-      />
+      <Field label={BUSINESS_LABEL[type]} htmlFor="ra-business">
+        <Input
+          id="ra-business"
+          placeholder={type === "new_business" ? "e.g. Sri Sai Rentals" : "Business name"}
+          value={businessName}
+          onChange={(e) => setBusinessName(e.target.value)}
+          maxLength={120}
+          className={inputClass}
+        />
+      </Field>
     </>
   );
 
   const messageField = (
-    <Textarea
-      placeholder="Anything else we should know? (optional)"
-      value={message}
-      onChange={(e) => setMessage(e.target.value)}
-      maxLength={500}
-      rows={2}
-      className={textareaClass}
-    />
+    <Field label="Anything else? (optional)" htmlFor="ra-message">
+      <Textarea
+        id="ra-message"
+        placeholder="Anything else we should know?"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        maxLength={500}
+        rows={3}
+        className={textareaClass}
+      />
+    </Field>
   );
 
   return (
@@ -360,12 +395,12 @@ function RequestAccessPage() {
               <OptionRow key={o.key} option={o} />
             ))}
           </div>
-          <Button type="button" variant="ghost" className="h-11 w-full rounded-full text-sm" onClick={leave}>
+          <Button type="button" variant="ghost" className="h-12 w-full rounded-2xl text-base sm:h-11 sm:rounded-full sm:text-sm" onClick={leave}>
             Cancel
           </Button>
         </div>
       ) : view === "email" ? (
-        <form onSubmit={sendEmail} className="space-y-4">
+        <form onSubmit={sendEmail} className="space-y-4 sm:space-y-4">
           <AuthPageHeading
             title="Request by email"
             description="Fill in your details and tap Send email. Your email app will open with the message ready to send."
@@ -374,37 +409,44 @@ function RequestAccessPage() {
           {sharedFields}
 
           {type === "new_business" && (
-            <Input
-              placeholder="Business location (town / city)"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              maxLength={120}
-              className={inputClass}
-            />
+            <Field label="Business location" htmlFor="ra-location">
+              <Input
+                id="ra-location"
+                placeholder="Town / city"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                maxLength={120}
+                className={inputClass}
+              />
+            </Field>
           )}
 
           {type === "forgot_credentials" && (
-            <Input
-              autoComplete="username"
-              placeholder="Your username or email (if you remember it)"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              maxLength={120}
-              className={inputClass}
-            />
+            <Field label="Username or email (if you remember it)" htmlFor="ra-username">
+              <Input
+                id="ra-username"
+                autoComplete="username"
+                autoCapitalize="none"
+                placeholder="Username or email"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                maxLength={120}
+                className={inputClass}
+              />
+            </Field>
           )}
 
           {messageField}
 
           <p className="px-2 text-center text-xs text-muted-foreground">Please don't share your password.</p>
 
-          {err && <p className="text-xs font-medium text-destructive">{err}</p>}
+          {err && <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-center text-xs font-medium text-destructive">{err}</p>}
 
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" className="h-12 flex-1 rounded-full text-sm" onClick={leave}>
+          <div className={actionBarClass}>
+            <Button type="button" variant="outline" className="h-14 flex-1 rounded-2xl text-base sm:h-12 sm:rounded-full sm:text-sm" onClick={leave}>
               Cancel
             </Button>
-            <Button type="submit" className="h-12 flex-[2] rounded-full font-semibold">
+            <Button type="submit" className="h-14 flex-[2] rounded-2xl text-base font-semibold sm:h-12 sm:rounded-full sm:text-sm">
               <Send className="mr-2 h-4 w-4" /> Send email
             </Button>
           </div>
@@ -435,7 +477,7 @@ function RequestAccessPage() {
               login details.
             </p>
           </div>
-          <Button type="button" className="h-12 w-full rounded-full font-semibold" onClick={leave}>
+          <Button type="button" className="h-14 w-full rounded-2xl text-base font-semibold sm:h-12 sm:rounded-full sm:text-sm" onClick={leave}>
             Done
           </Button>
         </div>
@@ -463,19 +505,19 @@ function RequestAccessPage() {
             </label>
           </div>
 
-          {err && <p className="text-xs font-medium text-destructive">{err}</p>}
+          {err && <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-center text-xs font-medium text-destructive">{err}</p>}
 
-          <div className="flex gap-2">
+          <div className={actionBarClass}>
             <Button
               type="button"
               variant="outline"
-              className="h-12 flex-1 rounded-full text-sm"
+              className="h-14 flex-1 rounded-2xl text-base sm:h-12 sm:rounded-full sm:text-sm"
               disabled={busy}
               onClick={leave}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={busy} className="h-12 flex-[2] rounded-full font-semibold">
+            <Button type="submit" disabled={busy} className="h-14 flex-[2] rounded-2xl text-base font-semibold sm:h-12 sm:rounded-full sm:text-sm">
               {busy ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending…
