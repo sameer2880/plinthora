@@ -415,7 +415,6 @@ function RequestAccessPage() {
   ) : null;
 
   const primarySize = "h-14 w-full rounded-2xl text-base font-semibold shadow-md shadow-primary/20 sm:h-12 sm:rounded-full sm:text-sm";
-  const ghostSize = "h-12 w-full rounded-2xl text-base sm:h-11 sm:rounded-full sm:text-sm";
 
   const [primaryOption, ...otherOptions] = options;
 
@@ -446,9 +445,6 @@ function RequestAccessPage() {
               </div>
             </div>
           )}
-          <Button type="button" variant="ghost" className={ghostSize} onClick={leave}>
-            Cancel
-          </Button>
         </div>
       ) : view === "email" ? (
         <form onSubmit={sendEmail} className="space-y-4">
@@ -496,9 +492,6 @@ function RequestAccessPage() {
           <div className={actionsClass}>
             <Button type="submit" className={primarySize}>
               <Send className="mr-2 h-4 w-4" /> Send email
-            </Button>
-            <Button type="button" variant="ghost" className={ghostSize} onClick={leave}>
-              Cancel
             </Button>
           </div>
 
@@ -570,9 +563,6 @@ function RequestAccessPage() {
               ) : (
                 "Send request"
               )}
-            </Button>
-            <Button type="button" variant="ghost" className={ghostSize} disabled={busy} onClick={leave}>
-              Cancel
             </Button>
           </div>
         </form>
