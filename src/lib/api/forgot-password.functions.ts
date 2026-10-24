@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * "Forgot password" with a one-time code (OTP), from the sign-in page.
@@ -124,7 +125,12 @@ async function checkCode(identifier: string, code: string) {
 
   const account = await findAccount(identifier);
   if (!account) throw new Error(GENERIC_BAD_CODE);
+  return checkCodeForAccount(account, code);
+}
 
+/** The code check itself, for an account that is already known (sign-in page or "Manage my account"). */
+async function checkCodeForAccount(account: Account, code: string) {
+  const h = await import("./helpers.server");
   const admin = await h.adminClient();
   const db = admin as unknown as Db;
 
@@ -152,6 +158,43 @@ async function checkCode(identifier: string, code: string) {
   }
 
   return { account, rowId: row.id as string, admin, db, h };
+}
+
+/** Finishes a reset once the code is proven: spends the code, sets the password, locks old devices out. */
+async function finishReset(
+  checked: Awaited<ReturnType<typeof checkCodeForAccount>>,
+  newPassword: string,
+) {
+  const { passwordProblem } = await import("@/lib/auth/password");
+  const { account, rowId, admin, db, h } = checked;
+
+  // The code is right. Check the new password before spending the code, so a weak password can be fixed and retried.
+  const problem = passwordProblem(newPassword, { phone: account.phone });
+  if (problem) throw new Error(problem);
+
+  // Spend the code first (and only once), so it can never be replayed.
+  const { data: spent } = await db
+    .from("password_reset_otps")
+    .update({ consumed_at: new Date().toISOString() })
+    .eq("id", rowId)
+    .is("consumed_at", null)
+    .select("id");
+  if (!Array.isArray(spent) || spent.length !== 1) throw new Error(GENERIC_BAD_CODE);
+
+  const { error } = await admin.auth.admin.updateUserById(account.authUserId, { password: newPassword });
+  if (error) throw new Error(passwordMessage(error.message));
+
+  // They chose their own password: no first-sign-in prompt, and every signed-in device is locked out.
+  if (account.workerId) {
+    await db.from("workers").update({ must_set_password: false }).eq("id", account.workerId);
+    try {
+      await h.revokeDeviceSession(admin, account.workerId);
+    } catch (e) {
+      // The password is already changed, so never report a failure now. Fall back to clearing the device token.
+      console.error("[forgot-password] could not revoke device session:", e instanceof Error ? e.message : e);
+      await db.from("workers").update({ session_token: null }).eq("id", account.workerId);
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -248,36 +291,170 @@ export const confirmResetOtpFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { passwordProblem } = await import("@/lib/auth/password");
-    const { account, rowId, admin, db, h } = await checkCode(data.identifier, data.code);
+    const checked = await checkCode(data.identifier, data.code);
+    await finishReset(checked, data.newPassword);
+    return { ok: true as const };
+  });
 
-    // The code is right. Check the new password before spending the code, so a weak password can be fixed and retried.
-    const problem = passwordProblem(data.newPassword, { phone: account.phone });
-    if (problem) throw new Error(problem);
+/* ================================================================== */
+/* "Forgot password?" inside "Manage my account" (already signed in)   */
+/*                                                                    */
+/* Same code, same email template, same rules as the sign-in page —   */
+/* but the account comes from the signed-in session, and the code is  */
+/* always sent to the email saved on THAT account.                     */
+/* ================================================================== */
 
-    // Spend the code first (and only once), so it can never be replayed.
-    const { data: spent } = await db
-      .from("password_reset_otps")
-      .update({ consumed_at: new Date().toISOString() })
-      .eq("id", rowId)
-      .is("consumed_at", null)
-      .select("id");
-    if (!Array.isArray(spent) || spent.length !== 1) throw new Error(GENERIC_BAD_CODE);
+type UserContext = { userId: string };
 
-    const { error } = await admin.auth.admin.updateUserById(account.authUserId, { password: data.newPassword });
-    if (error) throw new Error(passwordMessage(error.message));
+async function accountForUser(userId: string): Promise<Account | null> {
+  const h = await import("./helpers.server");
+  const admin = await h.adminClient();
+  const db = admin as unknown as Db;
 
-    // They chose their own password: no first-sign-in prompt, and every signed-in device is locked out.
-    if (account.workerId) {
-      await db.from("workers").update({ must_set_password: false }).eq("id", account.workerId);
-      try {
-        await h.revokeDeviceSession(admin, account.workerId);
-      } catch (e) {
-        // The password is already changed, so never report a failure now. Fall back to clearing the device token.
-        console.error("[forgot-password] could not revoke device session:", e instanceof Error ? e.message : e);
-        await db.from("workers").update({ session_token: null }).eq("id", account.workerId);
-      }
+  const { data: staff } = await db
+    .from("workers")
+    .select("id, email, phone, auth_user_id")
+    .eq("auth_user_id", userId)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+  if (staff) {
+    return {
+      authUserId: userId,
+      email: ((staff.email as string | null) ?? null)?.trim() || null,
+      phone: (staff.phone as string | null) ?? null,
+      workerId: staff.id as string,
+    };
+  }
+
+  const { data: platform } = await db
+    .from("platform_admins")
+    .select("user_id, email, phone")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  if (platform) {
+    return {
+      authUserId: userId,
+      email: ((platform.email as string | null) ?? null)?.trim() || null,
+      phone: (platform.phone as string | null) ?? null,
+      workerId: null,
+    };
+  }
+  return null;
+}
+
+/** "ravi.kumar@gmail.com" -> "r********r@gmail.com" */
+function maskEmail(email: string) {
+  const [name, domain] = email.split("@");
+  if (!name || !domain) return email;
+  const visible = name.length <= 2 ? name.slice(0, 1) : `${name[0]}${"*".repeat(Math.min(name.length - 2, 8))}${name[name.length - 1]}`;
+  return `${visible}@${domain}`;
+}
+
+/** Step 1 — email a code to the signed-in account's saved email. */
+export const requestAccountOtpFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const h = await import("./helpers.server");
+    const mail = await import("./email.server");
+    const { userId } = context as unknown as UserContext;
+
+    if (!mail.emailConfigured()) {
+      throw new Error("Code by email isn't available yet. Please ask your admin for a password reset link.");
     }
 
+    const ip = h.clientIp();
+    const okIp = await h.withinRateLimit(`otp-request:ip:${ip}`, 10, 900);
+    const okUser = await h.withinRateLimit(`otp-request:user:${userId}`, 5, 3600);
+    if (!okIp || !okUser) throw new Error("Too many requests. Please wait a few minutes and try again.");
+
+    const account = await accountForUser(userId);
+    if (!account) throw new Error("We couldn't find this account.");
+    if (!account.email) {
+      throw new Error("No email is saved on this account. Ask your admin to add one, then try again.");
+    }
+
+    const admin = await h.adminClient();
+    const db = admin as unknown as Db;
+    const reply = { ok: true as const, minutes: CODE_MINUTES, email: maskEmail(account.email) };
+
+    // Don't send a second code within the cooldown.
+    const { data: latest } = await db
+      .from("password_reset_otps")
+      .select("created_at")
+      .eq("auth_user_id", account.authUserId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latest?.created_at && Date.now() - new Date(latest.created_at as string).getTime() < RESEND_COOLDOWN_SECONDS * 1000) {
+      return reply;
+    }
+
+    // Only the newest code is valid.
+    await db
+      .from("password_reset_otps")
+      .update({ consumed_at: new Date().toISOString() })
+      .eq("auth_user_id", account.authUserId)
+      .is("consumed_at", null);
+
+    const code = newCode();
+    const codeHash = await h.hmacHex(`otp:${account.authUserId}:${code}`);
+    const { error: insertError } = await db.from("password_reset_otps").insert({
+      auth_user_id: account.authUserId,
+      code_hash: codeHash,
+      expires_at: new Date(Date.now() + CODE_MINUTES * 60_000).toISOString(),
+    });
+    if (insertError) {
+      console.error("[forgot-password] could not store code — run the password_reset_otp migration:", insertError.message);
+      throw new Error("We couldn't create a code right now. Please try again later.");
+    }
+
+    try {
+      await mail.sendResetCodeEmail(account.email, code, CODE_MINUTES);
+    } catch (e) {
+      console.error("[forgot-password] email failed:", e instanceof Error ? e.message : e);
+      throw new Error("We couldn't send the email. Please try again in a few minutes.");
+    }
+    return reply;
+  });
+
+/** Step 2 — check the code (nothing is changed yet). */
+export const verifyAccountOtpFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ code: codeSchema }).parse(input))
+  .handler(async ({ data, context }) => {
+    const h = await import("./helpers.server");
+    const { userId } = context as unknown as UserContext;
+    if (!(await h.withinRateLimit(`otp-confirm:user:${userId}`, 30, 900))) {
+      throw new Error("Too many attempts. Please wait a few minutes and try again.");
+    }
+    const account = await accountForUser(userId);
+    if (!account) throw new Error(GENERIC_BAD_CODE);
+    await checkCodeForAccount(account, data.code);
+    return { ok: true as const };
+  });
+
+/** Step 3 — set the new password (the code is checked again here). Every signed-in device is then locked out. */
+export const confirmAccountOtpFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        code: codeSchema,
+        newPassword: z.string().min(1, "Enter a new password").max(72, "Password is too long"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const h = await import("./helpers.server");
+    const { userId } = context as unknown as UserContext;
+    if (!(await h.withinRateLimit(`otp-confirm:user:${userId}`, 30, 900))) {
+      throw new Error("Too many attempts. Please wait a few minutes and try again.");
+    }
+    const account = await accountForUser(userId);
+    if (!account) throw new Error(GENERIC_BAD_CODE);
+    const checked = await checkCodeForAccount(account, data.code);
+    await finishReset(checked, data.newPassword);
     return { ok: true as const };
   });

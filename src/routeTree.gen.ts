@@ -22,6 +22,7 @@ import { Route as AuthenticatedDiaryRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedFeedbackRouteImport } from './routes/_authenticated/feedback'
 import { Route as AuthenticatedManageWorkerRouteImport } from './routes/_authenticated/manage-worker'
+import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedReelsRouteImport } from './routes/_authenticated/reels'
 import { Route as AuthenticatedRentalsRouteImport } from './routes/_authenticated/rentals'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -99,6 +100,11 @@ const AuthenticatedExportRoute = AuthenticatedExportRouteImport.update({
 const AuthenticatedFeedbackRoute = AuthenticatedFeedbackRouteImport.update({
   id: '/feedback',
   path: '/feedback',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedManageWorkerRoute =
@@ -207,6 +213,7 @@ export interface FileRoutesByFullPath {
   '/diary': typeof AuthenticatedDiaryRoute
   '/export': typeof AuthenticatedExportRoute
   '/feedback': typeof AuthenticatedFeedbackRoute
+  '/account': typeof AuthenticatedAccountRoute
   '/manage-worker': typeof AuthenticatedManageWorkerRoute
   '/reels': typeof AuthenticatedReelsRoute
   '/rentals': typeof AuthenticatedRentalsRoute
@@ -237,6 +244,7 @@ export interface FileRoutesByTo {
   '/diary': typeof AuthenticatedDiaryRoute
   '/export': typeof AuthenticatedExportRoute
   '/feedback': typeof AuthenticatedFeedbackRoute
+  '/account': typeof AuthenticatedAccountRoute
   '/manage-worker': typeof AuthenticatedManageWorkerRoute
   '/reels': typeof AuthenticatedReelsRoute
   '/rentals': typeof AuthenticatedRentalsRoute
@@ -269,6 +277,7 @@ export interface FileRoutesById {
   '/_authenticated/diary': typeof AuthenticatedDiaryRoute
   '/_authenticated/export': typeof AuthenticatedExportRoute
   '/_authenticated/feedback': typeof AuthenticatedFeedbackRoute
+  '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/manage-worker': typeof AuthenticatedManageWorkerRoute
   '/_authenticated/reels': typeof AuthenticatedReelsRoute
   '/_authenticated/rentals': typeof AuthenticatedRentalsRoute
@@ -301,6 +310,7 @@ export interface FileRouteTypes {
     | '/diary'
     | '/export'
     | '/feedback'
+    | '/account'
     | '/manage-worker'
     | '/reels'
     | '/rentals'
@@ -331,6 +341,7 @@ export interface FileRouteTypes {
     | '/diary'
     | '/export'
     | '/feedback'
+    | '/account'
     | '/manage-worker'
     | '/reels'
     | '/rentals'
@@ -362,6 +373,7 @@ export interface FileRouteTypes {
     | '/_authenticated/diary'
     | '/_authenticated/export'
     | '/_authenticated/feedback'
+    | '/_authenticated/account'
     | '/_authenticated/manage-worker'
     | '/_authenticated/reels'
     | '/_authenticated/rentals'
@@ -479,6 +491,13 @@ declare module '@tanstack/react-router' {
       path: '/feedback'
       fullPath: '/feedback'
       preLoaderRoute: typeof AuthenticatedFeedbackRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/account': {
+      id: '/_authenticated/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthenticatedAccountRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/manage-worker': {
@@ -609,6 +628,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDiaryRoute: typeof AuthenticatedDiaryRoute
   AuthenticatedExportRoute: typeof AuthenticatedExportRoute
   AuthenticatedFeedbackRoute: typeof AuthenticatedFeedbackRoute
+  AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedManageWorkerRoute: typeof AuthenticatedManageWorkerRoute
   AuthenticatedReelsRoute: typeof AuthenticatedReelsRoute
   AuthenticatedRentalsRoute: typeof AuthenticatedRentalsRoute
@@ -630,6 +650,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDiaryRoute: AuthenticatedDiaryRoute,
   AuthenticatedExportRoute: AuthenticatedExportRoute,
   AuthenticatedFeedbackRoute: AuthenticatedFeedbackRoute,
+  AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedManageWorkerRoute: AuthenticatedManageWorkerRoute,
   AuthenticatedReelsRoute: AuthenticatedReelsRoute,
   AuthenticatedRentalsRoute: AuthenticatedRentalsRoute,

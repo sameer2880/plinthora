@@ -585,19 +585,16 @@ function MoreMenuContent({
               return <div className="more-account min-w-0 flex-1">{cardInner}</div>;
             }
 
+            // On the phone, "Manage my account" is its own page (/account), not a pop-up.
             return (
-              <ChangePasswordDialog
-                renderTrigger={(openDialog) => (
-                  <button
-                    type="button"
-                    onClick={openDialog}
-                    aria-label="Manage my account"
-                    className="more-account more-account-btn min-w-0 flex-1"
-                  >
-                    {cardInner}
-                  </button>
-                )}
-              />
+              <Link
+                to="/account"
+                onClick={onClose}
+                aria-label="Manage my account"
+                className="more-account more-account-btn min-w-0 flex-1"
+              >
+                {cardInner}
+              </Link>
             );
           })()}
 
