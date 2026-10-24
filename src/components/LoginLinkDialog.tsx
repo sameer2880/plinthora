@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Check, Copy, KeyRound, Loader2, Wand2 } from "lucide-react";
+import { Check, Copy, KeyRound, Loader2, Mail, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { ShareButtons } from "@/components/ShareButtons";
 import { copyText } from "@/lib/share";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { createLoginLinkFn } from "@/lib/api/users.functions";
+import { createLoginLinkFn, emailLoginLinkFn } from "@/lib/api/users.functions";
 import { loginLinkUrl } from "@/lib/access-requests";
 import { PLATFORM_NAME } from "@/lib/brand";
 
@@ -14,7 +14,7 @@ type Kind = "magic" | "reset";
 type Ready = { kind: Kind | "invite"; tokenHash: string; type: string };
 
 /**
- * Creates a one-time link for a user, then copies it or sends it on WhatsApp.
+ * Creates a one-time link for a user, then copies it, sends it on WhatsApp, or emails it.
  *  - Platform admin: a "magic" sign-in link or a password-reset link.
  *  - Business admin / manager (allowMagic = false): the password-reset link only.
  *  - `ready` skips the choice and shows a link that was just made (new account invite or reset).
@@ -33,6 +33,8 @@ export function LoginLinkDialog({
   const [busy, setBusy] = useState<Kind | null>(null);
   const [made, setMade] = useState<{ kind: Kind | "invite"; url: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+  const [emailedTo, setEmailedTo] = useState<string | null>(null);
 
   const result =
     made ?? (ready ? { kind: ready.kind, url: loginLinkUrl(window.location.origin, ready) } : null);
@@ -41,6 +43,7 @@ export function LoginLinkDialog({
   const close = () => {
     setMade(null);
     setCopied(false);
+    setEmailedTo(null);
     onClose();
   };
 
@@ -48,6 +51,7 @@ export function LoginLinkDialog({
     if (!user) return;
     setBusy(kind);
     setCopied(false);
+    setEmailedTo(null);
     try {
       const r = await createLoginLinkFn({ data: { id: user.id, kind } });
       setResult({ kind, url: loginLinkUrl(window.location.origin, r) });
@@ -61,6 +65,21 @@ export function LoginLinkDialog({
   const copy = async () => {
     if (!result) return;
     if (await copyText(result.url, "Link copied")) setCopied(true);
+  };
+
+  // Sends the link by email right now (through the app's email service) to the address saved on their profile.
+  const emailNow = async () => {
+    if (!user || !result) return;
+    setEmailing(true);
+    try {
+      const r = await emailLoginLinkFn({ data: { id: user.id, kind: result.kind } });
+      setEmailedTo(r.to);
+      toast.success(`Email sent to ${r.to}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Unable to send the email");
+    } finally {
+      setEmailing(false);
+    }
   };
 
   const message = result
@@ -117,6 +136,12 @@ export function LoginLinkDialog({
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
+            <Button type="button" className="w-full" onClick={emailNow} disabled={emailing || emailedTo !== null}>
+              {emailing ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : emailedTo ? <Check className="mr-1.5 h-4 w-4" /> : <Mail className="mr-1.5 h-4 w-4" />}
+              <span className="truncate">
+                {emailedTo ? `Email sent to ${emailedTo}` : user?.email ? `Send email now to ${user.email}` : "Send email now"}
+              </span>
+            </Button>
             <ShareButtons message={message} subject={subject} phone={user?.phone} email={user?.email} link={result.url} />
             <div className="flex flex-wrap gap-2">
               {!ready && (

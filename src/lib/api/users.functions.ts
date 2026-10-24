@@ -208,3 +208,68 @@ export const createLoginLinkFn = createServerFn({ method: "POST" })
       data.kind === "reset" ? await h.issueResetLink(target) : await h.createAccessLink(target.auth_user_id, "magiclink");
     return { ...link, name: target.name, phone: target.phone };
   });
+
+/**
+ * Emails a one-time link straight to the user's saved email (through Brevo), instead of the admin
+ * having to share it by hand. Same permissions as createLoginLinkFn:
+ *   "magic" — platform admin only.   "reset" / "invite" — admin / manager / platform admin within their reach.
+ * The address always comes from the user's own record, never from the browser, and the link is built
+ * here, so nobody can use this to send a link anywhere else.
+ */
+export const emailLoginLinkFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), kind: z.enum(["magic", "reset", "invite"]) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const h = await import("./helpers.server");
+    const mail = await import("./email.server");
+    const { loginLinkUrl } = await import("@/lib/access-requests");
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { userId } = context as unknown as { userId: string };
+
+    if (!mail.emailConfigured()) {
+      throw new Error("Email isn't set up yet. Share the link by WhatsApp or copy it instead.");
+    }
+    if (data.kind === "magic") await h.requireSuperAdmin(context as unknown as UserContext);
+    const caller = await h.getCaller(context as unknown as UserContext);
+    const target = await h.loadTarget(caller, data.id);
+
+    if (!(await h.withinRateLimit(`login-link-email:user:${userId}`, 20, 3600))) {
+      throw new Error("Too many emails sent. Please wait a while and try again.");
+    }
+    if (!target.active) throw new Error("This account is deactivated. Activate it first.");
+    if (!target.auth_user_id) throw new Error("This user has no login yet — save them with a mobile number first");
+
+    const admin = await h.adminClient();
+    const { data: row } = await admin.from("workers").select("email").eq("id", target.id).maybeSingle();
+    const to = ((row?.email as string | null) ?? "").trim();
+    if (!to) throw new Error(`No email is saved for ${target.name}. Add one in their profile, or share the link by WhatsApp.`);
+
+    // Where the link opens: APP_URL if you set it, otherwise the address the admin is using right now.
+    const request = getRequest();
+    let origin = (process.env.APP_URL || "").trim().replace(/\/+$/, "");
+    if (!origin) {
+      try {
+        origin = request.headers.get("origin") || new URL(request.url).origin;
+      } catch {
+        throw new Error("Couldn't work out the app address. Set APP_URL where the app is hosted.");
+      }
+    }
+
+    const link =
+      data.kind === "magic"
+        ? await h.createAccessLink(target.auth_user_id, "magiclink")
+        : await h.issueResetLink(target);
+
+    try {
+      await mail.sendLoginLinkEmail(to, { name: target.name, url: loginLinkUrl(origin, link), kind: data.kind });
+    } catch (e) {
+      console.error("[login-link] email failed:", e instanceof Error ? e.message : e);
+      throw new Error("We couldn't send the email. Try again in a few minutes, or share the link by WhatsApp.");
+    }
+
+    const [name, domain] = to.split("@");
+    const masked = name && domain ? `${name.slice(0, 1)}${"*".repeat(Math.min(Math.max(name.length - 1, 1), 8))}@${domain}` : to;
+    return { ok: true as const, to: masked };
+  });
