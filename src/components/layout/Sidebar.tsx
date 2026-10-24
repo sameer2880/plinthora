@@ -3,6 +3,7 @@ import {
   Home,
   Boxes,
   FileBarChart,
+  Download,
   Receipt,
   Moon,
   Sun,
@@ -130,6 +131,13 @@ const nav = [
     feature: "reports",
   },
   {
+    to: "/export",
+    label: "Export Data",
+    icon: Download,
+    // Shown when the business has Rentals, or Labour (admins) — see useNavLinks.
+    exportPage: true,
+  },
+  {
     to: "/receipts",
     label: "Receipts",
     icon: Receipt,
@@ -184,7 +192,10 @@ export function useNavLinks() {
       (item) =>
         !item.superOnly &&
         (!item.adminOnly || isMasterAdmin()) &&
-        (!item.feature || isFeatureEnabled(business, item.feature as FeatureKey)),
+        (!item.feature || isFeatureEnabled(business, item.feature as FeatureKey)) &&
+        (!("exportPage" in item) ||
+          isFeatureEnabled(business, "rentals") ||
+          (isFeatureEnabled(business, "labour") && isMasterAdmin())),
     );
   }
 

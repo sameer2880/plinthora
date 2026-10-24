@@ -11,14 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as McpRouteImport } from './routes/mcp'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as RequestAccessRouteImport } from './routes/request-access'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedBusinessSettingsRouteImport } from './routes/_authenticated/business-settings'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDiaryRouteImport } from './routes/_authenticated/diary'
+import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedFeedbackRouteImport } from './routes/_authenticated/feedback'
 import { Route as AuthenticatedManageWorkerRouteImport } from './routes/_authenticated/manage-worker'
 import { Route as AuthenticatedReelsRouteImport } from './routes/_authenticated/reels'
@@ -47,14 +48,14 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const McpRoute = McpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RequestAccessRoute = RequestAccessRouteImport.update({
@@ -88,6 +89,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
 const AuthenticatedDiaryRoute = AuthenticatedDiaryRouteImport.update({
   id: '/diary',
   path: '/diary',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedExportRoute = AuthenticatedExportRouteImport.update({
+  id: '/export',
+  path: '/export',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedFeedbackRoute = AuthenticatedFeedbackRouteImport.update({
@@ -191,14 +197,15 @@ const AuthenticatedReceiptsIdRoute = AuthenticatedReceiptsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/mcp': typeof McpRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/mcp': typeof McpRoute
   '/request-access': typeof RequestAccessRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/business-settings': typeof AuthenticatedBusinessSettingsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/diary': typeof AuthenticatedDiaryRoute
+  '/export': typeof AuthenticatedExportRoute
   '/feedback': typeof AuthenticatedFeedbackRoute
   '/manage-worker': typeof AuthenticatedManageWorkerRoute
   '/reels': typeof AuthenticatedReelsRoute
@@ -220,14 +227,15 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/mcp': typeof McpRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/mcp': typeof McpRoute
   '/request-access': typeof RequestAccessRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/business-settings': typeof AuthenticatedBusinessSettingsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/diary': typeof AuthenticatedDiaryRoute
+  '/export': typeof AuthenticatedExportRoute
   '/feedback': typeof AuthenticatedFeedbackRoute
   '/manage-worker': typeof AuthenticatedManageWorkerRoute
   '/reels': typeof AuthenticatedReelsRoute
@@ -251,14 +259,15 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/mcp': typeof McpRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/mcp': typeof McpRoute
   '/request-access': typeof RequestAccessRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/business-settings': typeof AuthenticatedBusinessSettingsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/diary': typeof AuthenticatedDiaryRoute
+  '/_authenticated/export': typeof AuthenticatedExportRoute
   '/_authenticated/feedback': typeof AuthenticatedFeedbackRoute
   '/_authenticated/manage-worker': typeof AuthenticatedManageWorkerRoute
   '/_authenticated/reels': typeof AuthenticatedReelsRoute
@@ -282,14 +291,15 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/mcp'
     | '/forgot-password'
+    | '/mcp'
     | '/request-access'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/business-settings'
     | '/dashboard'
     | '/diary'
+    | '/export'
     | '/feedback'
     | '/manage-worker'
     | '/reels'
@@ -311,14 +321,15 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/mcp'
     | '/forgot-password'
+    | '/mcp'
     | '/request-access'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/business-settings'
     | '/dashboard'
     | '/diary'
+    | '/export'
     | '/feedback'
     | '/manage-worker'
     | '/reels'
@@ -341,14 +352,15 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
-    | '/mcp'
     | '/forgot-password'
+    | '/mcp'
     | '/request-access'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/business-settings'
     | '/_authenticated/dashboard'
     | '/_authenticated/diary'
+    | '/_authenticated/export'
     | '/_authenticated/feedback'
     | '/_authenticated/manage-worker'
     | '/_authenticated/reels'
@@ -372,8 +384,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  McpRoute: typeof McpRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  McpRoute: typeof McpRoute
   RequestAccessRoute: typeof RequestAccessRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -399,18 +411,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/mcp': {
-      id: '/mcp'
-      path: '/mcp'
-      fullPath: '/mcp'
-      preLoaderRoute: typeof McpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/forgot-password': {
       id: '/forgot-password'
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/request-access': {
@@ -453,6 +465,13 @@ declare module '@tanstack/react-router' {
       path: '/diary'
       fullPath: '/diary'
       preLoaderRoute: typeof AuthenticatedDiaryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/export': {
+      id: '/_authenticated/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof AuthenticatedExportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/feedback': {
@@ -588,6 +607,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBusinessSettingsRoute: typeof AuthenticatedBusinessSettingsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDiaryRoute: typeof AuthenticatedDiaryRoute
+  AuthenticatedExportRoute: typeof AuthenticatedExportRoute
   AuthenticatedFeedbackRoute: typeof AuthenticatedFeedbackRoute
   AuthenticatedManageWorkerRoute: typeof AuthenticatedManageWorkerRoute
   AuthenticatedReelsRoute: typeof AuthenticatedReelsRoute
@@ -608,6 +628,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBusinessSettingsRoute: AuthenticatedBusinessSettingsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDiaryRoute: AuthenticatedDiaryRoute,
+  AuthenticatedExportRoute: AuthenticatedExportRoute,
   AuthenticatedFeedbackRoute: AuthenticatedFeedbackRoute,
   AuthenticatedManageWorkerRoute: AuthenticatedManageWorkerRoute,
   AuthenticatedReelsRoute: AuthenticatedReelsRoute,
@@ -630,8 +651,8 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  McpRoute: McpRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  McpRoute: McpRoute,
   RequestAccessRoute: RequestAccessRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:

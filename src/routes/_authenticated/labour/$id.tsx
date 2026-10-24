@@ -20,7 +20,6 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
-  Download,
   Pencil,
   Plus,
   Trash2,
@@ -29,7 +28,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
-import { LabourExportDialog } from "@/components/LabourExportDialog";
 import { AdminOnly } from "@/components/AdminOnly";
 import type { Worker } from "./index";
 import { PLATFORM_NAME } from "@/lib/brand";
@@ -116,7 +114,6 @@ const DAY_TYPE_FACTOR: Record<DayType, number> = { full: 1, half: 0.5, ot: 0.25,
 export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?: boolean }) {
   const qc = useQueryClient();
   const [cursor, setCursor] = useState(() => new Date());
-  const [exportOpen, setExportOpen] = useState(false);
   const [dayOpen, setDayOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(ymd(new Date()));
   const [dayNote, setDayNote] = useState("");
@@ -461,9 +458,6 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
 
   return (
     <div className="space-y-5">
-      {!readOnly && worker && (
-        <LabourExportDialog open={exportOpen} onOpenChange={setExportOpen} workers={[worker]} />
-      )}
       <div className="flex flex-wrap items-center gap-3">
         {!readOnly && (
           <Button variant="ghost" size="icon" asChild>
@@ -479,11 +473,6 @@ export function WorkerOverview({ id, readOnly = false }: { id: string; readOnly?
             {worker ? wageSummary(worker) : ""}
           </p>
         </div>
-        {!readOnly && (
-          <Button variant="outline" size="sm" className="ml-auto shrink-0" onClick={() => setExportOpen(true)}>
-            <Download className="h-4 w-4 mr-1.5" /> Export
-          </Button>
-        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.4fr)] lg:items-start">

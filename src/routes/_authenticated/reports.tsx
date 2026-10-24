@@ -7,27 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Download, Printer, FileSpreadsheet } from "lucide-react";
+import { Printer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   component: Reports,
 });
-
-function toCSV(rows: any[]) {
-  if (!rows.length) return "";
-  const cols = Object.keys(rows[0]);
-  const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  return [cols.join(","), ...rows.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
-}
-
-function download(name: string, content: string, type = "text/csv") {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = name; a.click();
-  URL.revokeObjectURL(url);
-}
 
 function Reports() {
   const { data: rentals = [] } = useQuery({ queryKey: ["rentals"], queryFn: listRentals });
@@ -46,15 +31,6 @@ function Reports() {
   };
 
   const revenue = inRange.reduce((s, r) => s + Number(r.total_amount), 0);
-
-  const exportRows = (rows: any[], name: string) => {
-    const cleaned = rows.map((r) => ({
-      customer_name: r.customer_name, mobile: r.customer_phone, village: r.customer_address,
-      material: r.material_name, quantity: r.quantity, unit: r.unit, rate: r.rate_per_unit,
-      total: r.total_amount, issue_date: r.issue_date, return_date: r.return_date ?? "", status: r.status,
-    }));
-    download(`${name}.csv`, toCSV(cleaned));
-  };
 
   return (
     <div className="space-y-5">
@@ -94,9 +70,6 @@ function Reports() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="capitalize text-base">{key} Report</CardTitle>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => exportRows(groups[key], `${key}-report`)}>
-                    <FileSpreadsheet className="h-4 w-4 mr-1.5" /> CSV
-                  </Button>
                   <Button size="sm" variant="outline" onClick={() => window.print()}>
                     <Printer className="h-4 w-4 mr-1.5" /> Print
                   </Button>

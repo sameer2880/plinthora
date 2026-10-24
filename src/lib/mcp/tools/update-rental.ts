@@ -19,7 +19,12 @@ export default defineTool({
   },
   annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ id, ...patch }) => {
-    const changes = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+    const changes: Record<string, unknown> = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+    // Marking a rental returned defaults the return date to today.
+    if (changes.status === "returned" && changes.return_date === undefined) {
+      const d = new Date();
+      changes.return_date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
     if (Object.keys(changes).length === 0) throw new ToolError("Provide at least one field to update.");
 
     const supabase = supabaseAnon();

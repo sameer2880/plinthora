@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Search, Pencil, Trash2, MessageCircle, CheckCircle2, Copy, Printer, Bell, IndianRupee, CircleDollarSign, SlidersHorizontal, X, ShieldAlert, Phone, Package, Share2, BadgeCheck, AlertTriangle, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, MessageCircle, CheckCircle2, Copy, Printer, Bell, IndianRupee, CircleDollarSign, SlidersHorizontal, X, ShieldAlert, Phone, Package, Share2, BadgeCheck, AlertTriangle } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { RentalForm } from "@/components/RentalForm";
@@ -31,14 +31,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { canDeleteRentals } from "@/lib/auth/access";
-import { exportRentalsCsv, exportRentalsPdf, printRentals } from "@/lib/rentals-export";
 import { LoadingBlock } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/_authenticated/rentals")({
@@ -79,18 +75,33 @@ function RentalsPage() {
   const [delGroup, setDelGroup] = useState<RentalGroup | null>(null);
   const [returnGroup, setReturnGroup] = useState<RentalGroup | null>(null);
   const [wa, setWa] = useState<WhatsAppPreview | null>(null);
-  // Export date range (applies to the Issue Date, on top of the current search + filters)
-  const [exportKind, setExportKind] = useState<"csv" | "pdf" | "print" | null>(null);
-  const [exportFrom, setExportFrom] = useState("");
-  const [exportTo, setExportTo] = useState("");
 
   // Arrived via the dashboard's "New Rental" button: open the add form, then
   // drop `?new=true` from the URL so a refresh / back-navigation doesn't reopen it.
   const { new: openNewForm } = Route.useSearch();
   const navigate = Route.useNavigate();
+  // "Quick add" = opened straight into the form (bottom-nav "Add Rental", dashboard button).
+  // The rentals list stays hidden behind the form; cancelling goes back to where the user was.
+  const [quickAdd, setQuickAdd] = useState(!!openNewForm);
+  const savedRef = useRef(false);
+  const handleFormOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (v || !quickAdd) return;
+    if (savedRef.current) {
+      // Saved: show the rentals list with the new rental.
+      savedRef.current = false;
+      setQuickAdd(false);
+    } else if (typeof window !== "undefined" && window.history.length > 1) {
+      // Cancelled: return to the previous screen instead of landing on the list.
+      window.history.back();
+    } else {
+      setQuickAdd(false);
+    }
+  };
   useEffect(() => {
     if (!openNewForm) return;
     setEditingGroup(null);
+    setQuickAdd(true);
     setOpen(true);
     navigate({ search: (prev) => ({ ...prev, new: undefined }), replace: true });
   }, [openNewForm, navigate]);
@@ -124,59 +135,6 @@ function RentalsPage() {
       );
     });
   }, [groups, q, status, payment, takenDate]);
-
-  // Export / print covers every record matching the current search + filters
-  // (not just the 10 on the visible page), narrowed by the chosen From / To date.
-  const exportRows = useMemo(
-    () =>
-      filtered.filter((g) => {
-        if (exportFrom && g.issue_date < exportFrom) return false;
-        if (exportTo && g.issue_date > exportTo) return false;
-        return true;
-      }),
-    [filtered, exportFrom, exportTo],
-  );
-
-  const exportRangeInvalid = !!exportFrom && !!exportTo && exportFrom > exportTo;
-
-  const exportNote = [
-    status !== "all" && `Status: ${status}`,
-    payment !== "all" && `Payment: ${payment}`,
-    q && `Search: "${q}"`,
-    takenDate && `Issue date: ${takenDate}`,
-    exportFrom && exportTo && `Date range: ${exportFrom} to ${exportTo}`,
-    exportFrom && !exportTo && `From: ${exportFrom}`,
-    !exportFrom && exportTo && `Up to: ${exportTo}`,
-  ].filter(Boolean).join(", ") || undefined;
-
-  const openExport = (kind: "csv" | "pdf" | "print") => {
-    setExportFrom("");
-    setExportTo("");
-    setExportKind(kind);
-  };
-
-  const runExport = async () => {
-    const kind = exportKind;
-    if (!kind) return;
-    if (exportRangeInvalid) {
-      toast.error("'From' date must be on or before 'To' date");
-      return;
-    }
-    if (exportRows.length === 0) {
-      toast.error("No rentals found in this date range");
-      return;
-    }
-    try {
-      if (kind === "csv") exportRentalsCsv(exportRows);
-      else if (kind === "pdf") await exportRentalsPdf(exportRows, exportNote);
-      else printRentals(exportRows, exportNote);
-      if (kind !== "print") toast.success(kind === "csv" ? "CSV downloaded" : "PDF downloaded");
-      setExportKind(null);
-    } catch (e) {
-      console.error(e);
-      toast.error("Export failed. Please try again.");
-    }
-  };
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
   const pageRows = filtered.slice((page - 1) * PAGE, page * PAGE);
@@ -221,35 +179,13 @@ function RentalsPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className={quickAdd ? "hidden" : "space-y-5"}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold">Rentals</h2>
           <p className="text-sm text-muted-foreground">Manage all material rental records</p>
         </div>
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="shadow-sm">
-                <Download className="h-4 w-4 mr-1.5" /> Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                {filtered.length} rental{filtered.length === 1 ? "" : "s"} (current filters) - pick a date range next
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => openExport("csv")}>
-                <FileSpreadsheet className="h-4 w-4 mr-2" /> Export as CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openExport("pdf")}>
-                <FileText className="h-4 w-4 mr-2" /> Export as PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openExport("print")}>
-                <Printer className="h-4 w-4 mr-2" /> Print
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
           <Button onClick={() => { setEditingGroup(null); setOpen(true); }} className="shadow-sm">
             <Plus className="h-4 w-4 mr-1.5" /> New Rental
           </Button>
@@ -545,58 +481,10 @@ function RentalsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!exportKind} onOpenChange={(v) => !v && setExportKind(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {exportKind === "csv" ? "Export as CSV" : exportKind === "pdf" ? "Export as PDF" : "Print rentals"}
-            </DialogTitle>
-            <DialogDescription>
-              Choose the issue-date range to include. Leave both blank to export everything.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">From date</label>
-              <Input
-                type="date"
-                value={exportFrom}
-                max={exportTo || undefined}
-                onChange={(e) => setExportFrom(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">To date</label>
-              <Input
-                type="date"
-                value={exportTo}
-                min={exportFrom || undefined}
-                onChange={(e) => setExportTo(e.target.value)}
-              />
-            </div>
-          </div>
-          <p className={`text-sm ${exportRangeInvalid ? "text-destructive" : "text-muted-foreground"}`}>
-            {exportRangeInvalid
-              ? "'From' date must be on or before 'To' date."
-              : `${exportRows.length} rental${exportRows.length === 1 ? "" : "s"} will be included.`}
-          </p>
-          <DialogFooter className="gap-2 sm:gap-0">
-            {(exportFrom || exportTo) && (
-              <Button type="button" variant="ghost" onClick={() => { setExportFrom(""); setExportTo(""); }}>
-                Clear dates
-              </Button>
-            )}
-            <Button type="button" variant="outline" onClick={() => setExportKind(null)}>Cancel</Button>
-            <Button type="button" onClick={runExport} disabled={exportRangeInvalid || exportRows.length === 0}>
-              {exportKind === "print" ? "Print" : "Export"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <WhatsAppPreviewDialog preview={wa} onClose={() => setWa(null)} />
 
-      <RentalForm open={open} onOpenChange={setOpen} editingGroup={editingGroup} />
+      <RentalForm open={open} onOpenChange={handleFormOpenChange} onSaved={() => { savedRef.current = true; }} editingGroup={editingGroup} />
 
       <ReturnItemsDialog
         open={!!returnGroup}

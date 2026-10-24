@@ -17,7 +17,6 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Download,
   UserCog,
   CalendarCheck,
   Sun,
@@ -28,7 +27,6 @@ import {
   Wallet,
   Pencil,
 } from "lucide-react";
-import { LabourExportDialog } from "@/components/LabourExportDialog";
 import { WorkerEditDialog } from "@/components/WorkerEditDialog";
 import { toast } from "sonner";
 import { confirm } from "@/components/ui/confirm-dialog";
@@ -708,7 +706,6 @@ function MarkAttendanceDialog({
 function LabourList() {
   const [q, setQ] = useState("");
   const [markOpen, setMarkOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
   const [editWorker, setEditWorker] = useState<Worker | null>(null);
 
   // Labour Charges only ever shows "worker" role users of the current business.
@@ -731,7 +728,6 @@ function LabourList() {
   return (
     <AdminOnly label="Labour Charges">
     <div className="space-y-5">
-      <LabourExportDialog open={exportOpen} onOpenChange={setExportOpen} workers={filtered} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -742,9 +738,6 @@ function LabourList() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setMarkOpen(true)}>
             <CalendarCheck className="h-4 w-4 mr-1.5" /> Mark Attendance
-          </Button>
-          <Button variant="outline" onClick={() => setExportOpen(true)}>
-            <Download className="h-4 w-4 mr-1.5" /> Export
           </Button>
           <Button asChild>
             <Link to="/manage-worker" search={{ view: "workers" }}>

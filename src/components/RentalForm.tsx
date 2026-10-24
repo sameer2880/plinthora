@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getBusiness } from "@/lib/auth/session";
 import type { Rental, RentalGroup } from "@/lib/rentals";
-import { buildConfirmMessage, buildGroupConfirmMessage, buildGroupReceiptMessage } from "@/lib/rentals";
+import { buildConfirmMessage, buildGroupConfirmMessage, buildGroupReceiptMessage, todayLocal } from "@/lib/rentals";
 import { WhatsAppPreviewDialog, type WhatsAppPreview } from "@/components/WhatsAppPreviewDialog";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import { Check, MessageCircle, Pencil, Plus, Trash2, Undo2 } from "lucide-react"
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** Called after a successful save, just before the form closes. */
+  onSaved?: () => void;
   editingGroup?: RentalGroup | null;
 }
 
@@ -67,7 +69,7 @@ const emptyForm = () => ({
   items: [emptyItem()] as Item[],
 });
 
-export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
+export function RentalForm({ open, onOpenChange, onSaved, editingGroup }: Props) {
   const qc = useQueryClient();
   const [form, setForm] = useState(emptyForm());
   // Grand total typed by hand (null = auto-add the line totals).
@@ -267,6 +269,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
             : undefined,
         },
       );
+      onSaved?.();
       onOpenChange(false);
     },
 
@@ -535,7 +538,7 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
             <Field label="Issue Date *">
               <Input type="date" value={form.issue_date} onChange={(e) => setForm({ ...form, issue_date: e.target.value })} required />
             </Field>
-            <Field label="Expected Return Date (optional)">
+            <Field label={form.status === "returned" ? "Return Date" : "Expected Return Date (optional)"}>
               <Input type="date" value={form.return_date} min={form.issue_date || undefined} onChange={(e) => setForm({ ...form, return_date: e.target.value })} />
             </Field>
           </div>
@@ -544,7 +547,11 @@ export function RentalForm({ open, onOpenChange, editingGroup }: Props) {
               <select
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                 value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value as "active" | "returned" })}
+                onChange={(e) => {
+                  const next = e.target.value as "active" | "returned";
+                  // Marking as returned defaults the return date to today (still editable).
+                  setForm({ ...form, status: next, ...(next === "returned" && initialStatus.current !== "returned" ? { return_date: todayLocal() } : {}) });
+                }}
               >
                 <option value="active">Active</option>
                 <option value="returned">Returned</option>

@@ -9,9 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { NotebookPen, Plus, Pencil, Trash2, Search, Download } from "lucide-react";
+import { NotebookPen, Plus, Pencil, Trash2, Search } from "lucide-react";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
-import { downloadCsv } from "@/lib/export";
 import { PLATFORM_NAME } from "@/lib/brand";
 import { LoadingBlock } from "@/components/LoadingScreen";
 
@@ -153,26 +152,6 @@ function Diary() {
           <p className="text-sm text-muted-foreground">Daily work notes, labour, expenses and reminders.</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (filtered.length === 0) return toast.error("Nothing to export");
-              downloadCsv(
-                `diary-notes-${new Date().toISOString().slice(0, 10)}`,
-                filtered.map((n) => ({
-                  Date: n.entry_date,
-                  Title: n.title,
-                  Category: n.category,
-                  Amount: n.amount ?? "",
-                  Note: n.content,
-                  Created: new Date(n.created_at).toLocaleString("en-IN"),
-                })),
-              );
-              toast.success("Exported CSV");
-            }}
-          >
-            <Download className="h-4 w-4 mr-1.5" /> Export
-          </Button>
           <Button onClick={startNew}>
             <Plus className="h-4 w-4 mr-1.5" /> New Note
           </Button>

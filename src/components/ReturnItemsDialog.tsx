@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Rental, RentalGroup } from "@/lib/rentals";
-import { buildGroupReturnMessage } from "@/lib/rentals";
+import { buildGroupReturnMessage, todayLocal } from "@/lib/rentals";
 import { WhatsAppPreviewDialog, type WhatsAppPreview } from "@/components/WhatsAppPreviewDialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -41,10 +41,11 @@ export function ReturnItemsDialog({ open, onOpenChange, group }: Props) {
       const toReturn = group.rows.filter((r) => checked[r.id] && r.status !== "returned");
       const toUnreturn = group.rows.filter((r) => !checked[r.id] && r.status === "returned");
 
+      const returnedOn = todayLocal();
       if (toReturn.length > 0) {
         const { error } = await supabase
           .from("rentals")
-          .update({ status: "returned" })
+          .update({ status: "returned", return_date: returnedOn })
           .in("id", toReturn.map((r) => r.id));
         if (error) throw error;
       }
@@ -57,7 +58,7 @@ export function ReturnItemsDialog({ open, onOpenChange, group }: Props) {
       }
 
       const allReturned = group.rows.every((r) => checked[r.id]);
-      return { newlyReturned: toReturn, allReturned };
+      return { newlyReturned: toReturn.map((r) => ({ ...r, status: "returned" as const, return_date: returnedOn })), allReturned };
     },
     onSuccess: ({ newlyReturned, allReturned }) => {
       qc.invalidateQueries({ queryKey: ["rentals"] });
