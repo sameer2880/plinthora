@@ -36,8 +36,8 @@ export function AuthPageLayout({
     <div
       className={
         appBackground
-          ? "auth-page relative flex min-h-dvh w-full"
-          : "relative flex min-h-dvh w-full bg-[#eef6e6] dark:bg-[#0a130d]"
+          ? "auth-page relative flex min-h-dvh w-full split:h-dvh split:overflow-hidden"
+          : "relative flex min-h-dvh w-full bg-[#eef6e6] dark:bg-[#0a130d] split:h-dvh split:overflow-hidden"
       }
     >
       {!appBackground && (
@@ -49,7 +49,7 @@ export function AuthPageLayout({
       )}
 
       {/* Illustration panel — same look as the sign-in page, wide screens only */}
-      <aside className="relative z-10 hidden overflow-hidden bg-gradient-to-br from-[#7ab558] via-primary to-[#22331c] split:flex split:w-[42%] split:items-center split:justify-center">
+      <aside className="relative z-10 hidden overflow-hidden split:h-dvh split:shrink-0 bg-gradient-to-br from-[#7ab558] via-primary to-[#22331c] split:flex split:w-[42%] split:items-center split:justify-center">
         <WaveLines className="pointer-events-none absolute inset-0 z-0 h-full w-full text-white opacity-45" />
         <div className="relative z-10 flex flex-col items-center gap-8">
           <div className="rounded-[2.5rem] bg-white/10 p-8 backdrop-blur-sm">
@@ -63,7 +63,7 @@ export function AuthPageLayout({
       </aside>
 
       {/* The page itself */}
-      <main className="relative z-10 flex min-h-dvh flex-1 flex-col overflow-y-auto px-6 pb-10 pt-[calc(1.5rem+env(safe-area-inset-top))] sm:px-10 split:px-14">
+      <main className="relative z-10 flex min-h-dvh flex-1 flex-col overflow-y-auto split:h-dvh px-6 pb-10 pt-[calc(1.5rem+env(safe-area-inset-top))] sm:px-10 split:px-14">
         <header className="flex items-center justify-between gap-3">
           {onBack ? (
             <button type="button" onClick={onBack} className={backClass}>
