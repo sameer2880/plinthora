@@ -90,7 +90,8 @@ function redirectFor(
   if (!me) return null;
 
   if (me.role === "worker") {
-    return pathname !== "/worker" ? "/worker" : null;
+    // Workers stay on their own page, plus "Manage my account".
+    return pathname !== "/worker" && pathname !== "/account" ? "/worker" : null;
   }
 
   if (me.role === "super_admin") {

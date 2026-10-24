@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { UserCog, Shield, Crown, KeyRound, LogOut, ChevronRight, Building2 } from "lucide-react";
+import { UserCog, Shield, Crown, KeyRound, LogOut, ChevronRight, Building2, HardHat } from "lucide-react";
 import { useSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
@@ -14,6 +14,7 @@ import { lock } from "@/lib/auth/lock";
 import { passwordProblem } from "@/lib/auth/password";
 
 const ROLE_DISPLAY = {
+  worker: { label: "Worker", icon: HardHat, className: "bg-primary/10 text-primary" },
   manager: { label: "Manager", icon: Shield, className: "bg-primary/10 text-primary" },
   admin: { label: "Admin", icon: Crown, className: "bg-amber-500/10 text-amber-600" },
   super_admin: { label: "Platform admin", icon: Crown, className: "bg-amber-500/10 text-amber-600" },
@@ -70,7 +71,7 @@ export function ChangePasswordDialog({
     onError: (e: Error) => setErr(e.message),
   });
 
-  if (!me || me.role === "worker") return null;
+  if (!me) return null;
 
   const roleInfo = ROLE_DISPLAY[me.role as keyof typeof ROLE_DISPLAY] ?? null;
   const RoleIcon = roleInfo?.icon;

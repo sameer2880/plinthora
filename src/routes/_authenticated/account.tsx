@@ -7,6 +7,7 @@ import {
   Crown,
   Eye,
   EyeOff,
+  HardHat,
   KeyRound,
   Loader2,
   LockKeyhole,
@@ -33,6 +34,7 @@ import {
 /**
  * "Manage my account" as a full page (the phone's "More" menu opens this instead of a pop-up).
  *
+ *   Works for admins, managers, workers and the platform admin.
  *   home      who you are, Change password, Sign out
  *   change    current password + new password
  *   code      "Forgot password?" -> a 6-digit code is emailed to the email saved on THIS account
@@ -43,6 +45,7 @@ export const Route = createFileRoute("/_authenticated/account")({
 });
 
 const ROLE_DISPLAY = {
+  worker: { label: "Worker", icon: HardHat, className: "bg-primary/10 text-primary" },
   manager: { label: "Manager", icon: Shield, className: "bg-primary/10 text-primary" },
   admin: { label: "Admin", icon: Crown, className: "bg-amber-500/10 text-amber-600" },
   super_admin: { label: "Platform admin", icon: Crown, className: "bg-amber-500/10 text-amber-600" },
@@ -73,18 +76,13 @@ function AccountPage() {
   const [maskedEmail, setMaskedEmail] = useState("");
   const [cooldown, setCooldown] = useState(0);
 
-  // Workers have no account page.
-  useEffect(() => {
-    if (me && me.role === "worker") void navigate({ to: "/dashboard" as never, replace: true });
-  }, [me, navigate]);
-
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = window.setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => window.clearTimeout(t);
   }, [cooldown]);
 
-  if (!me || me.role === "worker") return null;
+  if (!me) return null;
 
   const roleInfo = ROLE_DISPLAY[me.role as keyof typeof ROLE_DISPLAY] ?? null;
   const RoleIcon = roleInfo?.icon;
@@ -101,7 +99,7 @@ function AccountPage() {
   const goBack = () => {
     if (view === "home") {
       if (window.history.length > 1) router.history.back();
-      else void navigate({ to: "/dashboard" as never });
+      else void navigate({ to: (me.role === "worker" ? "/worker" : "/dashboard") as never });
       return;
     }
     clearFields();
@@ -296,7 +294,11 @@ function AccountPage() {
             <ConfirmDelete
               onConfirm={lock}
               title="Sign out of this account?"
-              description="You will need to sign in again to access the dashboard."
+              description={
+                me.role === "worker"
+                  ? "You will need to sign in again to view attendance and payment records."
+                  : "You will need to sign in again to access the dashboard."
+              }
               confirmLabel="Sign out"
             >
               <Button

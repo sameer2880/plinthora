@@ -574,16 +574,12 @@ function MoreMenuContent({
                     {accountName}
                   </span>
                   <span className="mt-0.5 block truncate text-[11px] font-semibold opacity-70">
-                    {isWorkerSidebar ? t("Worker") : t("Manage account")}
+                    {t("Manage account")}
                   </span>
                 </span>
-                {!isWorkerSidebar && <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />}
+                <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />
               </>
             );
-
-            if (isWorkerSidebar) {
-              return <div className="more-account min-w-0 flex-1">{cardInner}</div>;
-            }
 
             // On the phone, "Manage my account" is its own page (/account), not a pop-up.
             return (
@@ -648,7 +644,7 @@ function MoreMenuContent({
 
           {isWorkerSidebar && locationSharingEnabled && <WorkerLocationToggle workerId={workerId ?? null} />}
 
-          {/* Workers have no account dialog, so they sign out from here;
+          {/* Workers can also sign out from here;
               admins / managers sign out inside "Manage my account". */}
           {isWorkerSidebar && (
             <ConfirmDelete
@@ -817,12 +813,6 @@ function DesktopSidebar({
   const brandLocation = business?.location ?? "";
   const locationSharingEnabled = isFeatureEnabled(business, "worker_locations");
   const displayName = (isWorker ? workerName : me?.name) || "Account";
-  const roleLabel =
-    me?.role === "super_admin"
-      ? "Platform admin"
-      : me?.role
-        ? String(me.role).replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
-        : "";
 
   // Text that fades + clips away when collapsed (icons stay put).
   const fade = (maxOpen: string) =>
@@ -975,18 +965,7 @@ function DesktopSidebar({
               </div>
               <div className={cn(fade("max-w-[10rem]"), "min-w-0 text-left")}>
                 <div className="truncate text-sm font-semibold leading-tight">{displayName}</div>
-                {(isWorker ? roleLabel : "Manage account") && (
-                  <div
-                    className={cn(
-                      "mt-0.5 truncate text-[11px]",
-                      isWorker
-                        ? "text-sidebar-foreground/65"
-                        : "font-medium text-primary",
-                    )}
-                  >
-                    {isWorker ? roleLabel : "Manage account"}
-                  </div>
-                )}
+                <div className="mt-0.5 truncate text-[11px] font-medium text-primary">Manage account</div>
               </div>
             </>
           );
@@ -995,12 +974,7 @@ function DesktopSidebar({
             collapsed ? "justify-start bg-transparent" : "bg-sidebar-accent/60",
           );
 
-          // Workers have no account dialog — plain card. Everyone else: the
-          // card itself opens "Manage my account".
-          if (isWorker) {
-            return <div className={cardClass}>{cardInner}</div>;
-          }
-
+          // Everyone (workers too): the card itself opens "Manage my account".
           return (
             <ChangePasswordDialog
               renderTrigger={(openDialog) => (
