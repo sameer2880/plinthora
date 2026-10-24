@@ -46,6 +46,8 @@ import { useDeviceType } from "@/hooks/use-device";
 import { lock } from "@/lib/auth/lock";
 import { useSession } from "@/lib/auth/session";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { useI18n } from "@/lib/i18n";
+import { LanguageDialog } from "@/components/LanguageDialog";
 import { isMasterAdmin, isSuperAdmin } from "@/lib/auth/access";
 import { isFeatureEnabled, type FeatureKey } from "@/lib/features";
 
@@ -161,6 +163,7 @@ const nav = [
 
 export function useNavLinks() {
   const { me, business } = useSession();
+  const { t, lang } = useI18n();
   const worker = me?.role === "worker";
 
   let links;
@@ -199,7 +202,16 @@ export function useNavLinks() {
     );
   }
 
-  return { links, worker };
+  // Translate the labels here so every place that shows nav items (bottom bar, rail,
+  // More menu) follows the app language.
+  const translated = (links as typeof nav).map((l) => ({
+    ...l,
+    label: t(l.label),
+    shortLabel: "shortLabel" in l && l.shortLabel ? t(l.shortLabel as string) : undefined,
+  }));
+  void lang;
+
+  return { links: translated, worker };
 }
 
 function NavLinks({ onClick }: { onClick?: () => void }) {
@@ -482,9 +494,10 @@ function MoreMenuContent({
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { links } = useNavLinks();
   const { me, business } = useSession();
+  const { t, lang } = useI18n();
   const locationSharingEnabled = isFeatureEnabled(business, "worker_locations");
   const isWorkerSidebar = workerName !== undefined;
-  const accountName = (isWorkerSidebar ? workerName : me?.name) || "Account";
+  const accountName = (isWorkerSidebar ? workerName : me?.name) || t("Account");
   // Everything without a permanent nav slot — those are already one tap away.
   const secondary = links.filter((l) => !l.primary);
   // Workers have no extra pages, so their grid is the business's contact /
@@ -495,8 +508,8 @@ function MoreMenuContent({
   return (
     <>
       <div className="more-head">
-        <span className="text-base font-bold tracking-tight">More</span>
-        <button type="button" onClick={onClose} aria-label="Close" className="more-close">
+        <span className="text-base font-bold tracking-tight">{t("More")}</span>
+        <button type="button" onClick={onClose} aria-label={t("Close")} className="more-close">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -561,7 +574,7 @@ function MoreMenuContent({
                     {accountName}
                   </span>
                   <span className="mt-0.5 block truncate text-[11px] font-semibold opacity-70">
-                    {isWorkerSidebar ? "Worker" : "Manage account"}
+                    {isWorkerSidebar ? t("Worker") : t("Manage account")}
                   </span>
                 </span>
                 {!isWorkerSidebar && <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />}
@@ -615,6 +628,27 @@ function MoreMenuContent({
           </button>
           </div>
 
+          {/* App language — opens the language picker */}
+          <LanguageDialog
+            renderTrigger={(openDialog) => (
+              <button
+                type="button"
+                onClick={openDialog}
+                aria-label={t("App language")}
+                className="flex w-full cursor-pointer items-center gap-3 rounded-[1.4rem] border border-[rgb(79_122_61/0.16)] bg-white/60 px-4 py-3 text-left text-inherit outline-none transition-all hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-primary/50 active:scale-[0.99] dark:border-white/12 dark:bg-white/[0.06] dark:hover:bg-white/[0.12]"
+              >
+                <Globe className="h-5 w-5 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold leading-tight">{t("Language")}</span>
+                  <span className="mt-0.5 block text-[11px] font-semibold opacity-70">
+                    {lang === "te" ? "తెలుగు" : lang === "hi" ? "हिन्दी" : "English"}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />
+              </button>
+            )}
+          />
+
           {isWorkerSidebar && locationSharingEnabled && <WorkerLocationToggle workerId={workerId ?? null} />}
 
           {/* Workers have no account dialog, so they sign out from here;
@@ -632,7 +666,7 @@ function MoreMenuContent({
                 className="more-signout w-full justify-center font-semibold"
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                Sign out
+                {t("Sign out")}
               </Button>
             </ConfirmDelete>
           )}
@@ -1085,6 +1119,7 @@ function BottomNav({
     select: (s) => (s.location.search as { tab?: string } | undefined)?.tab,
   });
   const { links } = useNavLinks();
+  const { t } = useI18n();
 
   const primary = links.filter((l) => l.primary).slice(0, 4);
   const tabs = primary.length > 0 ? primary : links.slice(0, 4);
@@ -1118,7 +1153,7 @@ function BottomNav({
                 className="shell-addpill"
               >
                 <Plus className="h-4 w-4" />
-                Add Rental
+                {t("Add Rental")}
               </Link>
             )}
             {canSeeWorkerLocations && (
@@ -1128,7 +1163,7 @@ function BottomNav({
                 className="shell-addpill"
               >
                 <MapPinned className="h-4 w-4" />
-                W Locations
+                {t("W Locations")}
               </Link>
             )}
           </div>
@@ -1168,7 +1203,7 @@ function BottomNav({
           className={cn("shell-navtab md:mt-auto md:shrink-0", isMoreOpen && "shell-navtab-active")}
         >
           <MoreHorizontal className="shell-navtab-icon" />
-          <span className="shell-navtab-label">More</span>
+          <span className="shell-navtab-label">{t("More")}</span>
         </button>
       </div>
       </div>

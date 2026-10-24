@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { canDeleteRentals } from "@/lib/auth/access";
 import { LoadingBlock } from "@/components/LoadingScreen";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/rentals")({
   // `/rentals?new=true` opens the "New Rental" form straight away
@@ -50,6 +51,7 @@ const PAGE = 10;
 
 function RentalsPage() {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const { data: rentals = [], isLoading } = useQuery({ queryKey: ["rentals"], queryFn: listRentals });
   const { data: profiles = [] } = useQuery({
     queryKey: ["workers", "names"],
@@ -182,12 +184,12 @@ function RentalsPage() {
     <div className={quickAdd ? "hidden" : "space-y-5"}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Rentals</h2>
-          <p className="text-sm text-muted-foreground">Manage all material rental records</p>
+          <h2 className="text-2xl font-bold">{t("Rentals")}</h2>
+          <p className="text-sm text-muted-foreground">{t("Manage all material rental records")}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => { setEditingGroup(null); setOpen(true); }} className="shadow-sm">
-            <Plus className="h-4 w-4 mr-1.5" /> New Rental
+            <Plus className="h-4 w-4 mr-1.5" /> {t("New Rental")}
           </Button>
         </div>
       </div>
@@ -198,7 +200,7 @@ function RentalsPage() {
             <div className="relative flex-1 min-w-[min(240px,100%)]">
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search by name, mobile or material"
+                placeholder={t("Search by name, mobile or material")}
                 value={q}
                 onChange={(e) => { setQ(e.target.value); setPage(1); }}
                 className="pl-9"
@@ -208,7 +210,7 @@ function RentalsPage() {
                 <PopoverTrigger asChild>
                   <Button type="button" variant={activeFilterCount > 0 ? "default" : "outline"} className="shrink-0 gap-1.5">
                     <SlidersHorizontal className="h-4 w-4" />
-                    Filters
+                    {t("Filters")}
                     {activeFilterCount > 0 && (
                       <span className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-background px-1 text-[11px] font-bold text-foreground">
                         {activeFilterCount}
@@ -218,7 +220,7 @@ function RentalsPage() {
                 </PopoverTrigger>
                 <PopoverContent align="end" className="max-h-[75dvh] w-[min(22rem,calc(100vw-2rem))] space-y-4 overflow-y-auto">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-medium text-muted-foreground">Filters</div>
+                    <div className="text-xs font-medium text-muted-foreground">{t("Filters")}</div>
                     {activeFilterCount > 0 && (
                       <Button
                         type="button"
@@ -227,12 +229,12 @@ function RentalsPage() {
                         onClick={clearFilters}
                         className="h-6 px-1.5 text-xs text-muted-foreground"
                       >
-                        <X className="h-3 w-3 mr-1" /> Clear
+                        <X className="h-3 w-3 mr-1" /> {t("Clear")}
                       </Button>
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Status</label>
+                    <label className="text-xs font-medium text-muted-foreground">{t("Status")}</label>
                     <div className="grid grid-cols-3 gap-1.5">
                       {(["all", "active", "overdue", "partial", "returned"] as const).map((s) => (
                         <Button
@@ -243,13 +245,13 @@ function RentalsPage() {
                           onClick={() => { setStatus(s); setPage(1); }}
                           className="h-9 min-w-0 px-2 capitalize"
                         >
-                          <span className="truncate">{s} ({counts[s]})</span>
+                          <span className="truncate">{t(s)} ({counts[s]})</span>
                         </Button>
                       ))}
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Payment</label>
+                    <label className="text-xs font-medium text-muted-foreground">{t("Payment")}</label>
                     <div className="grid grid-cols-3 gap-1.5">
                       {(["all", "paid", "unpaid"] as const).map((p) => (
                         <Button
@@ -260,13 +262,13 @@ function RentalsPage() {
                           onClick={() => { setPayment(p); setPage(1); }}
                           className="h-9 min-w-0 px-2 capitalize"
                         >
-                          <span className="truncate">{p} ({paymentCounts[p]})</span>
+                          <span className="truncate">{t(p)} ({paymentCounts[p]})</span>
                         </Button>
                       ))}
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Date Taken (Issue Date)</label>
+                    <label className="text-xs font-medium text-muted-foreground">{t("Date Taken (Issue Date)")}</label>
                     <Input
                       type="date"
                       value={takenDate}
@@ -279,14 +281,14 @@ function RentalsPage() {
 
           {(status !== "all" || payment !== "all") && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Showing:</span>
+              <span className="text-muted-foreground">{t("Showing:")}</span>
               {status !== "all" && (
                 <button
                   type="button"
                   onClick={() => { setStatus("all"); setPage(1); }}
                   className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-medium capitalize text-primary"
                 >
-                  {status} <X className="h-3 w-3" />
+                  {t(status)} <X className="h-3 w-3" />
                 </button>
               )}
               {payment !== "all" && (
@@ -295,7 +297,7 @@ function RentalsPage() {
                   onClick={() => { setPayment("all"); setPage(1); }}
                   className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-medium capitalize text-primary"
                 >
-                  {payment} <X className="h-3 w-3" />
+                  {t(payment)} <X className="h-3 w-3" />
                 </button>
               )}
             </div>
@@ -303,9 +305,9 @@ function RentalsPage() {
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {isLoading ? (
-              <LoadingBlock className="col-span-full" title="Loading rentals…" />
+              <LoadingBlock className="col-span-full" title={t("Loading rentals…")} />
             ) : pageRows.length === 0 ? (
-              <div className="col-span-full text-center text-muted-foreground py-8">No rentals found</div>
+              <div className="col-span-full text-center text-muted-foreground py-8">{t("No rentals found")}</div>
             ) : (
               pageRows.map((g, idx) => {
                 const theme = getRentalRowTheme(g);

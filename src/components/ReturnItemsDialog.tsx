@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Rental, RentalGroup } from "@/lib/rentals";
 import { buildGroupReturnMessage, todayLocal } from "@/lib/rentals";
+import { useI18n } from "@/lib/i18n";
 import { WhatsAppPreviewDialog, type WhatsAppPreview } from "@/components/WhatsAppPreviewDialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,6 +25,7 @@ interface Props {
  */
 export function ReturnItemsDialog({ open, onOpenChange, group }: Props) {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [wa, setWa] = useState<WhatsAppPreview | null>(null);
 
@@ -95,7 +97,7 @@ export function ReturnItemsDialog({ open, onOpenChange, group }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Mark Materials Returned</DialogTitle>
+          <DialogTitle>{t("Mark Materials Returned")}</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground -mt-2">
           Tick each material {group.customer_name} has returned. Leave the rest unticked — they'll stay marked as not returned.
@@ -119,9 +121,9 @@ export function ReturnItemsDialog({ open, onOpenChange, group }: Props) {
           ))}
         </div>
         <DialogFooter className="gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("Cancel")}</Button>
           <Button type="button" onClick={() => save.mutate()} disabled={save.isPending}>
-            {save.isPending ? "Saving…" : "Save"}
+            {save.isPending ? t("Saving…") : t("Save")}
           </Button>
         </DialogFooter>
       </DialogContent>

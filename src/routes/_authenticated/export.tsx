@@ -10,6 +10,7 @@ import { exportLabourPdf, exportLabourXlsx, type DateRange, type LabourWorker } 
 import { isMasterAdmin } from "@/lib/auth/access";
 import { isFeatureEnabled } from "@/lib/features";
 import { useSession } from "@/lib/auth/session";
+import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +78,7 @@ function DateFilters({
   setFrom: (v: string) => void;
   setTo: (v: string) => void;
 }) {
+  const { t, lang } = useI18n();
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
@@ -92,15 +94,15 @@ function DateFilters({
               setTo(r.to ?? "");
             }}
           >
-            {p.label}
+            {t(p.label)}
           </Button>
         ))}
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="From">
+        <Field label={t("From")}>
           <Input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
         </Field>
-        <Field label="To">
+        <Field label={t("To")}>
           <Input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
         </Field>
       </div>
@@ -113,6 +115,7 @@ function DateFilters({
 /* ------------------------------------------------------------------ */
 
 function RentalsExport() {
+  const { t, lang } = useI18n();
   const { data: rentals = [], isLoading } = useQuery({ queryKey: ["rentals"], queryFn: listRentals });
   const groups = useMemo(() => groupRentals(rentals), [rentals]);
 
@@ -156,14 +159,14 @@ function RentalsExport() {
       .join(", ") || undefined;
 
   const run = async (kind: "csv" | "pdf" | "print") => {
-    if (invalid) return toast.error("'From' date must be on or before 'To' date");
-    if (rows.length === 0) return toast.error("No rentals match these filters");
+    if (invalid) return toast.error(t("'From' date must be on or before 'To' date."));
+    if (rows.length === 0) return toast.error(t("No rentals match these filters"));
     setBusy(kind);
     try {
       if (kind === "csv") exportRentalsCsv(rows);
       else if (kind === "pdf") await exportRentalsPdf(rows, note);
       else printRentals(rows, note);
-      if (kind !== "print") toast.success(kind === "csv" ? "CSV downloaded" : "PDF downloaded");
+      if (kind !== "print") toast.success(kind === "csv" ? t("CSV downloaded") : t("PDF downloaded"));
     } catch (e) {
       console.error(e);
       toast.error("Export failed. Please try again.");
@@ -185,50 +188,50 @@ function RentalsExport() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Boxes className="h-5 w-5 text-primary" /> Export rentals data
+          <Boxes className="h-5 w-5 text-primary" /> {t("Export rentals data")}
         </CardTitle>
-        <CardDescription>Pick the filters, then download as CSV / PDF or print.</CardDescription>
+        <CardDescription>{t("Pick the filters, then download as CSV / PDF or print.")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Filter dates by">
+          <Field label={t("Filter dates by")}>
             <select className={selectClass} value={dateField} onChange={(e) => setDateField(e.target.value as typeof dateField)}>
-              <option value="issue_date">Issue date</option>
-              <option value="return_date">Return date</option>
+              <option value="issue_date">{t("Issue date")}</option>
+              <option value="return_date">{t("Return date")}</option>
             </select>
           </Field>
-          <Field label="Customer / material / mobile">
-            <Input placeholder="Search (optional)" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Field label={t("Customer / material / mobile")}>
+            <Input placeholder={t("Search (optional)")} value={q} onChange={(e) => setQ(e.target.value)} />
           </Field>
         </div>
 
         <DateFilters from={from} to={to} setFrom={setFrom} setTo={setTo} />
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Status">
+          <Field label={t("Status")}>
             <select className={selectClass} value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="overdue">Overdue</option>
-              <option value="partial">Partially returned</option>
-              <option value="returned">Returned</option>
+              <option value="all">{t("All")}</option>
+              <option value="active">{t("Active")}</option>
+              <option value="overdue">{t("Overdue")}</option>
+              <option value="partial">{t("Partially returned")}</option>
+              <option value="returned">{t("Returned")}</option>
             </select>
           </Field>
-          <Field label="Payment">
+          <Field label={t("Payment")}>
             <select className={selectClass} value={payment} onChange={(e) => setPayment(e.target.value as typeof payment)}>
-              <option value="all">All</option>
-              <option value="paid">Paid</option>
-              <option value="unpaid">Not paid</option>
+              <option value="all">{t("All")}</option>
+              <option value="paid">{t("Paid")}</option>
+              <option value="unpaid">{t("Not Paid")}</option>
             </select>
           </Field>
         </div>
 
         <p className={`text-sm ${invalid ? "text-destructive" : "text-muted-foreground"}`}>
           {invalid
-            ? "'From' date must be on or before 'To' date."
+            ? t("'From' date must be on or before 'To' date.")
             : isLoading
-              ? "Loading rentals…"
-              : `${rows.length} rental${rows.length === 1 ? "" : "s"} will be included.`}
+              ? t("Loading rentals…")
+              : lang === "en" ? `${rows.length} rental${rows.length === 1 ? "" : "s"} will be included.` : `${t("Rentals")}: ${rows.length}`}
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -241,10 +244,10 @@ function RentalsExport() {
             PDF
           </Button>
           <Button variant="outline" disabled={!!busy || invalid || isLoading} onClick={() => run("print")}>
-            <Printer className="h-4 w-4 mr-1.5" /> Print
+            <Printer className="h-4 w-4 mr-1.5" /> {t("Print")}
           </Button>
           <Button variant="ghost" className="ml-auto" onClick={reset}>
-            Reset filters
+            {t("Reset filters")}
           </Button>
         </div>
       </CardContent>
@@ -257,6 +260,7 @@ function RentalsExport() {
 /* ------------------------------------------------------------------ */
 
 function AttendanceExport() {
+  const { t, lang } = useI18n();
   const { data: workers = [], isLoading } = useQuery({
     queryKey: ["workers", "labour"],
     queryFn: async () => {
@@ -275,14 +279,14 @@ function AttendanceExport() {
   const selected = workerId === "all" ? workers : workers.filter((w) => w.id === workerId);
 
   const run = async (kind: "xlsx" | "pdf") => {
-    if (invalid) return toast.error("'From' date must be on or before 'To' date");
-    if (selected.length === 0) return toast.error("No workers to export");
+    if (invalid) return toast.error(t("'From' date must be on or before 'To' date."));
+    if (selected.length === 0) return toast.error(t("No workers to export"));
     setBusy(kind);
     try {
       const range: DateRange = { from: from || undefined, to: to || undefined };
       if (kind === "xlsx") await exportLabourXlsx(selected, range);
       else await exportLabourPdf(selected, range);
-      toast.success(kind === "xlsx" ? "Excel downloaded" : "PDF downloaded");
+      toast.success(kind === "xlsx" ? t("Excel downloaded") : t("PDF downloaded"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Export failed");
     } finally {
@@ -300,16 +304,16 @@ function AttendanceExport() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <HardHat className="h-5 w-5 text-primary" /> Export attendance data
+          <HardHat className="h-5 w-5 text-primary" /> {t("Export attendance data")}
         </CardTitle>
         <CardDescription>
-          Attendance and payments, date by date. With a date range, earned / paid / balance are for that period only.
+          {t("Attendance and payments, date by date. With a date range, earned / paid / balance are for that period only.")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <Field label="Worker">
+        <Field label={t("Worker")}>
           <select className={selectClass} value={workerId} onChange={(e) => setWorkerId(e.target.value)} disabled={isLoading}>
-            <option value="all">All workers ({workers.length})</option>
+            <option value="all">{t("All")} ({workers.length})</option>
             {workers.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
@@ -323,10 +327,10 @@ function AttendanceExport() {
 
         <p className={`text-sm ${invalid ? "text-destructive" : "text-muted-foreground"}`}>
           {invalid
-            ? "'From' date must be on or before 'To' date."
+            ? t("'From' date must be on or before 'To' date.")
             : isLoading
-              ? "Loading workers…"
-              : `${selected.length} worker${selected.length === 1 ? "" : "s"} will be included.`}
+              ? t("Loading workers…")
+              : lang === "en" ? `${selected.length} worker${selected.length === 1 ? "" : "s"} will be included.` : `${t("Worker")}: ${selected.length}`}
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -339,7 +343,7 @@ function AttendanceExport() {
             PDF
           </Button>
           <Button variant="ghost" className="ml-auto" onClick={reset}>
-            Reset filters
+            {t("Reset filters")}
           </Button>
         </div>
       </CardContent>
@@ -352,6 +356,7 @@ function AttendanceExport() {
 /* ------------------------------------------------------------------ */
 
 function ExportPage() {
+  const { t, lang } = useI18n();
   const { business } = useSession();
   const canRentals = isFeatureEnabled(business, "rentals");
   const canAttendance = isFeatureEnabled(business, "labour") && isMasterAdmin();
@@ -362,18 +367,18 @@ function ExportPage() {
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Download className="h-6 w-6 text-primary" /> Export Data
+          <Download className="h-6 w-6 text-primary" /> {t("Export Data")}
         </h2>
-        <p className="text-sm text-muted-foreground">Choose what to export, set your filters and download.</p>
+        <p className="text-sm text-muted-foreground">{t("Choose what to export, set your filters and download.")}</p>
       </div>
 
       {!canRentals && !canAttendance ? (
-        <p className="py-10 text-center text-muted-foreground">There is nothing to export for this account.</p>
+        <p className="py-10 text-center text-muted-foreground">{t("There is nothing to export for this account.")}</p>
       ) : (
         <Tabs defaultValue={first}>
           <TabsList>
-            {canRentals && <TabsTrigger value="rentals">Rentals data</TabsTrigger>}
-            {canAttendance && <TabsTrigger value="attendance">Attendance data</TabsTrigger>}
+            {canRentals && <TabsTrigger value="rentals">{t("Rentals data")}</TabsTrigger>}
+            {canAttendance && <TabsTrigger value="attendance">{t("Attendance data")}</TabsTrigger>}
           </TabsList>
           {canRentals && (
             <TabsContent value="rentals">
