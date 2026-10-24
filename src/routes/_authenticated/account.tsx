@@ -41,6 +41,9 @@ import {
  *   reset     code accepted -> choose a new password (you are then signed out to sign in again)
  */
 export const Route = createFileRoute("/_authenticated/account")({
+  // /account?view=change opens straight on "Change password" (used by the Manage my account pop-up).
+  validateSearch: (search: Record<string, unknown>): { view?: "change" } =>
+    search.view === "change" ? { view: "change" } : {},
   component: AccountPage,
 });
 
@@ -61,7 +64,9 @@ function AccountPage() {
   const navigate = useNavigate();
   const router = useRouter();
 
-  const [view, setView] = useState<View>("home");
+  const { view: startView } = Route.useSearch();
+  const openedOnChange = startView === "change";
+  const [view, setView] = useState<View>(openedOnChange ? "change" : "home");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -98,6 +103,12 @@ function AccountPage() {
 
   const goBack = () => {
     if (view === "home") {
+      if (window.history.length > 1) router.history.back();
+      else void navigate({ to: (me.role === "worker" ? "/worker" : "/dashboard") as never });
+      return;
+    }
+    // Opened straight on "Change password" from the pop-up: Back returns to where they came from.
+    if (view === "change" && openedOnChange) {
       if (window.history.length > 1) router.history.back();
       else void navigate({ to: (me.role === "worker" ? "/worker" : "/dashboard") as never });
       return;

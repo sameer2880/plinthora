@@ -581,16 +581,22 @@ function MoreMenuContent({
               </>
             );
 
-            // On the phone, "Manage my account" is its own page (/account), not a pop-up.
+            // Tapping the card opens the "Manage my account" pop-up; its "Change password"
+            // button opens the full /account page (and closes this menu).
             return (
-              <Link
-                to="/account"
-                onClick={onClose}
-                aria-label="Manage my account"
-                className="more-account more-account-btn min-w-0 flex-1"
-              >
-                {cardInner}
-              </Link>
+              <ChangePasswordDialog
+                onOpenPage={onClose}
+                renderTrigger={(openDialog) => (
+                  <button
+                    type="button"
+                    onClick={openDialog}
+                    aria-label="Manage my account"
+                    className="more-account more-account-btn min-w-0 flex-1"
+                  >
+                    {cardInner}
+                  </button>
+                )}
+              />
             );
           })()}
 

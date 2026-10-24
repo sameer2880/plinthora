@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { lock } from "@/lib/auth/lock";
 import { passwordProblem } from "@/lib/auth/password";
+import { useDeviceType } from "@/hooks/use-device";
 
 const ROLE_DISPLAY = {
   worker: { label: "Worker", icon: HardHat, className: "bg-primary/10 text-primary" },
@@ -29,12 +31,17 @@ export function ChangePasswordDialog({
   className,
   iconOnly = false,
   renderTrigger,
+  onOpenPage,
 }: {
   className?: string;
   iconOnly?: boolean;
   /** Use your own element as the opener instead of the default button. */
   renderTrigger?: (openDialog: () => void) => ReactNode;
+  /** Called when "Change password" opens the full page (phone / tablet), e.g. to close the More menu. */
+  onOpenPage?: () => void;
 } = {}) {
+  const navigate = useNavigate();
+  const deviceType = useDeviceType();
   const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [current, setCurrent] = useState("");
@@ -149,7 +156,16 @@ export function ChangePasswordDialog({
                   </p>
                   <button
                     type="button"
-                    onClick={() => setShowForm(true)}
+                    onClick={() => {
+                      // Phone / tablet: "Change password" is its own page. Desktop keeps the inline form.
+                      if (deviceType !== "desktop") {
+                        void navigate({ to: "/account" as never, search: { view: "change" } as never });
+                        setOpen(false);
+                        onOpenPage?.();
+                        return;
+                      }
+                      setShowForm(true);
+                    }}
                     className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-3 py-3 text-left transition-colors hover:bg-muted/50"
                   >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
